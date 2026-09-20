@@ -1,11 +1,392 @@
+/**
+ * DriveSynth — Aerospace F14 visual skin
+ * Jet-cockpit HUD vibe · original geometry · free-only
+ * Tokens + overlay chrome under [data-skin="aerospace-f14"]
+ * Keeps app accent #7CFFB2 compatibility.
+ */
+
 [data-skin="aerospace-f14"] {
+  /* Surfaces — dark steel panel */
+  --skin-bg: #060a08;
+  --skin-bg-elevated: #0a1210;
+  --skin-bg-panel: rgba(6, 12, 10, 0.92);
+  --skin-void: #020403;
+  --skin-steel: #8aa0a8;
+  --skin-steel-dim: rgba(138, 160, 168, 0.4);
+
+  /* Cool cyan / mint HUD (aligns with app --accent #7CFFB2) */
+  --skin-hud-cyan: #7cffb2;
+  --skin-hud-cyan-dim: #3a9a68;
+  --skin-hud-cyan-glow: rgba(124, 255, 178, 0.45);
+  --skin-hud-cyan-soft: rgba(124, 255, 178, 0.12);
+
+  /* Afterburner heat accents */
+  --skin-ab-amber: #ffc850;
+  --skin-ab-amber-dim: #c48418;
+  --skin-ab-amber-glow: rgba(255, 200, 80, 0.5);
+  --skin-ab-orange: #ff7a2e;
+  --skin-ab-orange-glow: rgba(255, 122, 46, 0.45);
+
+  /* Structure / chrome */
+  --skin-grid: rgba(124, 255, 178, 0.06);
+  --skin-grid-strong: rgba(124, 255, 178, 0.14);
+  --skin-stroke: rgba(124, 255, 178, 0.55);
+  --skin-stroke-soft: rgba(124, 255, 178, 0.28);
+  --skin-stroke-steel: rgba(138, 160, 168, 0.45);
+  --skin-fill-soft: rgba(124, 255, 178, 0.05);
+
+  /* Semantic */
+  --skin-danger: #ff4a3a;
+  --skin-danger-glow: rgba(255, 74, 58, 0.4);
+  --skin-warn: #ffc850;
+  --skin-ok: #7cffb2;
+  --skin-muted: rgba(124, 255, 178, 0.4);
+  --skin-text: #d8ffe8;
+  --skin-text-dim: rgba(216, 255, 232, 0.55);
+
+  /* Touch / layout — Tesla ≥48px; REV pad ≥52px */
+  --skin-touch-min: 48px;
+  --skin-touch-pad: 52px;
+  --skin-radius-sm: 2px;
+  --skin-radius-md: 3px;
+  --skin-hud-max-w: 1280px;
+  --skin-hud-max-h: 800px;
+
+  /* Typography — system / mono only */
+  --skin-font-ui: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --skin-font-mono: ui-monospace, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+  --skin-font-display: var(--skin-font-mono);
+
+  /* Motion */
+  --skin-pulse-ms: 1400ms;
+  --skin-ab-pulse-ms: 900ms;
+  --skin-ab-snap-ms: 280ms;
+  --skin-scanline-opacity: 0.035;
+  --skin-bloom: 0 0 10px var(--skin-hud-cyan-glow),
+                0 0 24px rgba(124, 255, 178, 0.12);
+  --skin-ab-bloom: 0 0 14px var(--skin-ab-amber-glow),
+                   0 0 32px rgba(255, 122, 46, 0.2);
+
+  /* Skin identity */
+  --skin-id: "aerospace-f14";
+  --skin-label: "AEROSPACE F14";
+  --skin-category: "AEROSPACE";
+
+  /* App chrome aliases — keep #7CFFB2 accent */
   --accent: #7CFFB2;
   --accent-dim: rgba(124, 255, 178, 0.35);
   --text: #d8ffe8;
+  --text-dim: var(--skin-text-dim);
 }
+
 .drive-skin-aerospace-f14 .drive-skin-plate {
   background:
-    linear-gradient(180deg, rgba(124, 255, 178, 0.08), transparent 40%),
-    radial-gradient(ellipse 50% 30% at 50% 0%, rgba(255, 200, 80, 0.12), transparent 50%),
-    #060a08;
+    radial-gradient(ellipse 50% 28% at 50% 100%, rgba(255, 200, 80, 0.08), transparent 55%),
+    radial-gradient(ellipse 65% 50% at 50% 42%, #0a1410 0%, var(--skin-bg, #060a08) 58%, var(--skin-void, #020403) 100%);
+}
+
+.drive-skin-aerospace-f14:has(.aero-f14-overlay.armed) .drive-skin-plate {
+  background:
+    radial-gradient(ellipse 70% 40% at 50% 108%, rgba(255, 122, 46, 0.28), transparent 55%),
+    radial-gradient(ellipse 45% 25% at 50% 100%, rgba(255, 200, 80, 0.35), transparent 50%),
+    radial-gradient(ellipse 65% 50% at 50% 40%, #121008 0%, #0a0c06 50%, var(--skin-void, #020403) 100%);
+}
+
+/* ——— Overlay (pointer-events none; sits behind huge SPEED) ——— */
+.aero-f14-overlay {
+  position: absolute;
+  inset: 0;
+  color: var(--skin-hud-cyan, #7cffb2);
+  pointer-events: none;
+  z-index: 0;
+  overflow: hidden;
+}
+
+.aero-grid {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(var(--skin-grid, rgba(124, 255, 178, 0.06)) 1px, transparent 1px),
+    linear-gradient(90deg, var(--skin-grid, rgba(124, 255, 178, 0.06)) 1px, transparent 1px);
+  background-size: 40px 40px;
+  mask-image: radial-gradient(ellipse 55% 48% at 50% 48%, black 15%, transparent 72%);
+  opacity: 0.9;
+}
+
+.aero-f14-overlay.armed .aero-grid {
+  background-image:
+    linear-gradient(rgba(255, 200, 80, 0.07) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(124, 255, 178, 0.05) 1px, transparent 1px);
+}
+
+.aero-scanlines {
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0, 0, 0, var(--skin-scanline-opacity, 0.035)) 2px,
+    rgba(0, 0, 0, var(--skin-scanline-opacity, 0.035)) 4px
+  );
+  z-index: 3;
+}
+
+.aero-heat-band {
+  position: absolute;
+  left: 10%;
+  right: 10%;
+  bottom: 8%;
+  height: 40px;
+  z-index: 1;
+  background: linear-gradient(
+    180deg,
+    transparent,
+    rgba(255, 200, 80, 0.15) 40%,
+    rgba(255, 122, 46, 0.35) 100%
+  );
+  filter: blur(8px);
+  animation: aero-heat-pulse var(--skin-ab-pulse-ms, 900ms) ease-in-out infinite;
+  opacity: 0.85;
+}
+
+@keyframes aero-heat-pulse {
+  0%, 100% { opacity: 0.55; transform: scaleY(1); }
+  50% { opacity: 1; transform: scaleY(1.15); }
+}
+
+.aero-status {
+  position: absolute;
+  top: 10px;
+  left: 12px;
+  right: 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  z-index: 2;
+  font-size: 0.72rem;
+  min-height: var(--skin-touch-min, 48px);
+  font-family: var(--skin-font-mono, ui-monospace, monospace);
+}
+
+.aero-status-name {
+  color: var(--skin-hud-cyan, #7cffb2);
+  text-shadow: var(--skin-bloom, 0 0 10px rgba(124, 255, 178, 0.45));
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  transition: color var(--skin-ab-snap-ms, 280ms) ease, text-shadow var(--skin-ab-snap-ms, 280ms) ease;
+}
+
+.aero-f14-overlay.armed .aero-status-name {
+  color: var(--skin-ab-amber, #ffc850);
+  text-shadow: var(--skin-ab-bloom, 0 0 14px rgba(255, 200, 80, 0.5));
+}
+
+.aero-status-lat {
+  color: var(--skin-text-dim, rgba(216, 255, 232, 0.55));
+  letter-spacing: 0.14em;
+  font-size: 0.65rem;
+}
+
+.aero-ab-pill {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 36px;
+  padding: 4px 12px;
+  border: 1px dashed var(--skin-stroke-steel, rgba(138, 160, 168, 0.45));
+  border-radius: var(--skin-radius-sm, 2px);
+  background: transparent;
+  color: var(--skin-steel, #8aa0a8);
+  letter-spacing: 0.2em;
+  font-size: 0.65rem;
+  font-weight: 700;
+  transition:
+    border-color var(--skin-ab-snap-ms, 280ms) ease,
+    color var(--skin-ab-snap-ms, 280ms) ease,
+    background var(--skin-ab-snap-ms, 280ms) ease,
+    box-shadow var(--skin-ab-snap-ms, 280ms) ease;
+}
+
+.aero-ab-pill.on {
+  border-style: solid;
+  border-color: var(--skin-ab-amber, #ffc850);
+  color: #0a0602;
+  background: linear-gradient(90deg, var(--skin-ab-amber, #ffc850), var(--skin-ab-orange, #ff7a2e));
+  box-shadow: var(--skin-ab-bloom, 0 0 14px rgba(255, 200, 80, 0.5));
+  animation: aero-ab-badge-pulse var(--skin-ab-pulse-ms, 900ms) ease-in-out infinite;
+  letter-spacing: 0.22em;
+}
+
+@keyframes aero-ab-badge-pulse {
+  0%, 100% { filter: brightness(1); box-shadow: 0 0 12px var(--skin-ab-amber-glow, rgba(255, 200, 80, 0.5)); }
+  50% { filter: brightness(1.2); box-shadow: 0 0 28px var(--skin-ab-orange-glow, rgba(255, 122, 46, 0.45)); }
+}
+
+/* Throttle chevrons — bottom-left, away from huge SPEED */
+.aero-throttle {
+  position: absolute;
+  left: 14px;
+  bottom: 14%;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--skin-font-mono, ui-monospace, monospace);
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  color: var(--skin-text-dim, rgba(216, 255, 232, 0.55));
+  min-height: 28px;
+}
+
+.aero-f14-overlay.armed .aero-thr-label {
+  color: var(--skin-ab-amber, #ffc850);
+}
+
+.aero-chevrons {
+  display: flex;
+  gap: 3px;
+}
+
+.aero-chevrons span {
+  width: 10px;
+  height: 14px;
+  clip-path: polygon(0 0, 70% 50%, 0 100%);
+  background: var(--skin-stroke-steel, rgba(138, 160, 168, 0.45));
+  opacity: 0.45;
+  transition: background 120ms linear, opacity 120ms linear, box-shadow 120ms linear;
+}
+
+.aero-chevrons span.on {
+  background: var(--skin-hud-cyan, #7cffb2);
+  opacity: 1;
+  box-shadow: 0 0 6px var(--skin-hud-cyan-glow, rgba(124, 255, 178, 0.45));
+}
+
+.aero-chevrons.hot span.on {
+  background: var(--skin-ab-amber, #ffc850);
+  box-shadow: 0 0 6px var(--skin-ab-amber-glow, rgba(255, 200, 80, 0.5));
+  animation: aero-chev-flicker 0.7s ease-in-out infinite;
+}
+
+.aero-chevrons.hot span.on:nth-child(2) { animation-delay: 0.08s; }
+.aero-chevrons.hot span.on:nth-child(3) { animation-delay: 0.16s; }
+.aero-chevrons.hot span.on:nth-child(4) { animation-delay: 0.24s; }
+.aero-chevrons.hot span.on:nth-child(5) { animation-delay: 0.32s; }
+.aero-chevrons.hot span.on:nth-child(6) { animation-delay: 0.4s; }
+
+@keyframes aero-chev-flicker {
+  0%, 100% { opacity: 0.7; }
+  50% { opacity: 1; }
+}
+
+/* Canopy trapezoid frame */
+.aero-canopy {
+  position: absolute;
+  left: 50%;
+  top: 46%;
+  width: min(62vw, 340px);
+  aspect-ratio: 1;
+  transform: translate(-50%, -50%);
+  z-index: 1;
+  opacity: 0.75;
+  filter: drop-shadow(0 0 5px var(--skin-hud-cyan-glow, rgba(124, 255, 178, 0.45)));
+  transition: opacity var(--skin-ab-snap-ms, 280ms) ease, filter var(--skin-ab-snap-ms, 280ms) ease;
+}
+
+.aero-f14-overlay.armed .aero-canopy {
+  opacity: 0.9;
+  filter: drop-shadow(0 0 8px var(--skin-ab-amber-glow, rgba(255, 200, 80, 0.5)));
+}
+
+/* Pitch ladder — glanceable behind huge SPEED */
+.aero-ladder {
+  position: absolute;
+  left: 50%;
+  top: 46%;
+  width: min(54vw, 300px);
+  transform: translate(-50%, -50%);
+  opacity: 0.48;
+  z-index: 1;
+  filter: drop-shadow(0 0 5px var(--skin-hud-cyan-glow, rgba(124, 255, 178, 0.45)));
+  transition: opacity var(--skin-ab-snap-ms, 280ms) ease, filter var(--skin-ab-snap-ms, 280ms) ease;
+}
+
+.aero-f14-overlay.armed .aero-ladder {
+  opacity: 0.72;
+  filter: drop-shadow(0 0 8px var(--skin-ab-amber-glow, rgba(255, 200, 80, 0.5)));
+}
+
+.aero-load-arc {
+  transition: stroke-dashoffset 120ms linear;
+}
+
+.aero-load-tip {
+  transition: transform 120ms linear;
+  transform-origin: 170px 170px;
+}
+
+.aero-footer {
+  position: absolute;
+  bottom: 8px;
+  left: 0;
+  right: 0;
+  text-align: center;
+  z-index: 2;
+}
+
+.aero-mode {
+  display: inline-flex;
+  align-items: center;
+  min-height: 36px;
+  padding: 6px 12px;
+  font-family: var(--skin-font-mono, ui-monospace, monospace);
+  font-size: 0.7rem;
+  letter-spacing: 0.18em;
+  color: var(--skin-hud-cyan, #7cffb2);
+  border: 1px solid var(--skin-stroke-soft, rgba(124, 255, 178, 0.28));
+  border-radius: var(--skin-radius-sm, 2px);
+  background: var(--skin-bg-panel, rgba(6, 12, 10, 0.55));
+  transition:
+    color var(--skin-ab-snap-ms, 280ms) ease,
+    background var(--skin-ab-snap-ms, 280ms) ease,
+    border-color var(--skin-ab-snap-ms, 280ms) ease,
+    box-shadow var(--skin-ab-snap-ms, 280ms) ease;
+}
+
+.aero-f14-overlay.armed .aero-mode {
+  color: #0a0602;
+  background: linear-gradient(90deg, var(--skin-ab-amber, #ffc850), var(--skin-ab-orange, #ff7a2e));
+  border-color: var(--skin-ab-amber, #ffc850);
+  font-weight: 800;
+  box-shadow: var(--skin-ab-bloom, 0 0 14px rgba(255, 200, 80, 0.5));
+}
+
+/* Tesla-ish ~1024×600 */
+@media (max-width: 1100px), (max-height: 680px) {
+  .aero-canopy { width: min(56vw, 280px); }
+  .aero-ladder { width: min(48vw, 240px); }
+  .aero-status { font-size: 0.65rem; top: 6px; }
+  .aero-throttle { bottom: 12%; left: 10px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .aero-heat-band,
+  .aero-ab-pill.on,
+  .aero-chevrons.hot span.on {
+    animation: none !important;
+  }
+
+  .aero-load-arc,
+  .aero-load-tip,
+  .aero-chevrons span,
+  .aero-ab-pill,
+  .aero-ladder,
+  .aero-canopy,
+  .aero-mode,
+  .aero-status-name {
+    transition: none !important;
+  }
 }
