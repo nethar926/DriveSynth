@@ -1,5 +1,14 @@
 import { Gauge } from '../components/Gauge';
-import type { UiPrefs, ThemeId, LayoutDensity, GaugeStyle, SpeedUnit, IonTwinSpeedScript } from '../hooks/useUiPrefs';
+import type {
+  UiPrefs,
+  ThemeId,
+  LayoutDensity,
+  GaugeCluster,
+  TelemetryDensity,
+  SpeedUnit,
+  IonTwinSpeedScript,
+} from '../hooks/useUiPrefs';
+import { clusterToGaugeStyle } from '../hooks/useUiPrefs';
 
 interface Props {
   prefs: UiPrefs;
@@ -19,7 +28,7 @@ export function CustomizePage({ prefs, update, reset }: Props) {
     <div className="page customize-page">
       <header className="page-head">
         <h1>Customize</h1>
-        <p className="page-sub">Themes, layout, gauges & control mapping — saved locally</p>
+        <p className="page-sub">Themes, gauge clusters, telemetry density & SFX — saved locally</p>
       </header>
 
       <section className="panel">
@@ -66,22 +75,68 @@ export function CustomizePage({ prefs, update, reset }: Props) {
       </section>
 
       <section className="panel">
-        <h2 className="section-title">Gauge style</h2>
+        <h2 className="section-title">Gauge cluster</h2>
         <div className="segmented">
-          {(['arc', 'bar', 'numeric'] as GaugeStyle[]).map((g) => (
+          {(
+            [
+              ['classic', 'Classic'],
+              ['digital', 'Digital'],
+              ['minimal', 'Minimal'],
+              ['skin-native', 'Skin-native'],
+            ] as [GaugeCluster, string][]
+          ).map(([id, label]) => (
             <button
-              key={g}
+              key={id}
               type="button"
-              className={`seg-btn ${prefs.gaugeStyle === g ? 'active' : ''}`}
-              onClick={() => update({ gaugeStyle: g })}
+              className={`seg-btn ${prefs.gaugeCluster === id ? 'active' : ''}`}
+              style={{ minHeight: 48 }}
+              onClick={() => update({ gaugeCluster: id })}
             >
-              {g}
+              {label}
             </button>
           ))}
         </div>
         <div className="preview-strip">
-          <Gauge style={prefs.gaugeStyle} value={0.62} label="REVS" readout="4640" size={180} />
+          {prefs.gaugeCluster === 'skin-native' ? (
+            <p className="help-text dim" style={{ textAlign: 'center', padding: 24 }}>
+              Skin-native — pack overlay owns the secondary ring (fallback: Minimal).
+            </p>
+          ) : (
+            <Gauge
+              style={clusterToGaugeStyle(prefs.gaugeCluster)}
+              value={0.62}
+              label="REVS"
+              readout="4640"
+              size={180}
+            />
+          )}
         </div>
+      </section>
+
+      <section className="panel">
+        <h2 className="section-title">Telemetry density</h2>
+        <div className="segmented">
+          {(
+            [
+              ['full', 'Full'],
+              ['compact', 'Compact'],
+              ['minimal', 'Minimal'],
+            ] as [TelemetryDensity, string][]
+          ).map(([id, label]) => (
+            <button
+              key={id}
+              type="button"
+              className={`seg-btn ${prefs.telemetryDensity === id ? 'active' : ''}`}
+              style={{ minHeight: 48 }}
+              onClick={() => update({ telemetryDensity: id })}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        <p className="help-text dim">
+          Minimal hides the shared LOAD/REVS/ACCEL bar (skin-native gauges keep SPEED dominant).
+        </p>
       </section>
 
       <section className="panel">
@@ -133,11 +188,13 @@ export function CustomizePage({ prefs, update, reset }: Props) {
           Sets <code>data-speed-script</code> on the shell when that skin is active.
         </p>
         <div className="segmented">
-          {([
-            { id: 'aurebesh', label: 'Aurebesh' },
-            { id: 'dual', label: 'Dual ghost' },
-            { id: 'latin', label: 'Latin' },
-          ] as { id: IonTwinSpeedScript; label: string }[]).map((opt) => (
+          {(
+            [
+              { id: 'aurebesh', label: 'Aurebesh' },
+              { id: 'dual', label: 'Dual ghost' },
+              { id: 'latin', label: 'Latin' },
+            ] as { id: IonTwinSpeedScript; label: string }[]
+          ).map((opt) => (
             <button
               key={opt.id}
               type="button"

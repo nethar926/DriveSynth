@@ -7,3 +7,33 @@
     radial-gradient(ellipse 60% 40% at 50% 30%, rgba(92, 240, 255, 0.18), transparent 60%),
     linear-gradient(180deg, #071018, #050810);
 }
+
+.ev-inverter-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+}
+.ev-bus {
+  position: absolute;
+  left: 12%;
+  top: 30%;
+  width: 8px;
+  height: 40%;
+  background: linear-gradient(180deg, #5ee7ff, #2a6cff);
+  opacity: 0.45;
+  border-radius: 4px;
+}
+.ev-phases {
+  position: absolute;
+  left: 18%;
+  top: 35%;
+  width: 64px;
+  height: 30%;
+  border: 1px solid rgba(94, 231, 255, 0.35);
+  border-radius: 8px;
+  opacity: 0.5;
+}
+.ev-inverter-overlay.regen .ev-bus {
+  background: linear-gradient(180deg, #7CFFB2, #2affc2);
+}

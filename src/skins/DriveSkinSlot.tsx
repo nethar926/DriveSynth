@@ -1,7 +1,10 @@
 import type { CSSProperties } from 'react';
 import type { EngineId } from '../audio';
+import type { GaugeCluster } from '../hooks/useUiPrefs';
 import { AerospaceF14Overlay } from './aerospace-f14/AerospaceF14Overlay';
 import { IonTwinOverlay } from './ion-twin/IonTwinOverlay';
+import { IceV8Overlay } from './ice-v8/IceV8Overlay';
+import { EvInverterOverlay } from './ev-inverter/EvInverterOverlay';
 import type { IonLockStage } from './ion-twin/lockLadder';
 
 /**
@@ -18,6 +21,8 @@ export interface DriveSkinProps {
   lockStage?: IonLockStage;
   /** Pref only; DrivePage owns soft cue hook. */
   lockSfxEnabled?: boolean;
+  /** Secondary cluster mode from Customize. */
+  gaugeCluster?: GaugeCluster;
 }
 
 /** engineId → skin id (Visual Skins registry) */
@@ -50,6 +55,7 @@ export function DriveSkinSlot({
   throttle,
   lockStage,
   lockSfxEnabled,
+  gaugeCluster,
 }: DriveSkinProps) {
   const skinId = skinIdForEngine(engineId);
   return (
@@ -57,6 +63,7 @@ export function DriveSkinSlot({
       className={`drive-skin drive-skin-${skinId}`}
       data-skin={skinId}
       data-engine={engineId}
+      data-gauge-cluster={gaugeCluster ?? 'classic'}
       aria-hidden
       style={
         {
@@ -78,6 +85,22 @@ export function DriveSkinSlot({
       )}
       {skinId === 'aerospace-f14' && (
         <AerospaceF14Overlay
+          rpmNorm={rpmNorm}
+          speedNorm={speedNorm}
+          throttle={throttle}
+          loadFeel={loadFeel}
+        />
+      )}
+      {skinId === 'ice-v8' && (
+        <IceV8Overlay
+          rpmNorm={rpmNorm}
+          speedNorm={speedNorm}
+          throttle={throttle}
+          loadFeel={loadFeel}
+        />
+      )}
+      {skinId === 'ev-inverter' && (
+        <EvInverterOverlay
           rpmNorm={rpmNorm}
           speedNorm={speedNorm}
           throttle={throttle}

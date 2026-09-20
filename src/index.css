@@ -1110,3 +1110,24 @@ textarea {
   border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
   background: color-mix(in srgb, var(--accent) 12%, var(--bg-elev));
 }
+
+.telemetry-strip.density-compact .tele-value { font-size: 0.85em; opacity: 0.85; }
+.telemetry-strip.density-compact .tele-label { font-size: 0.7em; }
+.telemetry-strip.density-compact { gap: 8px; padding: 6px 10px; }
+.shift-paddles { display: flex; gap: 12px; justify-content: center; margin: 8px 0; }
+.shift-paddle {
+  min-height: 48px;
+  min-width: 64px;
+  border-radius: 12px;
+  border: 1px solid var(--glass-border, rgba(255,255,255,0.2));
+  background: var(--glass-bg, rgba(0,0,0,0.35));
+  color: inherit;
+  font-size: 1.4rem;
+  font-weight: 700;
+}
+.gear-readout {
+  min-width: 48px;
+  text-align: center;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}

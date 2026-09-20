@@ -7,6 +7,15 @@ import type { EngineKind } from '../audio';
 import type { useAudioEngine } from '../hooks/useAudioEngine';
 import type { useGeolocation } from '../hooks/useGeolocation';
 import type { IonTwinSpeedScript, UiPrefs } from '../hooks/useUiPrefs';
+import { clusterToGaugeStyle, resolveGaugeCluster } from '../hooks/useUiPrefs';
+import {
+  autoGearFromSpeed,
+  formatGear,
+  manualAutoDown,
+  shiftDown,
+  shiftUp,
+  type IndicatedGear,
+} from '../hooks/gearLogic';
 import {
   ION_LOCK_CHIP,
   type IonLockStage,
@@ -147,6 +156,8 @@ export function DrivePage({ audio, gps, prefs, update, onEnableGps }: Props) {
   });
   const [tabBackgrounded, setTabBackgrounded] = useState(false);
   const [gearMode, setGearMode] = useState<'auto' | 'manual'>('auto');
+  const [indicatedGear, setIndicatedGear] = useState<IndicatedGear>('N');
+  const indicatedGearRef = useRef<IndicatedGear>('N');
   const [accelFeel, setAccelFeel] = useState(0);
   const [chips, setChips] = useState<string[]>(['IDLE']);
   const [hintUsed, setHintUsed] = useState(() => loadBool(AUREBESH_HINT_KEY));
@@ -159,6 +170,9 @@ export function DrivePage({ audio, gps, prefs, update, onEnableGps }: Props) {
 
   const skinId = skinIdForEngine(audio.engineId || prefs.selectedEngineId || 'v8-rumble');
   const isIonTwin = skinId === 'ion-twin';
+  const effectiveCluster = resolveGaugeCluster(prefs.gaugeCluster, skinId);
+  const showAppGauge = effectiveCluster !== 'skin-native';
+  const gaugeStyle = clusterToGaugeStyle(effectiveCluster);
   /** SPEED-only script; telemetry / gauges stay Latin (glanceability). */
   const speedScript: IonTwinSpeedScript | undefined = isIonTwin
     ? prefs.ionTwinSpeedScript
@@ -193,6 +207,55 @@ export function DrivePage({ audio, gps, prefs, update, onEnableGps }: Props) {
 
   const gpsActive = gps.status === 'live' && !useManual;
   const displayMph = gpsActive ? gps.mph : manualSpeed * 120;
+
+  useEffect(() => {
+    const mph = gpsActive ? gps.mph : manualSpeed * 120;
+    if (gearMode === 'auto') {
+      const next = autoGearFromSpeed(mph, indicatedGearRef.current);
+      if (next !== indicatedGearRef.current) {
+        indicatedGearRef.current = next;
+        setIndicatedGear(next);
+      }
+    } else {
+      const next = manualAutoDown(mph, indicatedGearRef.current);
+      if (next !== indicatedGearRef.current) {
+        indicatedGearRef.current = next;
+        setIndicatedGear(next);
+      }
+    }
+  }, [gps.mph, gpsActive, manualSpeed, gearMode]);
+
+  const doShiftUp = () => {
+    const next = shiftUp(indicatedGearRef.current);
+    if (next === indicatedGearRef.current) return;
+    indicatedGearRef.current = next;
+    setIndicatedGear(next);
+    if (prefs.upshiftSfx) audio.triggerUiCue('upshift');
+  };
+
+  const doShiftDown = () => {
+    const next = shiftDown(indicatedGearRef.current);
+    if (next === indicatedGearRef.current) return;
+    indicatedGearRef.current = next;
+    setIndicatedGear(next);
+  };
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (gearMode !== 'manual') return;
+      if (e.key === '.') {
+        e.preventDefault();
+        doShiftUp();
+      } else if (e.key === ',') {
+        e.preventDefault();
+        doShiftDown();
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [gearMode, prefs.upshiftSfx, audio]);
+
+
 
   useEffect(() => {
     if (!gpsActive) return;
@@ -340,7 +403,7 @@ export function DrivePage({ audio, gps, prefs, update, onEnableGps }: Props) {
               onEnableGps();
             }}
           >
-            Start / Resume Engine
+            Start Engine
           </button>
           <p className="gate-hint">Tap to unlock audio, then drag REV or raise Speed (turn off silent mode on iPhone).</p>
         </div>
@@ -373,6 +436,7 @@ export function DrivePage({ audio, gps, prefs, update, onEnableGps }: Props) {
           throttle={accelFeel}
           lockStage={isIonTwin ? lockStage : undefined}
           lockSfxEnabled={prefs.ionTwinLockSfx}
+          gaugeCluster={prefs.gaugeCluster}
         />
         <div className="gear-pills" role="group" aria-label="Gearbox">
           <button
@@ -389,7 +453,14 @@ export function DrivePage({ audio, gps, prefs, update, onEnableGps }: Props) {
           >
             MANUAL
           </button>
+          <span className="gear-readout" aria-live="polite">{formatGear(indicatedGear)}</span>
         </div>
+        {gearMode === 'manual' && (
+          <div className="shift-paddles" role="group" aria-label="Manual shift paddles">
+            <button type="button" className="shift-paddle" style={{ minHeight: 48, minWidth: 64 }} onClick={doShiftDown} aria-label="Downshift">−</button>
+            <button type="button" className="shift-paddle" style={{ minHeight: 48, minWidth: 64 }} onClick={doShiftUp} aria-label="Upshift">+</button>
+          </div>
+        )}
         <div
           className="speed-hero"
           {...(speedScript ? { 'data-speed-script': speedScript } : {})}
@@ -441,7 +512,8 @@ export function DrivePage({ audio, gps, prefs, update, onEnableGps }: Props) {
           </div>
         )}
 
-        <div className="telemetry-strip">
+        {prefs.telemetryDensity !== 'minimal' && (
+        <div className={`telemetry-strip density-${prefs.telemetryDensity}`} data-telemetry={prefs.telemetryDensity}>
           <div className="tele-cell">
             <div className="tele-value">
               {Math.round(hud.loadFeel * 100)}
@@ -459,14 +531,17 @@ export function DrivePage({ audio, gps, prefs, update, onEnableGps }: Props) {
             <div className="tele-label">ACCEL</div>
           </div>
         </div>
+        )}
         <div className="hud-secondary">
           <div>
+            {showAppGauge && (
             <Gauge
-              style={prefs.gaugeStyle}
+              style={gaugeStyle}
               value={hud.rpmNorm}
               label="REVS"
               readout={rpmReadout}
             />
+            )}
           </div>
           <div className="hud-rev">
             <RevPad value={rev} onChange={setRev} />
