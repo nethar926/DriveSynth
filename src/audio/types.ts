@@ -1,8 +1,29 @@
 export type EngineId = string;
 
-export type TopologyId = 'v8-rumble' | 'i4-zip' | 'ev-whine' | 'tie-fighter' | 'custom';
+export type TopologyId =
+  | 'v8-rumble'
+  | 'i4-zip'
+  | 'ev-whine'
+  | 'tie-fighter'
+  | 'aerospace-f14'
+  | 'custom';
 
-export type EngineKind = 'ice' | 'ev-whine' | 'scifi';
+/** Pack / builder categories. Old kinds map 1:1 (ice, ev-whine, scifi); aerospace is new. */
+export type EngineKind = 'ice' | 'ev-whine' | 'aerospace' | 'scifi';
+
+export type IceMode = 'worklet' | 'osc' | 'n/a';
+
+export interface EngineDiag {
+  /** AudioContext.state */
+  contextState: AudioContextState | string;
+  /** ICE synthesis path; 'n/a' for non-ICE packs */
+  iceMode: IceMode;
+  /** True after start() until stop()/dispose() */
+  running: boolean;
+  engineId: EngineId;
+  /** Present when AudioWorklet load/init failed */
+  workletError?: string;
+}
 
 export interface DrivingInput {
   /** Normalized vehicle speed 0..1 */
@@ -60,6 +81,21 @@ export interface EngineParams {
   whinePitch?: number;
   gearSteps?: number;
   inverterBuzz?: number;
+  // Aerospace / jet
+  /** Spool / N1 base pitch Hz */
+  spoolPitch?: number;
+  /** Intake whine level 0..1 */
+  intakeWhine?: number;
+  /** Compressor stage level 0..1 */
+  compressor?: number;
+  /** Turbine / N2 layer 0..1 */
+  turbine?: number;
+  /** Jet roar / exhaust noise body 0..1 */
+  jetRoar?: number;
+  /** Throttle-linked scream 0..1 */
+  jetScream?: number;
+  /** Idle spool presence at speed≈0 0..1 */
+  idleSpool?: number;
   [paramId: string]: number | string | undefined;
 }
 
@@ -80,6 +116,10 @@ export type SynthNodeType =
   | 'Mechanical'
   | 'FormantHowl'
   | 'WetRoadNoise'
+  | 'TurbineSpool'
+  | 'IntakeWhine'
+  | 'Afterburner'
+  | 'CompressorStage'
   | 'Filter'
   | 'Gain'
   | 'Mix'
@@ -128,6 +168,9 @@ export interface EngineSynth {
 
   /** Derived HUD values for gauges */
   getHud(): { rpmNorm: number; loadFeel: number; fundamentalHz: number };
+
+  /** Frontend /diag snapshot — field names stable for iceMode consumers */
+  getDiag(): EngineDiag;
 }
 
 export interface ParamMeta {

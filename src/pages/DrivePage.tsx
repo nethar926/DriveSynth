@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Gauge } from '../components/Gauge';
 import { RevPad } from '../components/RevPad';
+import { DriveSkinSlot } from '../skins/DriveSkinSlot';
 import { mphToSpeed } from '../audio';
 import type { useAudioEngine } from '../hooks/useAudioEngine';
 import type { useGeolocation } from '../hooks/useGeolocation';
@@ -19,6 +20,8 @@ export function DrivePage({ audio, gps, prefs, onEnableGps }: Props) {
   const [useManual, setUseManual] = useState(false);
   const [hud, setHud] = useState({ rpmNorm: 0, loadFeel: 0, fundamentalHz: 55 });
   const [tabBackgrounded, setTabBackgrounded] = useState(false);
+  const [gearMode, setGearMode] = useState<'auto' | 'manual'>('auto');
+  const [accelFeel, setAccelFeel] = useState(0);
   const prevMph = useRef(0);
   const throttleProxy = useRef(0);
 
@@ -65,6 +68,7 @@ export function DrivePage({ audio, gps, prefs, onEnableGps }: Props) {
         });
         const eng = audio.getEngine();
         if (eng) setHud(eng.getHud());
+        setAccelFeel(throttle);
       }
 
       raf = requestAnimationFrame(tick);
@@ -119,31 +123,58 @@ export function DrivePage({ audio, gps, prefs, onEnableGps }: Props) {
         </div>
       )}
 
-      <div className="hud-grid">
-        <div className="hud-primary">
+      <div className="hud-stage">
+        <DriveSkinSlot
+          engineId={audio.engineId || 'v8-rumble'}
+          rpmNorm={hud.rpmNorm}
+          speedNorm={gpsActive ? mphToSpeed(gps.mph) : manualSpeed}
+          loadFeel={hud.loadFeel}
+          throttle={accelFeel}
+        />
+        <div className="gear-pills" role="group" aria-label="Gearbox">
+          <button
+            type="button"
+            className={`gear-pill ${gearMode === 'auto' ? 'active' : ''}`}
+            onClick={() => setGearMode('auto')}
+          >
+            AUTO
+          </button>
+          <button
+            type="button"
+            className={`gear-pill ${gearMode === 'manual' ? 'active' : ''}`}
+            onClick={() => setGearMode('manual')}
+          >
+            MANUAL
+          </button>
+        </div>
+        <div className="speed-hero">
+          <div className="speed-hero-value">{speedLabel}</div>
+          <div className="speed-hero-unit">{unit}</div>
+        </div>
+        <div className="telemetry-strip">
+          <div className="tele-cell">
+            <div className="tele-value">{Math.round(hud.loadFeel * 100)}</div>
+            <div className="tele-label">LOAD %</div>
+          </div>
+          <div className="tele-cell">
+            <div className="tele-value">{rpmReadout}</div>
+            <div className="tele-label">REVS</div>
+          </div>
+          <div className="tele-cell">
+            <div className="tele-value">{Math.round(accelFeel * 100)}</div>
+            <div className="tele-label">ACCEL</div>
+          </div>
+        </div>
+        <div className="hud-secondary">
           <Gauge
             style={prefs.gaugeStyle}
             value={hud.rpmNorm}
             label="REVS"
             readout={rpmReadout}
           />
-        </div>
-        <div className="hud-side">
-          <div className="stat-card">
-            <div className="stat-value">{speedLabel}</div>
-            <div className="stat-label">{unit}</div>
+          <div className="hud-rev">
+            <RevPad value={rev} onChange={setRev} />
           </div>
-          <div className="stat-card">
-            <div className="stat-value">{Math.round(hud.loadFeel * 100)}</div>
-            <div className="stat-label">LOAD %</div>
-          </div>
-          <div className="stat-card dim">
-            <div className="stat-value-sm">{Math.round(hud.fundamentalHz)} Hz</div>
-            <div className="stat-label">FUND</div>
-          </div>
-        </div>
-        <div className="hud-rev">
-          <RevPad value={rev} onChange={setRev} />
         </div>
       </div>
 

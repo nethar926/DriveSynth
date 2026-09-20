@@ -1,4 +1,4 @@
-import type { EnginePatch, EngineParams, ParamMeta } from './types';
+import type { EngineKind, EnginePatch, EngineParams, ParamMeta } from './types';
 
 export const V8_DEFAULTS: EngineParams = {
   masterGain: 0.72,
@@ -74,6 +74,21 @@ export const TIE_DEFAULTS: EngineParams = {
   formantSpread: 0.58,
 };
 
+export const F14_DEFAULTS: EngineParams = {
+  masterGain: 0.74,
+  stereoWidth: 0.62,
+  limiterCeiling: 0.95,
+  spoolPitch: 95,
+  intakeWhine: 0.58,
+  compressor: 0.62,
+  turbine: 0.7,
+  jetRoar: 0.68,
+  afterburn: 0.78,
+  jetScream: 0.65,
+  idleSpool: 0.55,
+  rpmCurve: 0.52,
+};
+
 export const BUILTIN_PATCHES: EnginePatch[] = [
   {
     version: 0,
@@ -117,6 +132,20 @@ export const BUILTIN_PATCHES: EnginePatch[] = [
   },
   {
     version: 0,
+    id: 'aerospace-f14',
+    name: 'Carrier Jet',
+    kind: 'aerospace',
+    topology: 'aerospace-f14',
+    params: { ...F14_DEFAULTS } as Record<string, number | string>,
+    meta: {
+      blurb:
+        'Twin-spool jet: intake whine, compressor/turbine layers, afterburner roar, throttle-linked scream. Original synthesis — no samples.',
+      tags: ['aerospace', 'jet', 'twin-spool', 'free'],
+      author: 'DriveSynth',
+    },
+  },
+  {
+    version: 0,
     id: 'tie-fighter',
     name: 'Ion Twin',
     kind: 'scifi',
@@ -139,9 +168,40 @@ export function defaultsForTopology(topology: string): EngineParams {
       return { ...EV_DEFAULTS };
     case 'tie-fighter':
       return { ...TIE_DEFAULTS };
+    case 'aerospace-f14':
+      return { ...F14_DEFAULTS };
     case 'v8-rumble':
     default:
       return { ...V8_DEFAULTS };
+  }
+}
+
+export function defaultsForKind(kind: EngineKind): EngineParams {
+  switch (kind) {
+    case 'ev-whine':
+      return { ...EV_DEFAULTS };
+    case 'aerospace':
+      return { ...F14_DEFAULTS };
+    case 'scifi':
+      return { ...TIE_DEFAULTS };
+    case 'ice':
+    default:
+      return { ...V8_DEFAULTS };
+  }
+}
+
+/** Default builtin id when switching builder category tabs */
+export function defaultPatchIdForKind(kind: EngineKind): string {
+  switch (kind) {
+    case 'ev-whine':
+      return 'ev-whine';
+    case 'aerospace':
+      return 'aerospace-f14';
+    case 'scifi':
+      return 'tie-fighter';
+    case 'ice':
+    default:
+      return 'v8-rumble';
   }
 }
 
@@ -189,6 +249,21 @@ export function paramMetaForKind(kind: EnginePatch['kind']): ParamMeta[] {
       { id: 'presence', label: 'Presence', min: 0, max: 1, step: 0.01 },
       { id: 'muffling', label: 'Muffling', min: 0, max: 1, step: 0.01 },
       { id: 'rpmCurve', label: 'Speed Curve', min: 0, max: 1, step: 0.01 },
+    ];
+  }
+
+  if (kind === 'aerospace') {
+    return [
+      ...master,
+      { id: 'spoolPitch', label: 'Spool Hz', min: 40, max: 280, step: 1, unit: 'Hz' },
+      { id: 'intakeWhine', label: 'Intake Whine', min: 0, max: 1, step: 0.01 },
+      { id: 'compressor', label: 'Compressor', min: 0, max: 1, step: 0.01 },
+      { id: 'turbine', label: 'Turbine', min: 0, max: 1, step: 0.01 },
+      { id: 'jetRoar', label: 'Jet Roar', min: 0, max: 1, step: 0.01 },
+      { id: 'afterburn', label: 'Afterburner', min: 0, max: 1, step: 0.01 },
+      { id: 'jetScream', label: 'Scream', min: 0, max: 1, step: 0.01 },
+      { id: 'idleSpool', label: 'Idle Spool', min: 0, max: 1, step: 0.01 },
+      { id: 'rpmCurve', label: 'Spool Curve', min: 0, max: 1, step: 0.01 },
     ];
   }
 
@@ -244,6 +319,24 @@ export function paramMetaForNodeType(type: string): ParamMeta[] {
       return [
         { id: 'wetHiss', label: 'Amount', min: 0, max: 1, step: 0.01 },
         { id: 'doppler', label: 'Smear', min: 0, max: 1, step: 0.01 },
+      ];
+    case 'TurbineSpool':
+      return [
+        { id: 'spoolPitch', label: 'Spool Hz', min: 40, max: 280, step: 1, unit: 'Hz' },
+        { id: 'turbine', label: 'Turbine', min: 0, max: 1, step: 0.01 },
+        { id: 'idleSpool', label: 'Idle', min: 0, max: 1, step: 0.01 },
+      ];
+    case 'IntakeWhine':
+      return [{ id: 'intakeWhine', label: 'Amount', min: 0, max: 1, step: 0.01 }];
+    case 'Afterburner':
+      return [
+        { id: 'afterburn', label: 'Afterburn', min: 0, max: 1, step: 0.01 },
+        { id: 'jetScream', label: 'Scream', min: 0, max: 1, step: 0.01 },
+      ];
+    case 'CompressorStage':
+      return [
+        { id: 'compressor', label: 'Compressor', min: 0, max: 1, step: 0.01 },
+        { id: 'jetRoar', label: 'Roar', min: 0, max: 1, step: 0.01 },
       ];
     case 'Filter':
     case 'biquad':

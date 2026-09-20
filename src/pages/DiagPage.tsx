@@ -18,14 +18,16 @@ interface Snapshot {
   acState: string;
   sampleRate: string;
   baseLatency: string;
+  engineRunning: string;
+  engineId: string;
+  iceMode: string;
+  workletError: string;
 }
 
-function readSnapshot(
-  audio: Props['audio'],
-  gps: Props['gps'],
-): Snapshot {
+function readSnapshot(audio: Props['audio'], gps: Props['gps']): Snapshot {
   const eng = audio.getEngine();
   const ctx = eng?.context ?? audio.context.current;
+  const diag = audio.getDiag();
 
   let geoFixAge = '—';
   if (gps.timestamp != null) {
@@ -45,9 +47,13 @@ function readSnapshot(
     geoStatus: gps.status,
     geoAccuracy: gps.accuracy != null ? `±${Math.round(gps.accuracy)} m` : '—',
     geoFixAge,
-    acState: ctx?.state ?? 'not started',
+    acState: diag.contextState || ctx?.state || 'not started',
     sampleRate: ctx ? `${ctx.sampleRate} Hz` : '—',
     baseLatency,
+    engineRunning: diag.running || audio.running ? 'yes' : 'no',
+    engineId: diag.engineId || audio.engineId || '—',
+    iceMode: diag.iceMode,
+    workletError: diag.workletError ?? '—',
   };
 }
 
@@ -76,13 +82,18 @@ export function DiagPage({ audio, gps }: Props) {
     { label: 'AudioContext.state', value: snap.acState },
     { label: 'sampleRate', value: snap.sampleRate },
     { label: 'baseLatency', value: snap.baseLatency },
+    { label: 'Engine running', value: snap.engineRunning },
+    { label: 'Engine id', value: snap.engineId },
+    { label: 'iceMode', value: snap.iceMode },
+    { label: 'workletError', value: snap.workletError },
   ];
 
   return (
     <div className="diag-page">
       <h1 className="page-title">Diagnostics</h1>
       <p className="page-blurb">
-        Parked Tesla Chromium checks for audio unlock and viewport quirks. Not needed while driving.
+        Parked Tesla / phone checks: unlock vs mute vs worklet. Start on Drive first — you should hear a short
+        idle chuff. Then open Diag. Hard-refresh after deploys. Turn off silent mode on iPhone.
       </p>
       <dl className="diag-grid">
         {rows.map((r) => (

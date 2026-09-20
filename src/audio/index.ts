@@ -1,10 +1,12 @@
 export type {
   DrivingInput,
+  EngineDiag,
   EngineId,
   EngineKind,
   EngineParams,
   EnginePatch,
   EngineSynth,
+  IceMode,
   ParamMeta,
   SynthNodeDesc,
   SynthNodeType,
@@ -12,6 +14,8 @@ export type {
 } from './types';
 export {
   BUILTIN_PATCHES,
+  defaultPatchIdForKind,
+  defaultsForKind,
   defaultsForTopology,
   getBuiltin,
   paramMetaForKind,

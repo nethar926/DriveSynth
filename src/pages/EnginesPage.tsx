@@ -1,6 +1,6 @@
-import { useRef } from 'react';
+import { useMemo, useRef } from 'react';
 import { Link } from 'react-router-dom';
-import type { EnginePatch } from '../audio';
+import type { EngineKind, EnginePatch } from '../audio';
 import { BUILTIN_PATCHES } from '../audio';
 
 interface Props {
@@ -9,13 +9,21 @@ interface Props {
   onSelect: (patch: EnginePatch) => void;
 }
 
-/** Preview WAVs under public/snippets/ (Audio Synth). */
 const SNIPPET_BY_ID: Record<string, string> = {
   'v8-rumble': 'snippets/v8-rumble.wav',
   'i4-zip': 'snippets/i4-zip.wav',
   'ev-whine': 'snippets/ev-whine.wav',
   'tie-fighter': 'snippets/ion-twin-tie-fighter.wav',
+  'aerospace-f14': 'snippets/aerospace-f14.wav',
 };
+
+/** Product Research taxonomy — all free, never Launch Pack / paywall groups. */
+const CATEGORIES: { kind: EngineKind; label: string }[] = [
+  { kind: 'ice', label: 'Internal Combustion' },
+  { kind: 'ev-whine', label: 'EV' },
+  { kind: 'aerospace', label: 'Aerospace' },
+  { kind: 'scifi', label: 'SciFi' },
+];
 
 export function EnginesPage({ selectedId, userPatches, onSelect }: Props) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -25,33 +33,48 @@ export function EnginesPage({ selectedId, userPatches, onSelect }: Props) {
     const a = audioRef.current;
     a.pause();
     a.src = `${import.meta.env.BASE_URL}${src}`;
-    void a.play().catch(() => {
-      /* autoplay may block until a prior gesture — card tap counts */
-    });
+    void a.play().catch(() => {});
   };
+
+  const byKind = useMemo(() => {
+    const map = new Map<EngineKind, EnginePatch[]>();
+    for (const c of CATEGORIES) map.set(c.kind, []);
+    for (const p of BUILTIN_PATCHES) {
+      const list = map.get(p.kind) ?? [];
+      list.push(p);
+      map.set(p.kind, list);
+    }
+    return map;
+  }, []);
 
   return (
     <div className="page engines-page">
       <header className="page-head">
         <h1>Engines</h1>
-        <p className="page-sub">All packs unlocked · free forever · original synthesis</p>
+        <p className="page-sub">All packs unlocked · free forever · ICE · EV · Aerospace · SciFi</p>
       </header>
 
-      <section>
-        <h2 className="section-title">Built-in</h2>
-        <div className="engine-grid">
-          {BUILTIN_PATCHES.map((p) => (
-            <EngineCard
-              key={p.id}
-              patch={p}
-              selected={selectedId === p.id}
-              onSelect={() => onSelect(p)}
-              snippetSrc={SNIPPET_BY_ID[p.id]}
-              onPreview={playSnippet}
-            />
-          ))}
-        </div>
-      </section>
+      {CATEGORIES.map((c) => {
+        const packs = byKind.get(c.kind) ?? [];
+        if (packs.length === 0) return null;
+        return (
+          <section key={c.kind}>
+            <h2 className="section-title">{c.label}</h2>
+            <div className="engine-grid">
+              {packs.map((p) => (
+                <EngineCard
+                  key={p.id}
+                  patch={p}
+                  selected={selectedId === p.id}
+                  onSelect={() => onSelect(p)}
+                  snippetSrc={SNIPPET_BY_ID[p.id]}
+                  onPreview={playSnippet}
+                />
+              ))}
+            </div>
+          </section>
+        );
+      })}
 
       {userPatches.length > 0 && (
         <section>

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { DrivingInput, EnginePatch, EngineSynth } from '../audio';
+import type { DrivingInput, EngineDiag, EnginePatch, EngineSynth } from '../audio';
 import { createEngineSynth, getBuiltin } from '../audio';
 
 export function useAudioEngine(initialId = 'v8-rumble') {
@@ -68,6 +68,18 @@ export function useAudioEngine(initialId = 'v8-rumble') {
   /** Engine exists only after Start — null beforehand (mobile-safe). */
   const getEngine = useCallback(() => engineRef.current, []);
 
+  /** Frontend /diag — stable field names (iceMode, contextState, …). */
+  const getDiag = useCallback((): EngineDiag => {
+    const eng = engineRef.current;
+    if (eng) return eng.getDiag();
+    return {
+      contextState: ctxRef.current?.state ?? 'not started',
+      iceMode: 'n/a',
+      running: false,
+      engineId: selectedIdRef.current,
+    };
+  }, []);
+
   useEffect(() => {
     return () => {
       engineRef.current?.dispose();
@@ -83,6 +95,7 @@ export function useAudioEngine(initialId = 'v8-rumble') {
     setDriving,
     loadPatch,
     getEngine,
+    getDiag,
     ready,
     running,
     engineId,
