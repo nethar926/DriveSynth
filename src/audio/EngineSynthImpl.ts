@@ -287,45 +287,46 @@ export class EngineSynthImpl implements EngineSynth {
     if (this.disposed) return;
     const ctx = this.context;
     const now = ctx.currentTime;
+    // Soft organic chuffs: filtered noise body + triangle thump (no saw lead)
     for (let i = 0; i < 2; i++) {
-      const t0 = now + 0.04 + i * 0.085;
+      const t0 = now + 0.04 + i * 0.095;
       try {
         const osc = ctx.createOscillator();
-        osc.type = 'sawtooth';
-        osc.frequency.value = 88 - i * 14;
+        osc.type = 'triangle';
+        osc.frequency.value = 72 - i * 11;
 
         const filt = ctx.createBiquadFilter();
         filt.type = 'lowpass';
-        filt.frequency.value = 1100 - i * 200;
-        filt.Q.value = 0.9;
+        filt.frequency.value = 520 - i * 80;
+        filt.Q.value = 0.8;
 
         const g = ctx.createGain();
         g.gain.setValueAtTime(0.0001, t0);
-        g.gain.exponentialRampToValueAtTime(0.42, t0 + 0.006);
-        g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.075);
+        g.gain.exponentialRampToValueAtTime(0.28, t0 + 0.012);
+        g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.1);
 
         osc.connect(filt);
         filt.connect(g);
-        // Must ride the same output bus as the engine (output → destination).
         g.connect(this.output);
 
         const noise = ctx.createBufferSource();
-        noise.buffer = this.whiteBuf;
-        const hp = ctx.createBiquadFilter();
-        hp.type = 'highpass';
-        hp.frequency.value = 1400;
+        noise.buffer = this.pinkBuf;
+        const bp = ctx.createBiquadFilter();
+        bp.type = 'bandpass';
+        bp.frequency.value = 280 + i * 40;
+        bp.Q.value = 1.2;
         const ng = ctx.createGain();
         ng.gain.setValueAtTime(0.0001, t0);
-        ng.gain.exponentialRampToValueAtTime(0.22, t0 + 0.003);
-        ng.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.035);
-        noise.connect(hp);
-        hp.connect(ng);
+        ng.gain.exponentialRampToValueAtTime(0.32, t0 + 0.008);
+        ng.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.085);
+        noise.connect(bp);
+        bp.connect(ng);
         ng.connect(this.output);
 
         osc.start(t0);
-        osc.stop(t0 + 0.09);
+        osc.stop(t0 + 0.11);
         noise.start(t0);
-        noise.stop(t0 + 0.045);
+        noise.stop(t0 + 0.09);
 
         osc.onended = () => {
           try {
@@ -339,7 +340,7 @@ export class EngineSynthImpl implements EngineSynth {
         noise.onended = () => {
           try {
             noise.disconnect();
-            hp.disconnect();
+            bp.disconnect();
             ng.disconnect();
           } catch {
             /* ignore */
@@ -525,33 +526,98 @@ export class EngineSynthImpl implements EngineSynth {
   private buildIce(g: GraphHandles): void {
     const ctx = this.context;
 
+    // Organic ICE osc fallback: noise + soft pulse imitation — NO triple saw/square lead.
+    // Buses mirror worklet: mechanical bed, combustion pulses, intake, exhaust waveguide body.
     const iceBus = ctx.createGain();
     iceBus.gain.value = 1;
     g.iceBus = iceBus;
 
+    const muffler = ctx.createBiquadFilter();
+    muffler.type = 'lowpass';
+    muffler.frequency.value = 2200;
+    muffler.Q.value = 0.65;
+    g.muffler = muffler;
+
+    const mechDeep = ctx.createBiquadFilter();
+    mechDeep.type = 'lowpass';
+    mechDeep.frequency.value = 140;
+    mechDeep.Q.value = 0.7;
+
+    const mechFilt = ctx.createBiquadFilter();
+    mechFilt.type = 'bandpass';
+    mechFilt.frequency.value = 700;
+    mechFilt.Q.value = 1.8;
+    g.mechFilt = mechFilt;
+
+    const mechGain = ctx.createGain();
+    mechGain.gain.value = 0.16;
+    g.mechGain = mechGain;
+
+    g.pinkSrc!.connect(mechDeep);
+    mechDeep.connect(mechGain);
+    g.pinkSrc!.connect(mechFilt);
+    mechFilt.connect(mechGain);
+
+    const unevenLfo = ctx.createOscillator();
+    unevenLfo.type = 'sine';
+    unevenLfo.frequency.value = 3.2;
+    unevenLfo.start();
+    g.unevenLfo = unevenLfo;
+
+    const unevenGain = ctx.createGain();
+    unevenGain.gain.value = 0.08;
+    g.unevenGain = unevenGain;
+    unevenLfo.connect(unevenGain);
+    unevenGain.connect(mechGain.gain);
+
     const fundGain = ctx.createGain();
-    fundGain.gain.value = 0.35;
+    fundGain.gain.value = 0.12;
     g.fundGain = fundGain;
 
     const fund = ctx.createOscillator();
-    fund.type = 'sawtooth';
+    fund.type = 'triangle';
     fund.frequency.value = 55;
     fund.start();
     g.fund = fund;
 
     const fund2 = ctx.createOscillator();
-    fund2.type = 'square';
-    fund2.frequency.value = 55;
-    fund2.detune.value = 7;
+    fund2.type = 'triangle';
+    fund2.frequency.value = 27.5;
+    fund2.detune.value = 5;
     fund2.start();
     g.fund2 = fund2;
 
-    const fund3 = ctx.createOscillator();
-    fund3.type = 'sawtooth';
-    fund3.frequency.value = 82.5;
-    fund3.detune.value = -9;
-    fund3.start();
-    g.fund3 = fund3;
+    g.fund3 = undefined;
+
+    const shaper = ctx.createWaveShaper();
+    shaper.curve = makeShaper(0.22) as Float32Array<ArrayBuffer>;
+    shaper.oversample = '2x';
+    g.shaper = shaper;
+
+    const bodyLp = ctx.createBiquadFilter();
+    bodyLp.type = 'lowpass';
+    bodyLp.frequency.value = 480;
+    bodyLp.Q.value = 0.8;
+
+    const fundMix = ctx.createGain();
+    fundMix.gain.value = 0.55;
+    fund.connect(bodyLp);
+    fund2.connect(bodyLp);
+    bodyLp.connect(shaper);
+    shaper.connect(fundMix);
+    fundMix.connect(fundGain);
+
+    const pulseBp = ctx.createBiquadFilter();
+    pulseBp.type = 'bandpass';
+    pulseBp.frequency.value = 380;
+    pulseBp.Q.value = 1.4;
+    g.presenceFilt = pulseBp;
+
+    const pulseNoiseGain = ctx.createGain();
+    pulseNoiseGain.gain.value = 0.2;
+    g.pinkSrc!.connect(pulseBp);
+    pulseBp.connect(pulseNoiseGain);
+    pulseNoiseGain.connect(fundGain);
 
     const pulseLfo = ctx.createOscillator();
     pulseLfo.type = 'sine';
@@ -560,22 +626,10 @@ export class EngineSynthImpl implements EngineSynth {
     g.pulseLfo = pulseLfo;
 
     const pulseGain = ctx.createGain();
-    pulseGain.gain.value = 0.35;
+    pulseGain.gain.value = 0.14;
     g.pulseGain = pulseGain;
     pulseLfo.connect(pulseGain);
     pulseGain.connect(fundGain.gain);
-
-    const unevenLfo = ctx.createOscillator();
-    unevenLfo.type = 'sine';
-    unevenLfo.frequency.value = 4;
-    unevenLfo.start();
-    g.unevenLfo = unevenLfo;
-
-    const unevenGain = ctx.createGain();
-    unevenGain.gain.value = 0.12;
-    g.unevenGain = unevenGain;
-    unevenLfo.connect(unevenGain);
-    unevenGain.connect(fundGain.gain);
 
     const sub = ctx.createOscillator();
     sub.type = 'sine';
@@ -584,41 +638,17 @@ export class EngineSynthImpl implements EngineSynth {
     g.sub = sub;
 
     const subGain = ctx.createGain();
-    subGain.gain.value = 0.4;
+    subGain.gain.value = 0.18;
     g.subGain = subGain;
-
-    const shaper = ctx.createWaveShaper();
-    shaper.curve = makeShaper(0.4) as Float32Array<ArrayBuffer>;
-    shaper.oversample = '2x';
-    g.shaper = shaper;
-
-    const presenceFilt = ctx.createBiquadFilter();
-    presenceFilt.type = 'peaking';
-    presenceFilt.frequency.value = 1200;
-    presenceFilt.Q.value = 1.2;
-    presenceFilt.gain.value = 3;
-    g.presenceFilt = presenceFilt;
-
-    const muffler = ctx.createBiquadFilter();
-    muffler.type = 'lowpass';
-    muffler.frequency.value = 2800;
-    muffler.Q.value = 0.7;
-    g.muffler = muffler;
-
-    fund.connect(shaper);
-    fund2.connect(shaper);
-    fund3.connect(shaper);
-    shaper.connect(fundGain);
-    fundGain.connect(presenceFilt);
-    presenceFilt.connect(muffler);
-
     sub.connect(subGain);
     subGain.connect(muffler);
 
+    fundGain.connect(muffler);
+
     const intakeFilt = ctx.createBiquadFilter();
     intakeFilt.type = 'bandpass';
-    intakeFilt.frequency.value = 1800;
-    intakeFilt.Q.value = 0.8;
+    intakeFilt.frequency.value = 1600;
+    intakeFilt.Q.value = 0.7;
     g.intakeFilt = intakeFilt;
 
     const intakeGain = ctx.createGain();
@@ -631,41 +661,41 @@ export class EngineSynthImpl implements EngineSynth {
 
     const exhaustFilt = ctx.createBiquadFilter();
     exhaustFilt.type = 'lowpass';
-    exhaustFilt.frequency.value = 180;
-    exhaustFilt.Q.value = 0.9;
+    exhaustFilt.frequency.value = 220;
+    exhaustFilt.Q.value = 0.85;
 
     const exhaustGain = ctx.createGain();
-    exhaustGain.gain.value = 0.2;
+    exhaustGain.gain.value = 0.28;
     g.exhaustGain = exhaustGain;
+
+    const delay = ctx.createDelay(0.08);
+    delay.delayTime.value = 0.018;
+    g.delay = delay;
+
+    const delayGain = ctx.createGain();
+    delayGain.gain.value = 0.45;
+    g.delayGain = delayGain;
 
     g.pinkSrc!.connect(exhaustFilt);
     exhaustFilt.connect(exhaustGain);
+    exhaustGain.connect(delay);
+    delay.connect(delayGain);
+    delayGain.connect(delay);
+    delay.connect(muffler);
     exhaustGain.connect(muffler);
 
     const ignFilt = ctx.createBiquadFilter();
     ignFilt.type = 'highpass';
-    ignFilt.frequency.value = 2500;
+    ignFilt.frequency.value = 2200;
 
     const ignGain = ctx.createGain();
-    ignGain.gain.value = 0.05;
+    ignGain.gain.value = 0.03;
     g.ignGain = ignGain;
 
     g.noiseSrc!.connect(ignFilt);
     ignFilt.connect(ignGain);
     ignGain.connect(muffler);
 
-    const mechFilt = ctx.createBiquadFilter();
-    mechFilt.type = 'bandpass';
-    mechFilt.frequency.value = 900;
-    mechFilt.Q.value = 3.5;
-    g.mechFilt = mechFilt;
-
-    const mechGain = ctx.createGain();
-    mechGain.gain.value = 0.04;
-    g.mechGain = mechGain;
-
-    g.noiseSrc!.connect(mechFilt);
-    mechFilt.connect(mechGain);
     mechGain.connect(muffler);
 
     const pan = ctx.createStereoPanner();
@@ -1182,7 +1212,8 @@ export class EngineSynthImpl implements EngineSynth {
     g.limiter.threshold.value = lerp(-18, -3, ceiling);
 
     if (this.patchMeta.kind === 'ice' && g.shaper) {
-      g.shaper.curve = makeShaper(0.25 + Number(p.roughness ?? 0.35) * 0.7) as Float32Array<ArrayBuffer>;
+      // Keep soft — organic fallback must not grow digital bite with roughness
+      g.shaper.curve = makeShaper(0.15 + Number(p.roughness ?? 0.35) * 0.28) as Float32Array<ArrayBuffer>;
     }
 
     if (g.iceMode === 'worklet') {
@@ -1274,15 +1305,14 @@ export class EngineSynthImpl implements EngineSynth {
       return;
     }
 
-    // Oscillator fallback path
+    // Oscillator fallback: noise + soft pulse imitation (no triple-saw lead)
     const firing = (fund / 60) * (cyl / 2);
 
     if (g.fund) smooth(g.fund.frequency, fund, tc, ctx);
-    if (g.fund2) smooth(g.fund2.frequency, fund * 2.005, tc, ctx);
-    if (g.fund3) smooth(g.fund3.frequency, fund * 1.5, tc, ctx);
+    if (g.fund2) smooth(g.fund2.frequency, fund * 0.5, tc, ctx);
     if (g.sub) smooth(g.sub.frequency, fund * 0.5, tc, ctx);
     if (g.pulseLfo) smooth(g.pulseLfo.frequency, clamp(firing, 2, 48), tc, ctx);
-    if (g.unevenLfo) smooth(g.unevenLfo.frequency, clamp(firing * 0.5, 1.2, 24), tc, ctx);
+    if (g.unevenLfo) smooth(g.unevenLfo.frequency, clamp(firing * 0.5, 1.0, 18), tc, ctx);
 
     const growl = Number(p.growl ?? 0.55);
     const presence = Number(p.presence ?? 0.45);
@@ -1292,53 +1322,66 @@ export class EngineSynthImpl implements EngineSynth {
     const ign = Number(p.ignitionNoise ?? 0.25);
     const rough = Number(p.roughness ?? 0.35);
     const parked = d.speed < 0.04;
+    const thr = d.throttle;
 
     if (g.fundGain) {
       const base =
-        0.16 + growl * 0.24 + rpmNorm * 0.14 + d.throttle * 0.18 + (parked ? d.throttle * 0.12 : 0);
+        0.08 + growl * 0.1 + rpmNorm * 0.08 + thr * 0.12 + (parked ? 0.04 + thr * 0.08 : 0);
       smooth(g.fundGain.gain, base, tc, ctx);
     }
     if (g.pulseGain) {
-      smooth(g.pulseGain.gain, 0.1 + rough * 0.4 + d.throttle * 0.12, tc, ctx);
+      smooth(g.pulseGain.gain, 0.08 + rough * 0.22 + thr * 0.1 + (parked ? 0.06 : 0), tc, ctx);
     }
     if (g.unevenGain) {
-      const lope = (cyl >= 8 ? 1 : 0.55) * (0.06 + rough * 0.2) * (1.1 - rpmNorm * 0.5);
-      smooth(g.unevenGain.gain, lope + (parked ? d.throttle * 0.08 : 0), tc, ctx);
+      const lope = (cyl >= 8 ? 1 : 0.55) * (0.05 + rough * 0.14) * (1.25 - rpmNorm * 0.55);
+      smooth(g.unevenGain.gain, lope + (parked ? 0.04 + thr * 0.05 : 0), tc, ctx);
     }
     if (g.subGain) {
-      smooth(g.subGain.gain, growl * 0.5 * (0.35 + rpmNorm * 0.55 + d.throttle * 0.15), tc, ctx);
+      smooth(g.subGain.gain, growl * 0.28 * (0.4 + rpmNorm * 0.4 + thr * 0.12), tc, ctx);
     }
     if (g.presenceFilt) {
-      smooth(g.presenceFilt.frequency, 850 + presence * 1700 + d.throttle * 500, tc, ctx);
-      g.presenceFilt.gain.value = presence * 9;
+      smooth(g.presenceFilt.frequency, 280 + presence * 500 + thr * 350 + rpmNorm * 200, tc, ctx);
     }
     if (g.muffler) {
-      const open = lerp(850, 5600, 1 - muffling);
-      smooth(g.muffler.frequency, open + d.throttle * 900 + rpmNorm * 400, tc, ctx);
+      const open = lerp(700, 4200, 1 - muffling);
+      smooth(g.muffler.frequency, open + thr * 1400 + rpmNorm * 500, tc, ctx);
     }
     if (g.intakeGain) {
-      const throttleFeel = parked ? Math.max(d.throttle, d.throttle * d.throttle) : d.throttle;
-      smooth(g.intakeGain.gain, intake * throttleFeel * (0.4 + rpmNorm * 0.55), tc, ctx);
+      const throttleFeel = parked ? Math.max(thr, thr * thr) : thr;
+      smooth(g.intakeGain.gain, intake * throttleFeel * (0.5 + rpmNorm * 0.55), tc, ctx);
     }
     if (g.intakeFilt) {
-      smooth(g.intakeFilt.frequency, 1100 + d.throttle * 2400 + rpmNorm * 900, tc, ctx);
+      smooth(g.intakeFilt.frequency, 1000 + thr * 2800 + rpmNorm * 800, tc, ctx);
     }
     if (g.exhaustGain) {
       smooth(
         g.exhaustGain.gain,
-        exhaust * (0.14 + rpmNorm * 0.32 + d.throttle * 0.14 + (parked ? d.throttle * 0.08 : 0)),
+        exhaust * (0.22 + rpmNorm * 0.28 + thr * 0.18 + (parked ? 0.1 + thr * 0.1 : 0)),
         tc,
         ctx,
       );
     }
+    if (g.delay) {
+      const len = Number(p.exhaustLength ?? 0.45);
+      smooth(g.delay.delayTime, 0.008 + len * 0.035, tc, ctx);
+    }
+    if (g.delayGain) {
+      const fb = Number(p.exhaustFeedback ?? 0.72) * (0.35 + (1 - muffling) * 0.25);
+      smooth(g.delayGain.gain, clamp(fb, 0.15, 0.72), tc, ctx);
+    }
     if (g.ignGain) {
-      smooth(g.ignGain.gain, ign * (0.02 + d.throttle * 0.14 + rpmNorm * 0.05), tc, ctx);
+      smooth(g.ignGain.gain, ign * (0.015 + thr * 0.1 + rpmNorm * 0.04 + rough * 0.02), tc, ctx);
     }
     if (g.mechGain) {
-      smooth(g.mechGain.gain, rough * (0.025 + rpmNorm * 0.06 + d.throttle * 0.05), tc, ctx);
+      smooth(
+        g.mechGain.gain,
+        0.1 + rough * 0.14 + rpmNorm * 0.05 + thr * 0.04 + (parked ? 0.06 : 0),
+        tc,
+        ctx,
+      );
     }
     if (g.mechFilt) {
-      smooth(g.mechFilt.frequency, 700 + rpmNorm * 900 + d.throttle * 400, tc, ctx);
+      smooth(g.mechFilt.frequency, 520 + rpmNorm * 700 + thr * 350, tc, ctx);
     }
   }
 

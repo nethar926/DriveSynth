@@ -1,25 +1,25 @@
 import type { EngineKind, EnginePatch, EngineParams, ParamMeta } from './types';
 
 export const V8_DEFAULTS: EngineParams = {
-  masterGain: 0.72,
-  stereoWidth: 0.4,
+  masterGain: 0.7,
+  stereoWidth: 0.42,
   limiterCeiling: 0.95,
-  rpmIdle: 52,
-  rpmRedline: 255,
+  rpmIdle: 48,
+  rpmRedline: 248,
   cylinders: 8,
-  roughness: 0.48,
-  growl: 0.72,
-  presence: 0.48,
-  intake: 0.52,
-  exhaust: 0.62,
-  ignitionNoise: 0.28,
-  muffling: 0.32,
-  rpmCurve: 0.62,
-  pulseWidth: 0.38,
-  pulseJitter: 0.12,
-  exhaustLength: 0.52,
-  exhaustFeedback: 0.78,
-  crackle: 0.4,
+  roughness: 0.58,
+  growl: 0.68,
+  presence: 0.42,
+  intake: 0.62,
+  exhaust: 0.72,
+  ignitionNoise: 0.22,
+  muffling: 0.38,
+  rpmCurve: 0.58,
+  pulseWidth: 0.44,
+  pulseJitter: 0.16,
+  exhaustLength: 0.58,
+  exhaustFeedback: 0.74,
+  crackle: 0.36,
 };
 
 export const I4_DEFAULTS: EngineParams = {
@@ -99,7 +99,7 @@ export const BUILTIN_PATCHES: EnginePatch[] = [
     params: { ...V8_DEFAULTS } as Record<string, number | string>,
     meta: {
       blurb:
-        'Pulse-train V8: discrete combustion fires → Karplus–Strong exhaust waveguide, cross-plane lope, intake whoosh, overrun crackle.',
+        'Organic V8: soft combustion pulses + mechanical bed + intake + exhaust waveguide body. Cross-plane 180/90/180/270 bank lope; throttle opens character, not just pitch.',
       tags: ['ice', 'v8', 'pulse', 'free'],
       author: 'DriveSynth',
     },
