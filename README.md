@@ -1,8 +1,6 @@
 # DriveSynth
 
-**Free** Tesla in-car engine-sound web app. Procedural Web Audio only — original software, dribe-inspired UX concepts, **no** copied assets/branding/audio packs.
-
-All packs unlocked. No accounts. No paywall.
+**Free** Tesla in-car engine-sound web app. Procedural Web Audio only — original softwar.
 
 ## Quick start
 
