@@ -6,6 +6,13 @@ export function lerp(a: number, b: number, t: number): number {
   return a + (b - a) * t;
 }
 
+/** Hermite smoothstep between edges (clamped). */
+export function smoothstep(x: number, edge0: number, edge1: number): number {
+  if (edge1 <= edge0) return x >= edge1 ? 1 : 0;
+  const t = clamp((x - edge0) / (edge1 - edge0));
+  return t * t * (3 - 2 * t);
+}
+
 /** Ease-in curve controlled by c (0=linear, 1=aggressive) */
 export function rpmCurve(speed: number, c = 0.55): number {
   const s = clamp(speed);

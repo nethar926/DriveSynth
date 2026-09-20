@@ -9,7 +9,6 @@ import type { useGeolocation } from '../hooks/useGeolocation';
 import type { UiPrefs } from '../hooks/useUiPrefs';
 import {
   ION_LOCK_CHIP,
-  nextIonLockStage,
   type IonLockStage,
 } from '../skins/ion-twin/lockLadder';
 
@@ -239,22 +238,16 @@ export function DrivePage({ audio, gps, prefs, onEnableGps }: Props) {
         setAccelFeel(throttle);
         const engId = audio.engineId || 'v8-rumble';
         const frameSkin = skinIdForEngine(engId);
+        // Soft-cue: poll getHud().lockStage (Audio owns hysteresis + optional lock chirp).
         let stage: IonLockStage = 'none';
-        if (frameSkin === 'ion-twin') {
-          const prevStage = lockStageRef.current;
-          stage = nextIonLockStage(rpmNorm, prevStage);
-          if (stage !== prevStage) {
+        if (frameSkin === 'ion-twin' && eng) {
+          const hLock = (eng.getHud() as { lockStage?: IonLockStage }).lockStage
+            ?? eng.getLockStage?.()
+            ?? 'none';
+          stage = hLock;
+          if (stage !== lockStageRef.current) {
             lockStageRef.current = stage;
             setLockStage(stage);
-            // Soft cue on LOCK entry only — Audio may implement triggerUiCue later
-            if (
-              stage === 'lock' &&
-              (prevStage === 'none' || prevStage === 'identified') &&
-              prefs.ionTwinLockSfx &&
-              eng
-            ) {
-              (eng as { triggerUiCue?: (id: string) => void }).triggerUiCue?.('ion-lock');
-            }
           }
         } else if (lockStageRef.current !== 'none') {
           lockStageRef.current = 'none';

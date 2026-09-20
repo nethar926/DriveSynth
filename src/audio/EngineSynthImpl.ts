@@ -12,7 +12,7 @@ import type {
   TopologyId,
 } from './types';
 import { nextLockStage, packSupportsLockLadder } from './lockStage';
-import { clamp, createNoiseBuffer, lerp, makeShaper, rpmCurve, smooth } from './utils';
+import { clamp, createNoiseBuffer, lerp, makeShaper, rpmCurve, smooth, smoothstep } from './utils';
 import pulseWorkletUrl from './worklets/pulse-engine-processor.js?url';
 
 type Kind = EnginePatch['kind'];
@@ -2149,22 +2149,35 @@ export class EngineSynthImpl implements EngineSynth {
       g.bodyFilt.Q.value = 1 + res * 6;
     }
 
-    // Multi-formant scream
+    // Ion Twin scream — idle near silent, full howl in LOCK/KILL band.
+    // Knobs multiply the rpmNorm open curve (never replace it).
     const howl = Number(p.engineHowl ?? 0.55);
     const formantHowl = Number(p.formantHowl ?? howl);
     const spread = Number(p.formantSpread ?? 0.55);
-    const howlAmt = formantHowl * (0.05 + d.throttle * 0.55 + rpmNorm * 0.35);
+    const open = smoothstep(rpmNorm, 0.15, 0.85); // ~0 at idle → 1 by lock/kill
+    const thr = d.throttle;
+    const howlAmt = formantHowl * howl * open;
 
     if (g.howlGain) {
-      smooth(g.howlGain.gain, howlAmt * 0.55, tc, ctx);
+      // Lead level: formant BP noise scream (phrase AM adds on AudioParam)
+      smooth(g.howlGain.gain, howlAmt * (0.75 + thr * 0.35), tc, ctx);
     }
     if (g.formantGain) {
-      smooth(g.formantGain.gain, 0.7 + formantHowl * 0.5, tc, ctx);
+      smooth(g.formantGain.gain, 0.85 + formantHowl * 0.45, tc, ctx);
+    }
+    if (g.howlOscGain) {
+      smooth(g.howlOscGain.gain, 0.06 + howlAmt * 0.14, tc, ctx);
+    }
+    if (g.howlPhraseDepth) {
+      smooth(g.howlPhraseDepth.gain, howlAmt * (0.18 + thr * 0.16), tc, ctx);
+    }
+    if (g.howlPhraseLfo) {
+      smooth(g.howlPhraseLfo.frequency, 1.6 + open * 3.8 + thr * 2.2, tc, ctx);
     }
 
-    const f1 = 320 + rpmNorm * 420 + d.throttle * 280 + spread * 180;
-    const f2 = 720 + rpmNorm * 780 + d.throttle * 520 + spread * 320;
-    const f3 = 1280 + rpmNorm * 1400 + d.throttle * 900 + spread * 500;
+    const f1 = 320 + rpmNorm * 420 + thr * 280 + spread * 180;
+    const f2 = 720 + rpmNorm * 780 + thr * 520 + spread * 320;
+    const f3 = 1280 + rpmNorm * 1400 + thr * 900 + spread * 500;
 
     if (g.howlOsc) {
       smooth(g.howlOsc.frequency, f1 * 0.45, tc, ctx);
@@ -2174,24 +2187,22 @@ export class EngineSynthImpl implements EngineSynth {
     }
     if (g.howlFilt) {
       smooth(g.howlFilt.frequency, f1, tc, ctx);
-      g.howlFilt.Q.value = 6 + res * 10;
+      g.howlFilt.Q.value = 5 + res * 8;
     }
     if (g.howlFilt2) {
       smooth(g.howlFilt2.frequency, f2, tc, ctx);
-      g.howlFilt2.Q.value = 4 + res * 8;
-      g.howlFilt2.gain.value = 6 + formantHowl * 10;
+      g.howlFilt2.Q.value = 4 + res * 7;
     }
     if (g.howlFilt3) {
       smooth(g.howlFilt3.frequency, f3, tc, ctx);
-      g.howlFilt3.Q.value = 5 + res * 9;
+      g.howlFilt3.Q.value = 4 + res * 8;
     }
 
-    // Wet-road hiss
+    // Wet-road hiss — opens with same rpmNorm curve
     const wet = Number(p.wetHiss ?? 0.5);
-    const wetAmt = wet * (0.04 + rpmNorm * 0.22 + d.throttle * 0.35 + Math.abs(d.load ?? 0) * 0.12);
+    const wetAmt = wet * open * (0.12 + rpmNorm * 0.35 + thr * 0.4 + Math.abs(d.load ?? 0) * 0.12);
     if (g.wetHissGain) {
-      // Base gain; AM LFO adds on top via AudioParam connection
-      const baseGain = wetAmt * 0.45;
+      const baseGain = wetAmt * 0.7;
       try {
         g.wetHissGain.gain.cancelScheduledValues(ctx.currentTime);
         g.wetHissGain.gain.setTargetAtTime(baseGain, ctx.currentTime, tc);
@@ -2200,16 +2211,16 @@ export class EngineSynthImpl implements EngineSynth {
       }
     }
     if (g.wetAmDepth) {
-      smooth(g.wetAmDepth.gain, wetAmt * 0.2, tc, ctx);
+      smooth(g.wetAmDepth.gain, wetAmt * 0.28, tc, ctx);
     }
     if (g.wetAmLfo) {
-      smooth(g.wetAmLfo.frequency, 2.2 + rpmNorm * 4 + d.throttle * 3, tc, ctx);
+      smooth(g.wetAmLfo.frequency, 2.2 + rpmNorm * 4 + thr * 3, tc, ctx);
     }
     if (g.wetHissFilt) {
-      smooth(g.wetHissFilt.frequency, 1400 + rpmNorm * 1800 + d.throttle * 900, tc, ctx);
+      smooth(g.wetHissFilt.frequency, 1400 + rpmNorm * 1800 + thr * 900, tc, ctx);
     }
     if (g.wetHissFilt2) {
-      smooth(g.wetHissFilt2.frequency, 3200 + rpmNorm * 2800 + d.throttle * 1200, tc, ctx);
+      smooth(g.wetHissFilt2.frequency, 3200 + rpmNorm * 2800 + thr * 1200, tc, ctx);
     }
     if (g.wetPan) {
       const width = Number(p.stereoWidth ?? 0.55);
@@ -2218,7 +2229,7 @@ export class EngineSynthImpl implements EngineSynth {
 
     const after = Number(p.afterburn ?? 0.5);
     if (g.afterGain) {
-      smooth(g.afterGain.gain, after * d.throttle * d.throttle * 0.22, tc, ctx);
+      smooth(g.afterGain.gain, after * open * thr * thr * 0.55, tc, ctx);
     }
 
     const hum = Number(p.hum ?? 0.4);

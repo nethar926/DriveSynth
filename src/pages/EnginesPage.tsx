@@ -18,11 +18,11 @@ interface Props {
 const SNIPPET_BY_ID: Record<string, string> = {
   'v8-rumble': 'snippets/v8-rumble.wav',
   'i4-zip': 'snippets/i4-zip.wav',
-  'i6-silk': 'snippets/i4-zip.wav',
+  'i6-silk': 'snippets/i6-silk.wav',
   'ev-whine': 'snippets/ev-whine.wav',
-  'ev-inverter-climb': 'snippets/ev-whine.wav',
-  'ev-regen-howl': 'snippets/ev-whine.wav',
-  'ev-dual-motor': 'snippets/ev-whine.wav',
+  'ev-inverter-climb': 'snippets/ev-inverter-climb.wav',
+  'ev-regen-howl': 'snippets/ev-regen-howl.wav',
+  'ev-dual-motor': 'snippets/ev-dual-motor.wav',
   'tie-fighter': 'snippets/ion-twin-tie-fighter.wav',
   'aerospace-f14': 'snippets/aerospace-f14.wav',
 };
