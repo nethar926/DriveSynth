@@ -854,8 +854,8 @@ textarea {
   margin-bottom: 12px;
 }
 .palette-btn {
-  min-height: 44px;
-  min-width: 44px;
+  min-height: 48px;
+  min-width: 48px;
   padding: 0 14px;
   border-radius: 12px;
   border: 1.5px solid var(--border);
@@ -866,8 +866,8 @@ textarea {
 }
 .graph-canvas {
   position: relative;
-  height: min(420px, 55vh);
-  min-height: 280px;
+  height: min(480px, 60vh);
+  min-height: 320px;
   border-radius: 14px;
   border: 1px solid var(--border);
   background:
@@ -880,8 +880,8 @@ textarea {
 .graph-wires {
   position: absolute;
   inset: 0;
-  width: 900px;
-  height: 360px;
+  width: 1100px;
+  height: 480px;
   pointer-events: none;
   overflow: visible;
 }
@@ -897,15 +897,16 @@ textarea {
 }
 .graph-node {
   position: absolute;
-  height: 64px;
+  height: 72px;
   border-radius: 14px;
   border: 2px solid var(--border);
   background: var(--bg-card);
   box-shadow: var(--shadow);
-  padding: 10px 12px;
+  padding: 12px 14px;
   cursor: grab;
   user-select: none;
   z-index: 2;
+  touch-action: none;
 }
 .graph-node.selected {
   box-shadow: 0 0 0 2px var(--accent-dim), var(--shadow);
@@ -921,23 +922,42 @@ textarea {
 }
 .port {
   position: absolute;
-  width: 18px;
-  height: 18px;
-  min-width: 18px;
-  min-height: 18px;
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  min-height: 44px;
   border-radius: 50%;
-  border: 2px solid var(--accent);
-  background: var(--bg);
+  border: none;
+  background: transparent;
   padding: 0;
   cursor: crosshair;
   top: 50%;
   transform: translateY(-50%);
+  z-index: 3;
+}
+.port::after {
+  content: '';
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2px solid var(--accent);
+  background: var(--bg);
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
 }
 .port-in {
-  left: -9px;
+  left: -22px;
 }
 .port-out {
-  right: -9px;
+  right: -22px;
+}
+.graph-hint {
+  margin: 0 0 10px;
+  color: var(--text-dim);
+  font-size: 0.82rem;
 }
 .node-param-rail {
   margin-top: 12px;

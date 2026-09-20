@@ -34,8 +34,9 @@ const PALETTE: { type: SynthNodeType; label: string; color: string }[] = [
   { type: 'Noise', label: 'Noise', color: '#8b97ab' },
 ];
 
-const NODE_W = 140;
-const NODE_H = 64;
+const NODE_W = 156;
+const NODE_H = 72;
+const GRID = 20;
 
 function defaultParams(type: SynthNodeType): Record<string, number | string> {
   switch (type) {
@@ -297,6 +298,19 @@ export function BuilderPage({ audio, onSave }: Props) {
       }
       setWireDrag(null);
     }
+    if (dragging) {
+      setNodes((prev) =>
+        prev.map((n) =>
+          n.id === dragging.id
+            ? {
+                ...n,
+                x: Math.round(n.x / GRID) * GRID,
+                y: Math.round(n.y / GRID) * GRID,
+              }
+            : n,
+        ),
+      );
+    }
     setDragging(null);
   };
 
@@ -542,6 +556,8 @@ export function BuilderPage({ audio, onSave }: Props) {
             </div>
           ))}
         </div>
+
+        <p className="graph-hint">Drag nodes · drag the right port to wire · tap Apply graph. Large targets for Tesla touch.</p>
 
         <div className="btn-row">
           <button type="button" className="btn-primary" onClick={compileAndApply}>
