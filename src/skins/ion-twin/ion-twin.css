@@ -1,17 +1,84 @@
+/**
+ * DriveSynth — Ion Twin visual skin
+ * SciFi targeting HUD · original geometry · free-only
+ * Tokens + overlay chrome under [data-skin="ion-twin"]
+ */
+
 [data-skin="ion-twin"] {
+  /* Surfaces */
+  --skin-bg: #05070a;
+  --skin-bg-elevated: #0a0e14;
+  --skin-bg-panel: rgba(8, 14, 20, 0.88);
+  --skin-void: #020305;
+
+  /* Phosphor palette */
   --skin-phosphor-amber: #ffb020;
+  --skin-phosphor-amber-dim: #c48418;
+  --skin-phosphor-amber-glow: rgba(255, 176, 32, 0.45);
   --skin-phosphor-green: #3dff7a;
-  --accent: #ffb020;
+  --skin-phosphor-green-dim: #1faa4a;
+  --skin-phosphor-green-glow: rgba(61, 255, 122, 0.5);
+
+  /* Structure / chrome */
+  --skin-grid: rgba(255, 176, 32, 0.08);
+  --skin-grid-strong: rgba(255, 176, 32, 0.18);
+  --skin-stroke: rgba(255, 176, 32, 0.55);
+  --skin-stroke-soft: rgba(255, 176, 32, 0.28);
+  --skin-fill-soft: rgba(255, 176, 32, 0.06);
+
+  /* Semantic */
+  --skin-danger: #ff3b3b;
+  --skin-danger-glow: rgba(255, 59, 59, 0.4);
+  --skin-warn: #ffb020;
+  --skin-ok: #3dff7a;
+  --skin-muted: rgba(255, 176, 32, 0.42);
+  --skin-text: #ffe6b0;
+  --skin-text-dim: rgba(255, 230, 176, 0.55);
+
+  /* Touch / layout */
+  --skin-touch-min: 48px;
+  --skin-touch-pad: 52px;
+  --skin-radius-sm: 2px;
+  --skin-radius-md: 4px;
+  --skin-hud-max-w: 1280px;
+  --skin-hud-max-h: 800px;
+
+  /* Typography — system / mono (Aurebesh via OFL FT Aurebesh elsewhere) */
+  --skin-font-ui: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --skin-font-mono: ui-monospace, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+  --skin-font-display: var(--skin-font-mono);
+
+  /* Motion / bloom */
+  --skin-pulse-ms: 1200ms;
+  --skin-lock-snap-ms: 280ms;
+  --skin-scanline-opacity: 0.04;
+  --skin-bloom: 0 0 12px var(--skin-phosphor-amber-glow),
+                0 0 28px rgba(255, 176, 32, 0.15);
+
+  /* Skin identity */
+  --skin-id: "ion-twin";
+  --skin-label: "ION TWIN";
+  --skin-category: "SCIFI";
+
+  /* App chrome aliases */
+  --accent: var(--skin-phosphor-amber);
   --accent-dim: rgba(255, 176, 32, 0.35);
-  --text: #ffe6b0;
-  --text-dim: rgba(255, 230, 176, 0.55);
+  --text: var(--skin-text);
+  --text-dim: var(--skin-text-dim);
 }
 
 .drive-skin-ion-twin .drive-skin-plate {
   background:
-    radial-gradient(ellipse 70% 55% at 50% 48%, #0c121a 0%, #05070a 55%, #020305 100%);
+    radial-gradient(ellipse 70% 55% at 50% 48%, #0c121a 0%, var(--skin-bg, #05070a) 55%, var(--skin-void, #020305) 100%);
 }
 
+.drive-skin-ion-twin.locked .drive-skin-plate,
+.drive-skin-ion-twin:has(.ion-twin-overlay.locked) .drive-skin-plate {
+  background:
+    radial-gradient(ellipse 70% 55% at 50% 48%, #07140e 0%, var(--skin-bg, #05070a) 55%, var(--skin-void, #020305) 100%);
+}
+
+/* ——— Overlay (pointer-events none; sits behind huge SPEED) ——— */
 .ion-twin-overlay {
   position: absolute;
   inset: 0;
@@ -25,11 +92,17 @@
   position: absolute;
   inset: 0;
   background-image:
-    linear-gradient(rgba(255, 176, 32, 0.08) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 176, 32, 0.08) 1px, transparent 1px);
+    linear-gradient(var(--skin-grid, rgba(255, 176, 32, 0.08)) 1px, transparent 1px),
+    linear-gradient(90deg, var(--skin-grid, rgba(255, 176, 32, 0.08)) 1px, transparent 1px);
   background-size: 48px 48px;
   mask-image: radial-gradient(ellipse 60% 50% at 50% 50%, black 20%, transparent 75%);
   opacity: 0.9;
+}
+
+.ion-twin-overlay.locked .ion-grid {
+  background-image:
+    linear-gradient(rgba(61, 255, 122, 0.06) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(61, 255, 122, 0.06) 1px, transparent 1px);
 }
 
 .ion-scanlines {
@@ -39,8 +112,8 @@
     0deg,
     transparent,
     transparent 2px,
-    rgba(0, 0, 0, 0.045) 2px,
-    rgba(0, 0, 0, 0.045) 4px
+    rgba(0, 0, 0, var(--skin-scanline-opacity, 0.04)) 2px,
+    rgba(0, 0, 0, var(--skin-scanline-opacity, 0.04)) 4px
   );
   z-index: 3;
 }
@@ -55,18 +128,19 @@
   gap: 10px;
   z-index: 2;
   font-size: 0.72rem;
+  min-height: var(--skin-touch-min, 48px);
 }
 
 .ion-status-ab {
-  color: #ffb020;
-  text-shadow: 0 0 10px rgba(255, 176, 32, 0.45);
+  color: var(--skin-phosphor-amber, #ffb020);
+  text-shadow: var(--skin-bloom, 0 0 10px rgba(255, 176, 32, 0.45));
   font-size: 1.05rem;
 }
 
 .ion-status-lat {
-  color: rgba(255, 230, 176, 0.45);
+  color: var(--skin-text-dim, rgba(255, 230, 176, 0.45));
   letter-spacing: 0.14em;
-  font-family: ui-monospace, monospace;
+  font-family: var(--skin-font-mono, ui-monospace, monospace);
   font-size: 0.65rem;
 }
 
@@ -75,77 +149,181 @@
   display: inline-flex;
   flex-direction: column;
   align-items: flex-end;
-  min-height: 48px;
+  min-height: var(--skin-touch-min, 48px);
   justify-content: center;
   padding: 4px 12px;
-  border: 1px solid rgba(255, 176, 32, 0.35);
+  border: 1px solid var(--skin-stroke-soft, rgba(255, 176, 32, 0.35));
   border-radius: 10px;
-  background: rgba(8, 14, 20, 0.55);
+  background: var(--skin-bg-panel, rgba(8, 14, 20, 0.55));
+  transition:
+    border-color var(--skin-lock-snap-ms, 280ms) ease,
+    color var(--skin-lock-snap-ms, 280ms) ease,
+    box-shadow var(--skin-lock-snap-ms, 280ms) ease,
+    background var(--skin-lock-snap-ms, 280ms) ease;
 }
 
 .ion-lock-pill.on {
-  border-color: #3dff7a;
-  color: #3dff7a;
-  box-shadow: 0 0 16px rgba(61, 255, 122, 0.35);
+  border-color: var(--skin-phosphor-green, #3dff7a);
+  color: #05070a;
+  background: var(--skin-phosphor-green, #3dff7a);
+  box-shadow: 0 0 18px var(--skin-phosphor-green-glow, rgba(61, 255, 122, 0.35));
+  animation: ion-badge-pulse var(--skin-pulse-ms, 1200ms) ease-in-out infinite;
+}
+
+.ion-lock-pill.on .ion-lock-lat,
+.ion-lock-pill.on .aurebesh {
+  color: #05070a;
+  text-shadow: none;
 }
 
 .ion-lock-lat {
   font-size: 0.6rem;
   letter-spacing: 0.16em;
   opacity: 0.7;
-  font-family: ui-monospace, monospace;
+  font-family: var(--skin-font-mono, ui-monospace, monospace);
 }
 
+@keyframes ion-badge-pulse {
+  0%, 100% { box-shadow: 0 0 12px var(--skin-phosphor-green-glow, rgba(61, 255, 122, 0.5)); filter: brightness(1); }
+  50% { box-shadow: 0 0 28px var(--skin-phosphor-green-glow, rgba(61, 255, 122, 0.5)); filter: brightness(1.12); }
+}
+
+/* Twin ion-core orbs */
 .ion-orbs .ion-orb {
   position: absolute;
-  width: 28px;
-  height: 28px;
+  width: 32px;
+  height: 32px;
   border-radius: 50%;
-  top: 42%;
-  background: radial-gradient(circle at 35% 30%, #fff6d0 0%, #ffb020 35%, transparent 70%);
-  box-shadow: 0 0 16px rgba(255, 176, 32, 0.45), 0 0 40px rgba(255, 176, 32, 0.2);
+  top: 46%;
+  transform: translateY(-50%);
+  background:
+    radial-gradient(circle at 35% 30%, #fff6d0 0%, var(--skin-phosphor-amber, #ffb020) 35%, transparent 70%);
+  box-shadow:
+    0 0 16px var(--skin-phosphor-amber-glow, rgba(255, 176, 32, 0.45)),
+    0 0 40px rgba(255, 176, 32, 0.25),
+    inset 0 0 12px rgba(255, 255, 255, 0.35);
   animation: ion-breathe 2.4s ease-in-out infinite;
   z-index: 1;
 }
-.ion-orbs .left { left: 3%; }
-.ion-orbs .right { right: 3%; animation-delay: -1.2s; }
+.ion-orbs .left { left: 2%; }
+.ion-orbs .right { right: 2%; animation-delay: -1.2s; }
 
-@keyframes ion-breathe {
-  0%, 100% { opacity: 0.8; transform: scale(1); }
-  50% { opacity: 1; transform: scale(1.12); }
+.ion-twin-overlay.locked .ion-orbs .ion-orb {
+  background:
+    radial-gradient(circle at 35% 30%, #e8fff0 0%, var(--skin-phosphor-green, #3dff7a) 40%, transparent 72%);
+  box-shadow:
+    0 0 16px var(--skin-phosphor-green-glow, rgba(61, 255, 122, 0.5)),
+    0 0 40px rgba(61, 255, 122, 0.3),
+    inset 0 0 12px rgba(255, 255, 255, 0.35);
+  animation-duration: 1.6s;
 }
 
+@keyframes ion-breathe {
+  0%, 100% { opacity: 0.85; filter: brightness(1); }
+  50% { opacity: 1; filter: brightness(1.25); }
+}
+
+/* Hex outer frame */
+.ion-hex {
+  position: absolute;
+  left: 50%;
+  top: 46%;
+  width: min(58vw, 320px);
+  aspect-ratio: 1;
+  transform: translate(-50%, -50%);
+  z-index: 1;
+  opacity: 0.7;
+  filter: drop-shadow(0 0 6px var(--skin-phosphor-amber-glow, rgba(255, 176, 32, 0.45)));
+  transition: opacity var(--skin-lock-snap-ms, 280ms) ease, filter var(--skin-lock-snap-ms, 280ms) ease;
+}
+
+.ion-twin-overlay.locked .ion-hex {
+  opacity: 0.9;
+  filter: drop-shadow(0 0 10px var(--skin-phosphor-green-glow, rgba(61, 255, 122, 0.5)));
+}
+
+/* Center reticle — glanceable behind huge SPEED */
 .ion-reticle {
   position: absolute;
   left: 50%;
   top: 46%;
   width: min(52vw, 280px);
   transform: translate(-50%, -50%);
-  opacity: 0.55;
+  opacity: 0.5;
   z-index: 1;
-  filter: drop-shadow(0 0 6px rgba(255, 176, 32, 0.45));
+  filter: drop-shadow(0 0 6px var(--skin-phosphor-amber-glow, rgba(255, 176, 32, 0.45)));
+  transition: opacity var(--skin-lock-snap-ms, 280ms) ease, color var(--skin-lock-snap-ms, 280ms) ease;
 }
 
 .ion-twin-overlay.locked .ion-reticle {
-  opacity: 0.85;
-  color: #3dff7a;
+  opacity: 0.78;
+  color: var(--skin-phosphor-green, #3dff7a);
+  filter: drop-shadow(0 0 8px var(--skin-phosphor-green-glow, rgba(61, 255, 122, 0.5)));
 }
 
+.ion-rpm-arc {
+  transition: stroke-dashoffset 120ms linear;
+}
+
+.ion-rpm-tip {
+  transition: transform 120ms linear;
+  transform-origin: 160px 160px;
+}
+
+/* Corner lock brackets — standby outer; locked snap inward + pulse green */
 .ion-brackets .br {
   position: absolute;
-  width: 44px;
-  height: 44px;
-  border: 2px solid rgba(255, 176, 32, 0.55);
+  width: 48px;
+  height: 48px;
   z-index: 1;
+  color: var(--skin-phosphor-amber, #ffb020);
+  transition:
+    top var(--skin-lock-snap-ms, 280ms) ease,
+    left var(--skin-lock-snap-ms, 280ms) ease,
+    right var(--skin-lock-snap-ms, 280ms) ease,
+    bottom var(--skin-lock-snap-ms, 280ms) ease,
+    width var(--skin-lock-snap-ms, 280ms) ease,
+    height var(--skin-lock-snap-ms, 280ms) ease,
+    color var(--skin-lock-snap-ms, 280ms) ease,
+    filter var(--skin-lock-snap-ms, 280ms) ease;
 }
-.ion-brackets .tl { top: 14%; left: 8%; border-right: none; border-bottom: none; }
-.ion-brackets .tr { top: 14%; right: 8%; border-left: none; border-bottom: none; }
-.ion-brackets .bl { bottom: 18%; left: 8%; border-right: none; border-top: none; }
-.ion-brackets .brc { bottom: 18%; right: 8%; border-left: none; border-top: none; }
+
+.ion-brackets .br svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+  overflow: visible;
+}
+
+.ion-brackets .tl { top: 10%; left: 6%; }
+.ion-brackets .tr { top: 10%; right: 6%; }
+.ion-brackets .bl { bottom: 14%; left: 6%; }
+.ion-brackets .brc { bottom: 14%; right: 6%; }
 
 .ion-twin-overlay.locked .ion-brackets .br {
-  border-color: #3dff7a;
-  box-shadow: 0 0 12px rgba(61, 255, 122, 0.35);
+  width: 40px;
+  height: 40px;
+  color: var(--skin-phosphor-green, #3dff7a);
+  filter: drop-shadow(0 0 8px var(--skin-phosphor-green-glow, rgba(61, 255, 122, 0.45)));
+  animation: ion-lock-pulse var(--skin-pulse-ms, 1200ms) ease-in-out infinite;
+}
+
+.ion-twin-overlay.locked .ion-brackets .tl { top: 22%; left: 18%; animation-delay: 0s; }
+.ion-twin-overlay.locked .ion-brackets .tr { top: 22%; right: 18%; animation-delay: 0.15s; }
+.ion-twin-overlay.locked .ion-brackets .bl { bottom: 24%; left: 18%; animation-delay: 0.3s; }
+.ion-twin-overlay.locked .ion-brackets .brc { bottom: 24%; right: 18%; animation-delay: 0.45s; }
+
+@keyframes ion-lock-pulse {
+  0%, 100% {
+    opacity: 1;
+    filter: drop-shadow(0 0 4px var(--skin-phosphor-green-glow, rgba(61, 255, 122, 0.45)));
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.78;
+    filter: drop-shadow(0 0 14px var(--skin-phosphor-green-glow, rgba(61, 255, 122, 0.45)));
+    transform: scale(1.06);
+  }
 }
 
 .ion-footer {
@@ -162,17 +340,47 @@
 
 .ion-footer .aurebesh {
   font-size: 1.1rem;
-  color: #ffb020;
-  text-shadow: 0 0 12px rgba(255, 176, 32, 0.5);
+  color: var(--skin-phosphor-amber, #ffb020);
+  text-shadow: var(--skin-bloom, 0 0 12px rgba(255, 176, 32, 0.5));
+  transition: color var(--skin-lock-snap-ms, 280ms) ease, text-shadow var(--skin-lock-snap-ms, 280ms) ease;
+}
+
+.ion-twin-overlay.locked .ion-footer .aurebesh {
+  color: var(--skin-phosphor-green, #3dff7a);
+  text-shadow: 0 0 12px var(--skin-phosphor-green-glow, rgba(61, 255, 122, 0.5));
 }
 
 .ion-footer-lat {
   font-size: 0.65rem;
   letter-spacing: 0.2em;
-  color: rgba(255, 230, 176, 0.5);
-  font-family: ui-monospace, monospace;
+  color: var(--skin-text-dim, rgba(255, 230, 176, 0.5));
+  font-family: var(--skin-font-mono, ui-monospace, monospace);
+}
+
+/* Tesla-ish ~1024×600 */
+@media (max-width: 1100px), (max-height: 680px) {
+  .ion-orbs .ion-orb { width: 26px; height: 26px; }
+  .ion-brackets .br { width: 40px; height: 40px; }
+  .ion-twin-overlay.locked .ion-brackets .br { width: 34px; height: 34px; }
+  .ion-hex { width: min(54vw, 260px); }
+  .ion-reticle { width: min(48vw, 230px); }
+  .ion-status { font-size: 0.65rem; top: 6px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .ion-orbs .ion-orb { animation: none; }
+  .ion-orbs .ion-orb,
+  .ion-lock-pill.on,
+  .ion-twin-overlay.locked .ion-brackets .br {
+    animation: none !important;
+  }
+
+  .ion-rpm-arc,
+  .ion-rpm-tip,
+  .ion-brackets .br,
+  .ion-lock-pill,
+  .ion-reticle,
+  .ion-hex,
+  .ion-footer .aurebesh {
+    transition: none !important;
+  }
 }
