@@ -7,16 +7,26 @@ interface Props {
   engineName: string;
   running: boolean;
   onMuteToggle: () => void;
+  skinId?: string;
 }
 
-export function AppShell({ prefs, engineName, running, onMuteToggle }: Props) {
+export function AppShell({ prefs, engineName, running, onMuteToggle, skinId = 'default' }: Props) {
   return (
-    <div className={`app-shell density-${prefs.density}`}>
+    <div className={`app-shell density-${prefs.density}`} data-skin={skinId}>
       <header className="top-chrome">
         <div className="brand">
           <span className="brand-mark">DS</span>
           <div>
-            <div className="brand-name">DriveSynth</div>
+            <div className="brand-name">
+              {skinId === 'ion-twin' ? (
+                <>
+                  <span className="aurebesh brand-ab">DS</span>
+                  <span className="brand-lat">DriveSynth</span>
+                </>
+              ) : (
+                'DriveSynth'
+              )}
+            </div>
             <div className="brand-sub">{engineName} · free</div>
           </div>
         </div>

@@ -1,5 +1,6 @@
 import type { CSSProperties } from 'react';
 import type { EngineId } from '../audio';
+import { IonTwinOverlay } from './ion-twin/IonTwinOverlay';
 
 /**
  * Mount point for @Visual Skins per-engine Drive plates.
@@ -30,8 +31,14 @@ export function skinIdForEngine(engineId: string): string {
   }
 }
 
-/** Default plate — Visual Skins replaces with IonTwinReticle etc. when greenlit. */
-export function DriveSkinSlot({ engineId, rpmNorm, throttle }: DriveSkinProps) {
+/** Per-engine Drive plate — Ion Twin mounts full overlay; others use CSS tokens. */
+export function DriveSkinSlot({
+  engineId,
+  rpmNorm,
+  speedNorm,
+  loadFeel,
+  throttle,
+}: DriveSkinProps) {
   const skinId = skinIdForEngine(engineId);
   return (
     <div
@@ -47,7 +54,14 @@ export function DriveSkinSlot({ engineId, rpmNorm, throttle }: DriveSkinProps) {
       }
     >
       <div className="drive-skin-plate" />
-      {skinId === 'ion-twin' && <div className="drive-skin-ion-stub" />}
+      {skinId === 'ion-twin' && (
+        <IonTwinOverlay
+          rpmNorm={rpmNorm}
+          speedNorm={speedNorm}
+          throttle={throttle}
+          loadFeel={loadFeel}
+        />
+      )}
     </div>
   );
 }

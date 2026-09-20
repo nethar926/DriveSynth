@@ -1,0 +1,11 @@
+[data-skin="aerospace-f14"] {
+  --accent: #7CFFB2;
+  --accent-dim: rgba(124, 255, 178, 0.35);
+  --text: #d8ffe8;
+}
+.drive-skin-aerospace-f14 .drive-skin-plate {
+  background:
+    linear-gradient(180deg, rgba(124, 255, 178, 0.08), transparent 40%),
+    radial-gradient(ellipse 50% 30% at 50% 0%, rgba(255, 200, 80, 0.12), transparent 50%),
+    #060a08;
+}

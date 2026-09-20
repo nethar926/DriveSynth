@@ -1,0 +1,9 @@
+[data-skin="ice-v8"] {
+  --accent: #ff8a5c;
+  --accent-dim: rgba(255, 138, 92, 0.35);
+}
+.drive-skin-ice-v8 .drive-skin-plate {
+  background:
+    radial-gradient(ellipse 80% 50% at 50% 100%, rgba(255, 100, 40, 0.2), transparent 55%),
+    linear-gradient(180deg, #1a1010, #0a0808);
+}

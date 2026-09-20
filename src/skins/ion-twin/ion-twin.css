@@ -1,0 +1,178 @@
+[data-skin="ion-twin"] {
+  --skin-phosphor-amber: #ffb020;
+  --skin-phosphor-green: #3dff7a;
+  --accent: #ffb020;
+  --accent-dim: rgba(255, 176, 32, 0.35);
+  --text: #ffe6b0;
+  --text-dim: rgba(255, 230, 176, 0.55);
+}
+
+.drive-skin-ion-twin .drive-skin-plate {
+  background:
+    radial-gradient(ellipse 70% 55% at 50% 48%, #0c121a 0%, #05070a 55%, #020305 100%);
+}
+
+.ion-twin-overlay {
+  position: absolute;
+  inset: 0;
+  color: var(--skin-phosphor-amber, #ffb020);
+  pointer-events: none;
+  z-index: 0;
+  overflow: hidden;
+}
+
+.ion-grid {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(255, 176, 32, 0.08) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 176, 32, 0.08) 1px, transparent 1px);
+  background-size: 48px 48px;
+  mask-image: radial-gradient(ellipse 60% 50% at 50% 50%, black 20%, transparent 75%);
+  opacity: 0.9;
+}
+
+.ion-scanlines {
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0, 0, 0, 0.045) 2px,
+    rgba(0, 0, 0, 0.045) 4px
+  );
+  z-index: 3;
+}
+
+.ion-status {
+  position: absolute;
+  top: 10px;
+  left: 12px;
+  right: 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  z-index: 2;
+  font-size: 0.72rem;
+}
+
+.ion-status-ab {
+  color: #ffb020;
+  text-shadow: 0 0 10px rgba(255, 176, 32, 0.45);
+  font-size: 1.05rem;
+}
+
+.ion-status-lat {
+  color: rgba(255, 230, 176, 0.45);
+  letter-spacing: 0.14em;
+  font-family: ui-monospace, monospace;
+  font-size: 0.65rem;
+}
+
+.ion-lock-pill {
+  margin-left: auto;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-end;
+  min-height: 48px;
+  justify-content: center;
+  padding: 4px 12px;
+  border: 1px solid rgba(255, 176, 32, 0.35);
+  border-radius: 10px;
+  background: rgba(8, 14, 20, 0.55);
+}
+
+.ion-lock-pill.on {
+  border-color: #3dff7a;
+  color: #3dff7a;
+  box-shadow: 0 0 16px rgba(61, 255, 122, 0.35);
+}
+
+.ion-lock-lat {
+  font-size: 0.6rem;
+  letter-spacing: 0.16em;
+  opacity: 0.7;
+  font-family: ui-monospace, monospace;
+}
+
+.ion-orbs .ion-orb {
+  position: absolute;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  top: 42%;
+  background: radial-gradient(circle at 35% 30%, #fff6d0 0%, #ffb020 35%, transparent 70%);
+  box-shadow: 0 0 16px rgba(255, 176, 32, 0.45), 0 0 40px rgba(255, 176, 32, 0.2);
+  animation: ion-breathe 2.4s ease-in-out infinite;
+  z-index: 1;
+}
+.ion-orbs .left { left: 3%; }
+.ion-orbs .right { right: 3%; animation-delay: -1.2s; }
+
+@keyframes ion-breathe {
+  0%, 100% { opacity: 0.8; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.12); }
+}
+
+.ion-reticle {
+  position: absolute;
+  left: 50%;
+  top: 46%;
+  width: min(52vw, 280px);
+  transform: translate(-50%, -50%);
+  opacity: 0.55;
+  z-index: 1;
+  filter: drop-shadow(0 0 6px rgba(255, 176, 32, 0.45));
+}
+
+.ion-twin-overlay.locked .ion-reticle {
+  opacity: 0.85;
+  color: #3dff7a;
+}
+
+.ion-brackets .br {
+  position: absolute;
+  width: 44px;
+  height: 44px;
+  border: 2px solid rgba(255, 176, 32, 0.55);
+  z-index: 1;
+}
+.ion-brackets .tl { top: 14%; left: 8%; border-right: none; border-bottom: none; }
+.ion-brackets .tr { top: 14%; right: 8%; border-left: none; border-bottom: none; }
+.ion-brackets .bl { bottom: 18%; left: 8%; border-right: none; border-top: none; }
+.ion-brackets .brc { bottom: 18%; right: 8%; border-left: none; border-top: none; }
+
+.ion-twin-overlay.locked .ion-brackets .br {
+  border-color: #3dff7a;
+  box-shadow: 0 0 12px rgba(61, 255, 122, 0.35);
+}
+
+.ion-footer {
+  position: absolute;
+  bottom: 8px;
+  left: 0;
+  right: 0;
+  text-align: center;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.ion-footer .aurebesh {
+  font-size: 1.1rem;
+  color: #ffb020;
+  text-shadow: 0 0 12px rgba(255, 176, 32, 0.5);
+}
+
+.ion-footer-lat {
+  font-size: 0.65rem;
+  letter-spacing: 0.2em;
+  color: rgba(255, 230, 176, 0.5);
+  font-family: ui-monospace, monospace;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ion-orbs .ion-orb { animation: none; }
+}

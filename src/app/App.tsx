@@ -11,6 +11,7 @@ import { DiagPage } from '../pages/DiagPage';
 import { DrivePage } from '../pages/DrivePage';
 import { EnginesPage } from '../pages/EnginesPage';
 import type { EnginePatch } from '../audio';
+import { skinIdForEngine } from '../skins/DriveSkinSlot';
 
 export default function App() {
   const { prefs, update, reset } = useUiPrefs();
@@ -63,6 +64,7 @@ export default function App() {
             engineName={audio.patchName}
             running={audio.running}
             onMuteToggle={onMuteToggle}
+            skinId={skinIdForEngine(audio.engineId || prefs.selectedEngineId)}
           />
         }
       >

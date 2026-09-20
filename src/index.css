@@ -1,4 +1,10 @@
 @import "tailwindcss";
+@import "./styles/fonts.css";
+@import "./styles/liquid-glass.css";
+@import "./skins/ion-twin/ion-twin.css";
+@import "./skins/ice-v8/ice-v8.css";
+@import "./skins/ev-inverter/ev-inverter.css";
+@import "./skins/aerospace-f14/aerospace-f14.css";
 
 :root {
   --bg: #07090d;
