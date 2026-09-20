@@ -7,6 +7,7 @@ export type {
   EnginePatch,
   EngineSynth,
   IceMode,
+  LockStage,
   ParamMeta,
   SynthNodeDesc,
   SynthNodeType,
@@ -22,4 +23,5 @@ export {
   paramMetaForNodeType,
 } from './builtins';
 export { createEngineSynth, EngineSynthImpl } from './EngineSynthImpl';
+export { nextLockStage, packSupportsLockLadder } from './lockStage';
 export { clamp, kphToMph, lerp, mphToSpeed, rpmCurve } from './utils';

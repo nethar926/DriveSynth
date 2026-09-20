@@ -170,6 +170,31 @@
   animation: ion-badge-pulse var(--skin-pulse-ms, 1200ms) ease-in-out infinite;
 }
 
+/* Minimal stage hooks — Visual Skins may expand identified/kill polish */
+.ion-lock-pill.ident {
+  border-color: var(--skin-phosphor-amber, #ffb020);
+  color: var(--skin-phosphor-amber, #ffb020);
+  background: rgba(255, 176, 32, 0.12);
+  box-shadow: 0 0 14px var(--skin-phosphor-amber-glow, rgba(255, 176, 32, 0.35));
+}
+
+.ion-twin-overlay.kill .ion-lock-pill.on {
+  animation: ion-kill-flash 700ms ease-in-out infinite;
+}
+
+@keyframes ion-kill-flash {
+  0%, 100% {
+    background: var(--skin-phosphor-green, #3dff7a);
+    border-color: var(--skin-phosphor-green, #3dff7a);
+    box-shadow: 0 0 18px var(--skin-phosphor-green-glow, rgba(61, 255, 122, 0.45));
+  }
+  50% {
+    background: #ff5a5a;
+    border-color: #ff5a5a;
+    box-shadow: 0 0 22px var(--skin-danger-glow, rgba(255, 59, 59, 0.45));
+  }
+}
+
 .ion-lock-pill.on .ion-lock-lat,
 .ion-lock-pill.on .aurebesh {
   color: #05070a;
@@ -370,6 +395,7 @@
 @media (prefers-reduced-motion: reduce) {
   .ion-orbs .ion-orb,
   .ion-lock-pill.on,
+  .ion-twin-overlay.kill .ion-lock-pill.on,
   .ion-twin-overlay.locked .ion-brackets .br {
     animation: none !important;
   }

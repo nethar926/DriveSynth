@@ -106,6 +106,15 @@ export function CustomizePage({ prefs, update, reset }: Props) {
           />
           <span>Show keep-tab-open tip</span>
         </label>
+        <label className="toggle-row mt tesla-touch">
+          <input
+            type="checkbox"
+            checked={prefs.ionTwinLockSfx}
+            onChange={(e) => update({ ionTwinLockSfx: e.target.checked })}
+          />
+          <span>Ion Twin lock SFX</span>
+        </label>
+        <p className="help-text dim">Optional chirp when TARGET LOCK engages (off by default).</p>
       </section>
 
       <section className="panel">

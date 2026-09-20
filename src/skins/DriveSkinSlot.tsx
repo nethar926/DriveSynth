@@ -2,6 +2,7 @@ import type { CSSProperties } from 'react';
 import type { EngineId } from '../audio';
 import { AerospaceF14Overlay } from './aerospace-f14/AerospaceF14Overlay';
 import { IonTwinOverlay } from './ion-twin/IonTwinOverlay';
+import type { IonLockStage } from './ion-twin/lockLadder';
 
 /**
  * Mount point for @Visual Skins per-engine Drive plates.
@@ -13,6 +14,10 @@ export interface DriveSkinProps {
   speedNorm: number;
   loadFeel: number;
   throttle: number;
+  /** Ion Twin lock ladder stage from DrivePage. */
+  lockStage?: IonLockStage;
+  /** Pref only; DrivePage owns soft cue hook. */
+  lockSfxEnabled?: boolean;
 }
 
 /** engineId → skin id (Visual Skins registry) */
@@ -43,6 +48,8 @@ export function DriveSkinSlot({
   speedNorm,
   loadFeel,
   throttle,
+  lockStage,
+  lockSfxEnabled,
 }: DriveSkinProps) {
   const skinId = skinIdForEngine(engineId);
   return (
@@ -65,6 +72,8 @@ export function DriveSkinSlot({
           speedNorm={speedNorm}
           throttle={throttle}
           loadFeel={loadFeel}
+          lockStage={lockStage}
+          lockSfxEnabled={lockSfxEnabled}
         />
       )}
       {skinId === 'aerospace-f14' && (

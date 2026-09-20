@@ -15,6 +15,9 @@ export type TopologyId =
 /** Pack / builder categories. Old kinds map 1:1 (ice, ev-whine, scifi); aerospace is new. */
 export type EngineKind = 'ice' | 'ev-whine' | 'aerospace' | 'scifi';
 
+/** Ion Twin / tie-fighter targeting ladder (rpmNorm + hysteresis). */
+export type LockStage = 'none' | 'identified' | 'lock' | 'kill';
+
 export type IceMode = 'worklet' | 'osc' | 'n/a';
 
 export interface EngineDiag {
@@ -184,7 +187,26 @@ export interface EngineSynth {
   applyGraphToParams?(graph: SynthNodeDesc[]): void;
 
   /** Derived HUD values for gauges (+ optional driveMood commentary hint) */
-  getHud(): { rpmNorm: number; loadFeel: number; fundamentalHz: number; driveMood?: string };
+  getHud(): {
+    rpmNorm: number;
+    loadFeel: number;
+    fundamentalHz: number;
+    driveMood?: string;
+    /** Ion Twin lock ladder; always 'none' for non-scifi packs */
+    lockStage?: LockStage;
+  };
+
+  /** Ion Twin lock ladder stage from rpmNorm + hysteresis; 'none' for other packs. */
+  getLockStage(): LockStage;
+
+  /** Optional lock-confirm chirp; default false. Frontend owns UI prefs; this API is the audio gate. */
+  setLockSfxEnabled(enabled: boolean): void;
+  getLockSfxEnabled(): boolean;
+
+  /**
+   * Soft-cue: optional callback on lock-stage change (Frontend may instead poll getHud().lockStage).
+   */
+  onLockStageChange?: (stage: LockStage) => void;
 
   /** Frontend /diag snapshot — field names stable for iceMode consumers */
   getDiag(): EngineDiag;

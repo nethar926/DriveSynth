@@ -7,9 +7,11 @@ import type {
   EnginePatch,
   EngineSynth,
   IceMode,
+  LockStage,
   SynthNodeDesc,
   TopologyId,
 } from './types';
+import { nextLockStage, packSupportsLockLadder } from './lockStage';
 import { clamp, createNoiseBuffer, lerp, makeShaper, rpmCurve, smooth } from './utils';
 import pulseWorkletUrl from './worklets/pulse-engine-processor.js?url';
 
@@ -67,6 +69,11 @@ interface GraphHandles {
   howlFilt3?: BiquadFilterNode;
   howlGain?: GainNode;
   formantGain?: GainNode;
+  /** Quiet saw grit under noise howl */
+  howlOscGain?: GainNode;
+  /** Burtt-style phrase AM on the scream */
+  howlPhraseLfo?: OscillatorNode;
+  howlPhraseDepth?: GainNode;
   bodyGain?: GainNode;
   bodyFilt?: BiquadFilterNode;
   humOsc?: OscillatorNode;
@@ -139,7 +146,13 @@ export class EngineSynthImpl implements EngineSynth {
   private driving: DrivingInput = { speed: 0, throttle: 0, load: 0, reverse: false };
   private disposed = false;
   private g: GraphHandles;
-  private hud = { rpmNorm: 0, loadFeel: 0, fundamentalHz: 55, driveMood: 'idle' };
+  private hud: {
+    rpmNorm: number;
+    loadFeel: number;
+    fundamentalHz: number;
+    driveMood: string;
+    lockStage: LockStage;
+  } = { rpmNorm: 0, loadFeel: 0, fundamentalHz: 55, driveMood: 'idle', lockStage: 'none' };
   private whiteBuf: AudioBuffer;
   private pinkBuf: AudioBuffer;
   private workletPromise: Promise<boolean> | null = null;
@@ -159,6 +172,11 @@ export class EngineSynthImpl implements EngineSynth {
   private driveMood = 'idle';
   private liveJit = { filt: 0, gain: 0, pitch: 0 };
   private valveTickWait = 0;
+  /** Ion Twin lock ladder (scifi/tie-fighter only) */
+  private lockStage: LockStage = 'none';
+  private lockSfxEnabled = false;
+  /** Soft-cue for Frontend; prefer polling getHud().lockStage if unset. */
+  onLockStageChange?: (stage: LockStage) => void;
 
   constructor(ctx: AudioContext, patch?: EnginePatch) {
     this.context = ctx;
@@ -287,6 +305,8 @@ export class EngineSynthImpl implements EngineSynth {
     if (kindChanged) {
       this.teardownGraph();
       this.g = this.buildGraph(patch.kind, patch.topology);
+      this.lockStage = 'none';
+      this.hud.lockStage = 'none';
     }
     this.applyAllParams();
     this.applyDriving(true);
@@ -296,7 +316,19 @@ export class EngineSynthImpl implements EngineSynth {
   }
 
   getHud() {
-    return { ...this.hud, driveMood: this.driveMood };
+    return { ...this.hud, driveMood: this.driveMood, lockStage: this.lockStage };
+  }
+
+  getLockStage(): LockStage {
+    return this.lockStage;
+  }
+
+  setLockSfxEnabled(enabled: boolean): void {
+    this.lockSfxEnabled = !!enabled;
+  }
+
+  getLockSfxEnabled(): boolean {
+    return this.lockSfxEnabled;
   }
 
   getDiag(): EngineDiag {
@@ -1191,7 +1223,39 @@ export class EngineSynthImpl implements EngineSynth {
     pulseMod.connect(pulseDepth);
     pulseDepth.connect(carrierGain.gain);
 
-    // Multi-formant howl — “elephant slowed” via moving formants (no samples)
+    // Ion Twin scream: formant BP *noise* lead + phrase AM (Burtt language).
+    // Saws are secondary grit only — not the primary voice.
+    const howlFilt = ctx.createBiquadFilter();
+    howlFilt.type = 'bandpass';
+    howlFilt.frequency.value = 480;
+    howlFilt.Q.value = 8;
+    g.howlFilt = howlFilt;
+
+    const howlFilt2 = ctx.createBiquadFilter();
+    howlFilt2.type = 'bandpass';
+    howlFilt2.frequency.value = 920;
+    howlFilt2.Q.value = 7;
+    g.howlFilt2 = howlFilt2;
+
+    const howlFilt3 = ctx.createBiquadFilter();
+    howlFilt3.type = 'bandpass';
+    howlFilt3.frequency.value = 1600;
+    howlFilt3.Q.value = 6;
+    g.howlFilt3 = howlFilt3;
+
+    const formantGain = ctx.createGain();
+    formantGain.gain.value = 1;
+    g.formantGain = formantGain;
+
+    // Parallel formant noise (pink → F1/F2, white bite → F3)
+    g.pinkSrc!.connect(howlFilt);
+    g.pinkSrc!.connect(howlFilt2);
+    g.noiseSrc!.connect(howlFilt3);
+    howlFilt.connect(formantGain);
+    howlFilt2.connect(formantGain);
+    howlFilt3.connect(formantGain);
+
+    // Secondary saw grit under the noise scream
     const howlOsc = ctx.createOscillator();
     howlOsc.type = 'sawtooth';
     howlOsc.frequency.value = 220;
@@ -1205,39 +1269,30 @@ export class EngineSynthImpl implements EngineSynth {
     howlOsc2.start();
     g.howlOsc2 = howlOsc2;
 
-    const howlFilt = ctx.createBiquadFilter();
-    howlFilt.type = 'bandpass';
-    howlFilt.frequency.value = 480;
-    howlFilt.Q.value = 10;
-    g.howlFilt = howlFilt;
-
-    const howlFilt2 = ctx.createBiquadFilter();
-    howlFilt2.type = 'peaking';
-    howlFilt2.frequency.value = 920;
-    howlFilt2.Q.value = 6;
-    howlFilt2.gain.value = 10;
-    g.howlFilt2 = howlFilt2;
-
-    const howlFilt3 = ctx.createBiquadFilter();
-    howlFilt3.type = 'bandpass';
-    howlFilt3.frequency.value = 1600;
-    howlFilt3.Q.value = 8;
-    g.howlFilt3 = howlFilt3;
-
-    const formantGain = ctx.createGain();
-    formantGain.gain.value = 0;
-    g.formantGain = formantGain;
+    const howlOscGain = ctx.createGain();
+    howlOscGain.gain.value = 0.12;
+    g.howlOscGain = howlOscGain;
+    howlOsc.connect(howlOscGain);
+    howlOsc2.connect(howlOscGain);
+    howlOscGain.connect(formantGain);
 
     const howlGain = ctx.createGain();
     howlGain.gain.value = 0;
     g.howlGain = howlGain;
-
-    howlOsc.connect(howlFilt);
-    howlOsc2.connect(howlFilt);
-    howlFilt.connect(howlFilt2);
-    howlFilt2.connect(howlFilt3);
-    howlFilt3.connect(formantGain);
     formantGain.connect(howlGain);
+
+    // Phrase AM — slow irregular envelope (not a steady tone)
+    const howlPhraseLfo = ctx.createOscillator();
+    howlPhraseLfo.type = 'sine';
+    howlPhraseLfo.frequency.value = 2.4;
+    howlPhraseLfo.start();
+    g.howlPhraseLfo = howlPhraseLfo;
+
+    const howlPhraseDepth = ctx.createGain();
+    howlPhraseDepth.gain.value = 0;
+    g.howlPhraseDepth = howlPhraseDepth;
+    howlPhraseLfo.connect(howlPhraseDepth);
+    howlPhraseDepth.connect(howlGain.gain);
 
     // Wet-road hiss: highpass/bandpass noise + AM + stereo smear
     const wetHissFilt = ctx.createBiquadFilter();
@@ -1357,6 +1412,7 @@ export class EngineSynthImpl implements EngineSynth {
     stopOsc(g.pulseMod);
     stopOsc(g.howlOsc);
     stopOsc(g.howlOsc2);
+    stopOsc(g.howlPhraseLfo);
     stopOsc(g.humOsc);
     stopOsc(g.wetAmLfo);
     stopOsc(g.intakeWhineOsc);
@@ -1462,6 +1518,115 @@ export class EngineSynthImpl implements EngineSynth {
       this.applyScifiDriving(rpmNorm, d, tc);
     }
     this.hud.driveMood = this.driveMood;
+    this.updateLockStage(rpmNorm);
+  }
+
+  private supportsLockLadder(): boolean {
+    return packSupportsLockLadder(this.patchMeta.kind, this.patchMeta.topology, this._id);
+  }
+
+  private updateLockStage(rpmNorm: number): void {
+    if (!this.supportsLockLadder()) {
+      if (this.lockStage !== 'none') {
+        this.lockStage = 'none';
+        this.hud.lockStage = 'none';
+        try {
+          this.onLockStageChange?.('none');
+        } catch {
+          /* ignore cue failures */
+        }
+      } else {
+        this.hud.lockStage = 'none';
+      }
+      return;
+    }
+    const prev = this.lockStage;
+    const next = nextLockStage(rpmNorm, prev, 0.04);
+    this.lockStage = next;
+    this.hud.lockStage = next;
+    if (next === prev) return;
+    try {
+      this.onLockStageChange?.(next);
+    } catch {
+      /* ignore cue failures */
+    }
+    // Play original procedural chirp only on transition *into* lock (not kill / identified).
+    if (next === 'lock' && prev !== 'lock' && this.lockSfxEnabled && this.started && !this.disposed) {
+      this.playLockChirp();
+    }
+  }
+
+  /**
+   * Original two-tone confirm + filtered noise tick through output.
+   * Not Star Wars samples — short procedural blip for TARGET LOCK engage.
+   */
+  private playLockChirp(): void {
+    if (this.disposed) return;
+    const ctx = this.context;
+    const now = ctx.currentTime;
+    try {
+      // Two-tone ascending confirm (triangle, soft)
+      const tones: Array<{ hz: number; t: number; dur: number; peak: number }> = [
+        { hz: 740, t: 0.0, dur: 0.055, peak: 0.14 },
+        { hz: 1110, t: 0.052, dur: 0.07, peak: 0.12 },
+      ];
+      for (const tone of tones) {
+        const t0 = now + tone.t;
+        const osc = ctx.createOscillator();
+        osc.type = 'triangle';
+        osc.frequency.value = tone.hz;
+        const filt = ctx.createBiquadFilter();
+        filt.type = 'bandpass';
+        filt.frequency.value = tone.hz;
+        filt.Q.value = 4.5;
+        const g = ctx.createGain();
+        g.gain.setValueAtTime(0.0001, t0);
+        g.gain.exponentialRampToValueAtTime(tone.peak, t0 + 0.008);
+        g.gain.exponentialRampToValueAtTime(0.0001, t0 + tone.dur);
+        osc.connect(filt);
+        filt.connect(g);
+        g.connect(this.output);
+        osc.start(t0);
+        osc.stop(t0 + tone.dur + 0.02);
+        osc.onended = () => {
+          try {
+            osc.disconnect();
+            filt.disconnect();
+            g.disconnect();
+          } catch {
+            /* ignore */
+          }
+        };
+      }
+      // Short noise tick
+      const nt = now + 0.02;
+      const noise = ctx.createBufferSource();
+      noise.buffer = this.whiteBuf;
+      const bp = ctx.createBiquadFilter();
+      bp.type = 'highpass';
+      bp.frequency.value = 2400;
+      bp.Q.value = 0.7;
+      const ng = ctx.createGain();
+      ng.gain.setValueAtTime(0.0001, nt);
+      ng.gain.exponentialRampToValueAtTime(0.09, nt + 0.004);
+      ng.gain.exponentialRampToValueAtTime(0.0001, nt + 0.035);
+      noise.connect(bp);
+      bp.connect(ng);
+      ng.connect(this.output);
+      noise.start(nt);
+      noise.stop(nt + 0.045);
+      noise.onended = () => {
+        try {
+          noise.disconnect();
+          bp.disconnect();
+          ng.disconnect();
+        } catch {
+          /* ignore */
+        }
+      };
+    } catch {
+      /* never block drive path */
+    }
   }
 
   /** One-pole lag + random-walk jitter so character breathes. */

@@ -21,6 +21,8 @@ export interface UiPrefs {
   masterMuted: boolean;
   selectedEngineId: string;
   mapping: ControlMapping;
+  /** Optional Ion Twin lock chirp; off by default until Audio ships triggerUiCue. */
+  ionTwinLockSfx: boolean;
 }
 
 const KEY = 'drivesynth.ui.v1';
@@ -39,6 +41,7 @@ export const DEFAULT_UI: UiPrefs = {
     speedSlider: 'speed',
     mute: 'masterGain',
   },
+  ionTwinLockSfx: false,
 };
 
 function load(): UiPrefs {

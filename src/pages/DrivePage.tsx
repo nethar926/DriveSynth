@@ -7,6 +7,11 @@ import type { EngineKind } from '../audio';
 import type { useAudioEngine } from '../hooks/useAudioEngine';
 import type { useGeolocation } from '../hooks/useGeolocation';
 import type { UiPrefs } from '../hooks/useUiPrefs';
+import {
+  ION_LOCK_CHIP,
+  nextIonLockStage,
+  type IonLockStage,
+} from '../skins/ion-twin/lockLadder';
 
 interface Props {
   audio: ReturnType<typeof useAudioEngine>;
@@ -26,15 +31,6 @@ function loadBool(key: string, fallback = false): boolean {
   } catch {
     return fallback;
   }
-}
-
-/** Mirror IonTwinOverlay acquireLocked thresholds. */
-function ionAcquireLocked(throttle: number, rpmNorm: number, loadFeel: number): boolean {
-  return (
-    (throttle >= 0.55 && rpmNorm >= 0.58) ||
-    (rpmNorm >= 0.72 && loadFeel >= 0.42) ||
-    (throttle >= 0.68 && loadFeel >= 0.55)
-  );
 }
 
 function resolveKind(engineId: string): EngineKind {
@@ -93,11 +89,12 @@ function pickCommentaryChips(opts: {
   rpmNorm: number;
   loadFeel: number;
   driveMood?: unknown;
+  lockStage?: IonLockStage;
 }): string[] {
   const fromAudio = chipsFromDriveMood(opts.driveMood);
   if (fromAudio) return fromAudio;
 
-  const { kind, skinId, speedNorm, throttle, prevThrottle, rpmNorm, loadFeel } = opts;
+  const { kind, skinId, speedNorm, throttle, prevThrottle, rpmNorm, loadFeel, lockStage } = opts;
   const rising = throttle - prevThrottle > 0.02;
   const chips: string[] = [];
 
@@ -117,9 +114,9 @@ function pickCommentaryChips(opts: {
     if (speedNorm > 0.08 && throttle < 0.18 && !rising) chips.push('REGEN');
     else if (rising) chips.push('LOAD');
   } else if (kind === 'scifi' || skinId === 'ion-twin') {
-    if (ionAcquireLocked(throttle, rpmNorm, loadFeel) || (throttle >= 0.65 && rpmNorm >= 0.6)) {
-      chips.push('LOCK');
-    } else if (rising) chips.push('INTAKE');
+    const chip = lockStage ? ION_LOCK_CHIP[lockStage] : null;
+    if (chip) chips.push(chip);
+    else if (rising) chips.push('INTAKE');
   }
 
   if (chips.length === 0 && !idle) {
@@ -157,11 +154,18 @@ export function DrivePage({ audio, gps, prefs, onEnableGps }: Props) {
   const prevMph = useRef(0);
   const throttleProxy = useRef(0);
   const prevThrottleRef = useRef(0);
+  const lockStageRef = useRef<IonLockStage>('none');
+  const [lockStage, setLockStage] = useState<IonLockStage>('none');
   const longPressTimer = useRef<number | null>(null);
 
   const skinId = skinIdForEngine(audio.engineId || prefs.selectedEngineId || 'v8-rumble');
   const isIonTwin = skinId === 'ion-twin';
   const useAurebesh = isIonTwin && aurebeshOn;
+
+  useEffect(() => {
+    audio.setLockSfxEnabled(!!prefs.ionTwinLockSfx);
+  }, [audio, prefs.ionTwinLockSfx]);
+
   const numeralClass = useAurebesh ? 'aurebesh' : undefined;
 
   useEffect(() => {
@@ -173,12 +177,13 @@ export function DrivePage({ audio, gps, prefs, onEnableGps }: Props) {
     return () => document.removeEventListener('visibilitychange', onVis);
   }, []);
 
-  // Force Latin when leaving ion-twin
+  // Force Latin when leaving ion-twin; reset lock ladder off-skin
   useEffect(() => {
-    if (!isIonTwin && aurebeshOn) {
-      /* keep preference stored, but never apply off-skin */
+    if (!isIonTwin) {
+      lockStageRef.current = 'none';
+      setLockStage('none');
     }
-  }, [isIonTwin, aurebeshOn]);
+  }, [isIonTwin]);
 
   const gpsActive = gps.status === 'live' && !useManual;
   const displayMph = gpsActive ? gps.mph : manualSpeed * 120;
@@ -232,17 +237,41 @@ export function DrivePage({ audio, gps, prefs, onEnableGps }: Props) {
           driveMood = h.driveMood;
         }
         setAccelFeel(throttle);
-        const kind = resolveKind(audio.engineId || 'v8-rumble');
+        const engId = audio.engineId || 'v8-rumble';
+        const frameSkin = skinIdForEngine(engId);
+        let stage: IonLockStage = 'none';
+        if (frameSkin === 'ion-twin') {
+          const prevStage = lockStageRef.current;
+          stage = nextIonLockStage(rpmNorm, prevStage);
+          if (stage !== prevStage) {
+            lockStageRef.current = stage;
+            setLockStage(stage);
+            // Soft cue on LOCK entry only — Audio may implement triggerUiCue later
+            if (
+              stage === 'lock' &&
+              (prevStage === 'none' || prevStage === 'identified') &&
+              prefs.ionTwinLockSfx &&
+              eng
+            ) {
+              (eng as { triggerUiCue?: (id: string) => void }).triggerUiCue?.('ion-lock');
+            }
+          }
+        } else if (lockStageRef.current !== 'none') {
+          lockStageRef.current = 'none';
+          setLockStage('none');
+        }
+        const kind = resolveKind(engId);
         setChips(
           pickCommentaryChips({
             kind,
-            skinId: skinIdForEngine(audio.engineId || 'v8-rumble'),
+            skinId: frameSkin,
             speedNorm: speed,
             throttle,
             prevThrottle: prevThrottleRef.current,
             rpmNorm,
             loadFeel,
             driveMood,
+            lockStage: frameSkin === 'ion-twin' ? stage : undefined,
           }),
         );
         prevThrottleRef.current = throttle;
@@ -252,7 +281,7 @@ export function DrivePage({ audio, gps, prefs, onEnableGps }: Props) {
     };
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
-  }, [audio, gps.mph, gpsActive, manualSpeed, rev]);
+  }, [audio, gps.mph, gpsActive, manualSpeed, rev, prefs.ionTwinLockSfx]);
 
   const speedLabel = useMemo(() => {
     if (prefs.speedUnit === 'kph') {
@@ -344,6 +373,8 @@ export function DrivePage({ audio, gps, prefs, onEnableGps }: Props) {
           speedNorm={gpsActive ? mphToSpeed(gps.mph) : manualSpeed}
           loadFeel={hud.loadFeel}
           throttle={accelFeel}
+          lockStage={isIonTwin ? lockStage : undefined}
+          lockSfxEnabled={prefs.ionTwinLockSfx}
         />
         <div className="gear-pills" role="group" aria-label="Gearbox">
           <button

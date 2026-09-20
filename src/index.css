@@ -304,6 +304,13 @@ textarea {
 .toggle-row.mt {
   margin-top: 10px;
 }
+.toggle-row.tesla-touch {
+  min-height: 48px;
+}
+.toggle-row.tesla-touch input {
+  width: 24px;
+  height: 24px;
+}
 
 .hud-grid {
   display: grid;

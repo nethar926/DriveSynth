@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { DrivingInput, EngineDiag, EnginePatch, EngineSynth } from '../audio';
+import type { DrivingInput, EngineDiag, EnginePatch, EngineSynth, LockStage } from '../audio';
 import { createEngineSynth, getBuiltin } from '../audio';
 
 export function useAudioEngine(initialId = 'v8-rumble') {
@@ -80,6 +80,18 @@ export function useAudioEngine(initialId = 'v8-rumble') {
     };
   }, []);
 
+  const getLockStage = useCallback((): LockStage => {
+    return engineRef.current?.getLockStage() ?? 'none';
+  }, []);
+
+  const setLockSfxEnabled = useCallback((enabled: boolean) => {
+    engineRef.current?.setLockSfxEnabled(enabled);
+  }, []);
+
+  const getLockSfxEnabled = useCallback((): boolean => {
+    return engineRef.current?.getLockSfxEnabled() ?? false;
+  }, []);
+
   useEffect(() => {
     return () => {
       engineRef.current?.dispose();
@@ -96,6 +108,9 @@ export function useAudioEngine(initialId = 'v8-rumble') {
     loadPatch,
     getEngine,
     getDiag,
+    getLockStage,
+    setLockSfxEnabled,
+    getLockSfxEnabled,
     ready,
     running,
     engineId,

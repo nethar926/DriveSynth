@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import type { EngineKind, EngineParams, EnginePatch } from '../audio';
 import { BUILTIN_PATCHES } from '../audio';
 import type { useAudioEngine } from '../hooks/useAudioEngine';
+import type { UiPrefs } from '../hooks/useUiPrefs';
 
 interface Props {
   selectedId: string;
@@ -10,6 +11,8 @@ interface Props {
   onSelect: (patch: EnginePatch) => void;
   onDeleteUserPatch: (id: string) => void;
   audio: ReturnType<typeof useAudioEngine>;
+  prefs: UiPrefs;
+  update: (p: Partial<UiPrefs>) => void;
 }
 
 const SNIPPET_BY_ID: Record<string, string> = {
@@ -63,6 +66,8 @@ export function EnginesPage({
   onSelect,
   onDeleteUserPatch,
   audio,
+  prefs,
+  update,
 }: Props) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const lastIntensityRef = useRef(SCREAM_DEFAULTS.formantHowl);
@@ -254,6 +259,15 @@ export function EnginesPage({
               onChange={(e) => pushScream({ wetHiss: Number(e.target.value) })}
             />
           </label>
+          <label className="toggle-row mt tesla-touch">
+            <input
+              type="checkbox"
+              checked={prefs.ionTwinLockSfx}
+              onChange={(e) => update({ ionTwinLockSfx: e.target.checked })}
+            />
+            <span>Ion Twin lock SFX</span>
+          </label>
+          <p className="help-text dim">Optional chirp on TARGET LOCK (off by default).</p>
         </section>
       )}
 

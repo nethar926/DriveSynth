@@ -114,6 +114,8 @@ export default function App() {
               onSelect={onSelectEngine}
               onDeleteUserPatch={onDeleteUserPatch}
               audio={audio}
+              prefs={prefs}
+              update={update}
             />
           }
         />
