@@ -10,6 +10,8 @@ interface Props {
 const LOAD_R = 136;
 const LOAD_C = 2 * Math.PI * LOAD_R;
 const CHEVRON_COUNT = 6;
+const AOA_R = 42;
+const AOA_C = Math.PI * AOA_R; // half-circle arc length
 
 /** AB ARMED from throttle / rpm / loadFeel (Audio getHud) — high-power afterburn cue. */
 function afterburnArmed(throttle: number, rpmNorm: number, loadFeel: number): boolean {
@@ -20,18 +22,31 @@ function afterburnArmed(throttle: number, rpmNorm: number, loadFeel: number): bo
   );
 }
 
-/** Original aerospace HUD plate — pitch ladder + canopy frame; does not own SPEED/LOAD. */
+/**
+ * Original aerospace HUD plate — pitch ladder + canopy + glanceable secondary gauges.
+ * Does not own SPEED/LOAD. Decorative gauges are CSS/SVG only (pointer-events none).
+ * No real F-14 / SW IP — invented geometry.
+ */
 export function AerospaceF14Overlay({ rpmNorm, speedNorm, throttle, loadFeel }: Props) {
   const rpm = Math.max(0, Math.min(1, rpmNorm));
   const thr = Math.max(0, Math.min(1, throttle));
   const load = Math.max(0, Math.min(1, loadFeel));
+  const spd = Math.max(0, Math.min(1, speedNorm));
   const armed = afterburnArmed(thr, rpm, load);
   const litChevrons = Math.round(thr * CHEVRON_COUNT);
   const dashOffset = LOAD_C * (1 - load);
   const tipDeg = load * 360;
-  const climbOffset = armed ? -10 : 0;
+  const climbOffset = armed ? -10 : Math.round((load - 0.35) * 18);
   const accent = armed ? '#ffc850' : '#7cffb2';
   const accentHot = armed ? '#ff7a2e' : '#7cffb2';
+
+  // Secondary cues — decorative / live from rpmNorm · throttle · loadFeel
+  const aoa = Math.max(0, Math.min(1, load * 0.65 + thr * 0.35));
+  const aoaDash = AOA_C * (1 - aoa);
+  const vsi = Math.max(-1, Math.min(1, (thr - 0.45) * 1.4 + (load - 0.4) * 0.8));
+  const vsiY = 100 - vsi * 72; // center 100, ± ±72
+  const abPct = Math.round(Math.max(0, Math.min(1, (thr - 0.55) / 0.45)) * 100);
+  const horizonTilt = (load - 0.5) * 12 + (armed ? -4 : 0); // degrees, subtle
 
   return (
     <div
@@ -39,9 +54,13 @@ export function AerospaceF14Overlay({ rpmNorm, speedNorm, throttle, loadFeel }: 
       style={
         {
           ['--aero-rpm']: rpm,
-          ['--aero-speed']: speedNorm,
+          ['--aero-speed']: spd,
           ['--aero-throttle']: thr,
           ['--aero-load']: load,
+          ['--aero-aoa']: aoa,
+          ['--aero-vsi']: vsi,
+          ['--aero-ab']: abPct / 100,
+          ['--aero-horizon']: `${horizonTilt}deg`,
         } as CSSProperties
       }
     >
@@ -50,15 +69,70 @@ export function AerospaceF14Overlay({ rpmNorm, speedNorm, throttle, loadFeel }: 
       {armed && <div className="aero-heat-band" aria-hidden />}
 
       <div className="aero-status">
-        <span className="aero-status-name">AEROSPACE F14</span>
-        <span className="aero-status-lat">AEROSPACE · DRIVE</span>
-        <span className={`aero-ab-pill ${armed ? 'on' : ''}`}>
+        <span className="aero-status-name aero-stencil">AEROSPACE F14</span>
+        <span className="aero-status-lat aero-stencil">AEROSPACE · DRIVE</span>
+        <span className={`aero-ab-pill aero-stencil ${armed ? 'on' : ''}`}>
           {armed ? 'AB ARMED' : 'AB STBY'}
         </span>
       </div>
 
+      {/* Thin AOA-style arc — left periphery, away from SPEED */}
+      <svg className="aero-aoa" viewBox="0 0 56 110" aria-hidden>
+        <path
+          d="M48 8 A42 42 0 0 0 48 102"
+          fill="none"
+          stroke={armed ? 'rgba(255,122,46,0.22)' : 'rgba(124,255,178,0.18)'}
+          strokeWidth="3"
+          strokeLinecap="round"
+        />
+        <path
+          className="aero-aoa-fill"
+          d="M48 8 A42 42 0 0 0 48 102"
+          fill="none"
+          stroke={accentHot}
+          strokeWidth="3"
+          strokeLinecap="round"
+          strokeDasharray={AOA_C}
+          strokeDashoffset={aoaDash}
+          opacity="0.9"
+        />
+        <text x="28" y="58" className="aero-gauge-label" fill={accent} textAnchor="middle">
+          AOA
+        </text>
+      </svg>
+
+      {/* VSI-style tick ladder — right periphery */}
+      <svg className="aero-vsi" viewBox="0 0 36 200" aria-hidden>
+        <line x1="18" y1="12" x2="18" y2="188" stroke={accent} strokeWidth="0.7" opacity="0.35" />
+        {[12, 40, 68, 100, 132, 160, 188].map((y, i) => (
+          <line
+            key={y}
+            x1={i === 3 ? 4 : 10}
+            y1={y}
+            x2="28"
+            y2={y}
+            stroke={accent}
+            strokeWidth={i === 3 ? 1.4 : 0.9}
+            opacity={i === 3 ? 0.85 : 0.4}
+          />
+        ))}
+        <circle cx="18" cy={vsiY} r="3.2" fill={accentHot} opacity="0.95" className="aero-vsi-bug" />
+        <text x="18" y="8" className="aero-gauge-label" fill={accent} textAnchor="middle" fontSize="7">
+          VSI
+        </text>
+      </svg>
+
+      {/* AB % strip — bottom-right, decorative */}
+      <div className="aero-ab-strip" aria-hidden>
+        <span className="aero-ab-strip-label aero-stencil">AB%</span>
+        <div className="aero-ab-strip-track">
+          <div className="aero-ab-strip-fill" style={{ width: `${abPct}%` }} />
+        </div>
+        <span className="aero-ab-strip-val aero-stencil">{abPct}</span>
+      </div>
+
       <div className="aero-throttle" aria-hidden>
-        <span className="aero-thr-label">THR</span>
+        <span className="aero-thr-label aero-stencil">THR</span>
         <div className={`aero-chevrons ${armed ? 'hot' : ''}`}>
           {Array.from({ length: CHEVRON_COUNT }, (_, i) => (
             <span key={i} className={i < litChevrons ? 'on' : ''} />
@@ -129,6 +203,19 @@ export function AerospaceF14Overlay({ rpmNorm, speedNorm, throttle, loadFeel }: 
           strokeDasharray="4 6"
         />
 
+        {/* Horizon tick — subtle bank cue; SPEED stays dominant */}
+        <g
+          className="aero-horizon"
+          transform={`rotate(${horizonTilt} 170 170)`}
+          stroke={accent}
+          strokeLinecap="square"
+          filter="url(#aeroBloom)"
+        >
+          <line x1="118" y1="170" x2="148" y2="170" strokeWidth="1.6" opacity="0.55" />
+          <line x1="192" y1="170" x2="222" y2="170" strokeWidth="1.6" opacity="0.55" />
+          <line x1="168" y1="170" x2="172" y2="170" strokeWidth="2.2" opacity="0.9" />
+        </g>
+
         <g
           transform={`translate(0 ${climbOffset})`}
           stroke={accent}
@@ -171,11 +258,11 @@ export function AerospaceF14Overlay({ rpmNorm, speedNorm, throttle, loadFeel }: 
         </g>
 
         <g
-          fontFamily="ui-monospace, Menlo, Consolas, monospace"
+          className="aero-stencil-svg"
           fontSize="10"
           fill={accent}
           opacity="0.65"
-          letterSpacing="0.05em"
+          letterSpacing="0.12em"
           transform={`translate(0 ${climbOffset})`}
         >
           <text x="100" y="62" textAnchor="end">
@@ -242,10 +329,10 @@ export function AerospaceF14Overlay({ rpmNorm, speedNorm, throttle, loadFeel }: 
           x="170"
           y="210"
           textAnchor="middle"
-          fontFamily="ui-monospace, Menlo, Consolas, monospace"
+          className="aero-stencil-svg"
           fontSize="10"
           fill={armed ? '#ffc850' : '#8aa0a8'}
-          letterSpacing="0.22em"
+          letterSpacing="0.28em"
           opacity="0.8"
         >
           PITCH REF
@@ -254,18 +341,20 @@ export function AerospaceF14Overlay({ rpmNorm, speedNorm, throttle, loadFeel }: 
           x="170"
           y="228"
           textAnchor="middle"
-          fontFamily="ui-monospace, Menlo, Consolas, monospace"
+          className="aero-stencil-svg"
           fontSize="14"
           fontWeight="700"
           fill={accentHot}
-          letterSpacing="0.1em"
+          letterSpacing="0.16em"
         >
           {armed ? '+CLIMB' : 'LVL'}
         </text>
       </svg>
 
       <div className="aero-footer">
-        <span className="aero-mode">{armed ? 'AFTERBURN' : 'FLIGHT STANDBY'}</span>
+        <span className="aero-mode aero-stencil">
+          {armed ? 'AFTERBURN' : 'FLIGHT STANDBY'}
+        </span>
       </div>
     </div>
   );

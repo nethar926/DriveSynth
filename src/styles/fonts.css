@@ -26,3 +26,6 @@
   letter-spacing: 0.08em;
   text-transform: none;
 }
+
+/* Ion Twin SPEED: prefer [data-speed-script] hooks in ion-twin.css.
+ * .aurebesh remains the shared FT Aurebesh utility for brand / overlays. */

@@ -11,8 +11,13 @@ interface Props {
 }
 
 export function AppShell({ prefs, engineName, running, onMuteToggle, skinId = 'default' }: Props) {
+  const speedScript = skinId === 'ion-twin' ? prefs.ionTwinSpeedScript : undefined;
   return (
-    <div className={`app-shell density-${prefs.density}`} data-skin={skinId}>
+    <div
+      className={`app-shell density-${prefs.density}`}
+      data-skin={skinId}
+      {...(speedScript ? { 'data-speed-script': speedScript } : {})}
+    >
       <header className="top-chrome">
         <div className="brand">
           <span className="brand-mark">DS</span>
