@@ -17,10 +17,13 @@ interface Props {
   lockSfxEnabled?: boolean;
 }
 
-const CYAN = '#00e5ff';
-const CYAN_HOT = '#80ffff';
+/** CRT phosphor ladder — navy → yellow → red/yellow flash → full red */
+const NAVY = '#0c2468';
+const NAVY_HOT = '#1e4bb8';
+const YELLOW = '#ffe600';
+const YELLOW_HOT = '#fff24a';
 const RED = '#ff1a1a';
-const RED_HOT = '#ff3355';
+const RED_HOT = '#ff2200';
 
 /** Dense perimeter tick degrees — open gaps at 3/9 for bracket groups; denser toward 12/6. */
 function buildTickDegrees(): number[] {
@@ -156,9 +159,35 @@ function CardinalCrosshair({ color, snapped }: { color: string; snapped: boolean
   );
 }
 
+function stageAccent(stage: IonLockStage): string {
+  switch (stage) {
+    case 'identified':
+      return YELLOW_HOT;
+    case 'lock':
+      return RED; // CSS ion-lock-flash alternates red ↔ yellow
+    case 'kill':
+      return RED_HOT;
+    default:
+      return NAVY;
+  }
+}
+
+function stageTick(stage: IonLockStage): string {
+  switch (stage) {
+    case 'identified':
+      return YELLOW;
+    case 'lock':
+      return RED;
+    case 'kill':
+      return RED_HOT;
+    default:
+      return NAVY;
+  }
+}
+
 /**
- * Ion Twin CRT targeting scope — cyan scan / red lock-kill phosphor.
- * Lock ladder: none → identified → lock → kill (see lockLadder / audio lockStage).
+ * Ion Twin CRT targeting scope — navy / yellow / red-yellow flash / full-red phosphor ladder.
+ * Lock ladder: none → identified → lock → kill (~4% hysteresis; see lockLadder / audio lockStage).
  * Soft-cue: `data-lock-stage`; sits behind huge SPEED (pointer-events: none).
  */
 export function IonTwinOverlay({
@@ -184,9 +213,9 @@ export function IonTwinOverlay({
   }
 
   const lockedLike = stage === 'lock' || stage === 'kill';
-  const accent = lockedLike ? (stage === 'kill' ? RED_HOT : RED) : stage === 'identified' ? CYAN_HOT : CYAN;
-  const tickColor = lockedLike ? (stage === 'kill' ? RED_HOT : RED) : CYAN;
-  const craftColor = lockedLike ? (stage === 'kill' ? RED_HOT : RED) : CYAN;
+  const accent = stageAccent(stage);
+  const tickColor = stageTick(stage);
+  const craftColor = stageTick(stage);
   const footer = ION_LOCK_FOOTER[stage];
   const pill = ION_LOCK_PILL[stage];
   const pillOn = stage !== 'none';
@@ -195,6 +224,10 @@ export function IonTwinOverlay({
     stage === 'none' ? 0.08 : stage === 'identified' ? 0.55 : stage === 'lock' ? 0.92 : 1;
   const tickOpacity =
     stage === 'none' ? 0.35 : stage === 'identified' ? 0.7 : stage === 'lock' ? 0.88 : 1;
+
+  // Drive SVG strokes via CSS vars so lock-stage flash can animate red ↔ yellow
+  const tickStroke = 'var(--ion-tick)';
+  const craftStroke = 'var(--ion-craft)';
 
   const aria =
     stage === 'kill'
@@ -218,6 +251,12 @@ export function IonTwinOverlay({
           ['--ion-accent']: accent,
           ['--ion-tick']: tickColor,
           ['--ion-craft']: craftColor,
+          ['--ion-navy']: NAVY,
+          ['--ion-navy-hot']: NAVY_HOT,
+          ['--ion-yellow']: YELLOW,
+          ['--ion-yellow-hot']: YELLOW_HOT,
+          ['--ion-red']: RED,
+          ['--ion-red-hot']: RED_HOT,
         } as CSSProperties
       }
     >
@@ -286,14 +325,14 @@ export function IonTwinOverlay({
             cy="160"
             r="148"
             fill="none"
-            stroke={tickColor}
+            stroke={tickStroke}
             strokeWidth="0.5"
             opacity="0.35"
             filter="url(#ionPhosphor)"
           />
 
           {/* Dense tick ring — longer at 12/6, shorter toward 3/9 */}
-          <g stroke={tickColor} strokeLinecap="round" filter="url(#ionPhosphor)">
+          <g stroke={tickStroke} strokeLinecap="round" filter="url(#ionPhosphor)">
             {TICK_DEGS.map((deg) => {
               const { inner, outer } = tickLength(deg);
               const vertical = Math.min(
@@ -315,10 +354,10 @@ export function IonTwinOverlay({
             })}
           </g>
 
-          <CardinalCrosshair color={tickColor} snapped={lockedLike} />
+          <CardinalCrosshair color={tickStroke} snapped={lockedLike} />
 
           <TwinIonCraft
-            color={craftColor}
+            color={craftStroke}
             opacity={craftOpacity}
             bloom={lockedLike}
           />
