@@ -1,4 +1,4 @@
-import type { CSSProperties } from 'react';
+import { useRef, type CSSProperties } from 'react';
 import {
   ION_LOCK_FOOTER,
   ION_LOCK_PILL,
@@ -11,46 +11,156 @@ interface Props {
   speedNorm: number;
   throttle: number;
   loadFeel: number;
-  /** When omitted, derive from rpmNorm (no hysteresis history). */
+  /** Optional parent-driven stage; else hysteresis from rpmNorm via nextIonLockStage. */
   lockStage?: IonLockStage;
   /** Accepted for API parity; DrivePage owns soft cue. */
   lockSfxEnabled?: boolean;
 }
 
-const RPM_R = 132;
-const RPM_C = 2 * Math.PI * RPM_R;
+const CYAN = '#00e5ff';
+const CYAN_HOT = '#80ffff';
+const RED = '#ff1a1a';
+const RED_HOT = '#ff3355';
 
-function BracketSvg({ locked }: { locked: boolean }) {
-  const stroke = locked ? '#3dff7a' : 'currentColor';
-  const sw = locked ? 2.5 : 2;
+/** Dense perimeter tick degrees — open gaps at 3/9 for bracket groups; denser toward 12/6. */
+function buildTickDegrees(): number[] {
+  const out: number[] = [];
+  for (let i = 0; i < 144; i++) {
+    const deg = i * 2.5;
+    const dist3 = Math.min(Math.abs(deg - 90), Math.abs(deg - 270));
+    const dist12 = Math.min(deg, Math.abs(deg - 180), 360 - deg);
+    if (dist3 < 10) continue; // open 3/9 for horizontal brackets
+    // denser fan near 12/6; thinner toward sides
+    if (dist12 > 50 && i % 2 !== 0) continue;
+    if (dist12 > 30 && dist12 <= 50 && i % 3 === 1) continue;
+    out.push(deg);
+  }
+  return out;
+}
+
+const TICK_DEGS = buildTickDegrees();
+
+function tickLength(deg: number): { inner: number; outer: number } {
+  // 0° = 12 o'clock in our rotate(deg) with y-up ticks from center-top
+  const dist12 = Math.min(Math.abs(deg % 360), Math.abs((deg % 360) - 360));
+  const dist6 = Math.abs((deg % 360) - 180);
+  const vertical = Math.min(dist12, dist6);
+  const outer = 148;
+  if (vertical < 4) return { inner: 118, outer }; // longest fan tips
+  if (vertical < 14) return { inner: 124, outer };
+  if (vertical < 28) return { inner: 132, outer };
+  if (vertical < 45) return { inner: 138, outer };
+  return { inner: 142, outer }; // short side ticks
+}
+
+/**
+ * Original twin-ion interceptor silhouette (top-down wireframe).
+ * Central angular fuselage + twin side ion nacelles on swept pylons —
+ * NOT an X-wing / SW craft.
+ */
+function TwinIonCraft({
+  color,
+  opacity,
+  bloom,
+}: {
+  color: string;
+  opacity: number;
+  bloom: boolean;
+}) {
   return (
-    <svg viewBox="0 0 56 56" aria-hidden>
-      <path d="M4 18 V4 H18" fill="none" stroke={stroke} strokeWidth={sw} />
-      <path d="M38 4 H52 V18" fill="none" stroke={stroke} strokeWidth={sw} />
-      <path d="M52 38 V52 H38" fill="none" stroke={stroke} strokeWidth={sw} />
-      <path d="M18 52 H4 V38" fill="none" stroke={stroke} strokeWidth={sw} />
-      <rect
-        x="20"
-        y="20"
-        width="16"
-        height="16"
-        fill={locked ? 'rgba(61,255,122,0.08)' : 'none'}
-        stroke={stroke}
-        strokeWidth={locked ? 1 : 0.75}
-        opacity={locked ? 1 : 0.35}
+    <g
+      className="ion-craft"
+      opacity={opacity}
+      filter={bloom ? 'url(#ionPhosphorHot)' : 'url(#ionPhosphor)'}
+      stroke={color}
+      fill="none"
+      strokeLinejoin="round"
+      strokeLinecap="round"
+    >
+      {/* Nose spike / sensor wedge */}
+      <path d="M160 108 L168 128 L160 124 L152 128 Z" strokeWidth="1.4" fill={color} fillOpacity="0.15" />
+      <path d="M160 108 L168 128 M160 108 L152 128" strokeWidth="1.6" />
+
+      {/* Central angular fuselage (hex pod) */}
+      <path
+        d="M160 124 L176 136 L176 156 L160 172 L144 156 L144 136 Z"
+        strokeWidth="1.8"
+        fill={color}
+        fillOpacity="0.08"
       />
-    </svg>
+      <path d="M152 140 L168 140 M152 152 L168 152 M160 136 L160 160" strokeWidth="1" opacity="0.85" />
+
+      {/* Forward canopy chevron */}
+      <path d="M154 132 L160 128 L166 132" strokeWidth="1.2" />
+
+      {/* Swept pylons → twin ion nacelles */}
+      <path d="M144 142 L112 138 L108 148 L144 150" strokeWidth="1.5" fill={color} fillOpacity="0.06" />
+      <path d="M176 142 L208 138 L212 148 L176 150" strokeWidth="1.5" fill={color} fillOpacity="0.06" />
+
+      {/* Left ion nacelle (elongated hex) */}
+      <path
+        d="M108 128 L118 124 L124 132 L124 164 L118 172 L108 168 L102 160 L102 136 Z"
+        strokeWidth="1.7"
+        fill={color}
+        fillOpacity="0.1"
+      />
+      <path d="M108 136 L118 136 M108 160 L118 160 M113 128 L113 172" strokeWidth="0.9" opacity="0.8" />
+      {/* Left exhaust notch */}
+      <path d="M106 168 L113 178 L120 168" strokeWidth="1.3" />
+
+      {/* Right ion nacelle */}
+      <path
+        d="M212 128 L202 124 L196 132 L196 164 L202 172 L212 168 L218 160 L218 136 Z"
+        strokeWidth="1.7"
+        fill={color}
+        fillOpacity="0.1"
+      />
+      <path d="M202 136 L212 136 M202 160 L212 160 M207 128 L207 172" strokeWidth="0.9" opacity="0.8" />
+      <path d="M200 168 L207 178 L214 168" strokeWidth="1.3" />
+
+      {/* Nacelle fin spines (vertical, not X-wing foils) */}
+      <path d="M113 124 L113 116 M113 116 L108 120 M113 116 L118 120" strokeWidth="1.2" />
+      <path d="M207 124 L207 116 M207 116 L202 120 M207 116 L212 120" strokeWidth="1.2" />
+
+      {/* Aft fuselage spike */}
+      <path d="M152 168 L160 186 L168 168" strokeWidth="1.5" />
+      <path d="M156 172 L164 172" strokeWidth="1" opacity="0.7" />
+    </g>
   );
 }
 
-function accentFor(stage: IonLockStage): string {
-  if (stage === 'lock') return '#3dff7a';
-  if (stage === 'kill') return '#3dff7a';
-  if (stage === 'identified') return '#ffb020';
-  return '#ffb020';
+function CardinalCrosshair({ color, snapped }: { color: string; snapped: boolean }) {
+  // Vertical needles 12/6; horizontal triple-bracket groups at 3/9
+  const needleGap = snapped ? 42 : 48;
+  const bracketInset = snapped ? 52 : 58;
+  return (
+    <g className="ion-cardinal" stroke={color} filter="url(#ionPhosphor)" strokeLinecap="round">
+      {/* 12 o'clock needle */}
+      <line x1="160" y1="86" x2="160" y2={160 - needleGap} strokeWidth="1.6" />
+      {/* 6 o'clock needle */}
+      <line x1="160" y1={160 + needleGap} x2="160" y2="234" strokeWidth="1.6" />
+
+      {/* 9 o'clock bracket group (3 parallel horizontals) */}
+      <g strokeWidth="1.5">
+        <line x1={160 - bracketInset - 14} y1="152" x2={160 - bracketInset} y2="152" />
+        <line x1={160 - bracketInset - 18} y1="160" x2={160 - bracketInset} y2="160" />
+        <line x1={160 - bracketInset - 14} y1="168" x2={160 - bracketInset} y2="168" />
+      </g>
+      {/* 3 o'clock bracket group */}
+      <g strokeWidth="1.5">
+        <line x1={160 + bracketInset} y1="152" x2={160 + bracketInset + 14} y2="152" />
+        <line x1={160 + bracketInset} y1="160" x2={160 + bracketInset + 18} y2="160" />
+        <line x1={160 + bracketInset} y1="168" x2={160 + bracketInset + 14} y2="168" />
+      </g>
+    </g>
+  );
 }
 
-/** Original twin-ion targeting HUD — Aurebesh labels via FT Aurebesh (OFL). */
+/**
+ * Ion Twin CRT targeting scope — cyan scan / red lock-kill phosphor.
+ * Lock ladder: none → identified → lock → kill (see lockLadder / audio lockStage).
+ * Soft-cue: `data-lock-stage`; sits behind huge SPEED (pointer-events: none).
+ */
 export function IonTwinOverlay({
   rpmNorm,
   speedNorm,
@@ -59,29 +169,45 @@ export function IonTwinOverlay({
   lockStage: lockStageProp,
 }: Props) {
   const rpm = Math.max(0, Math.min(1, rpmNorm));
+  const prevStageRef = useRef<IonLockStage>('none');
+
   const stage: IonLockStage =
-    lockStageProp ?? nextIonLockStage(rpm, 'none');
-  const locked = stage === 'lock' || stage === 'kill';
-  const pill = ION_LOCK_PILL[stage];
+    lockStageProp ??
+    (() => {
+      const next = nextIonLockStage(rpm, prevStageRef.current);
+      prevStageRef.current = next;
+      return next;
+    })();
+
+  if (lockStageProp != null) {
+    prevStageRef.current = lockStageProp;
+  }
+
+  const lockedLike = stage === 'lock' || stage === 'kill';
+  const accent = lockedLike ? (stage === 'kill' ? RED_HOT : RED) : stage === 'identified' ? CYAN_HOT : CYAN;
+  const tickColor = lockedLike ? (stage === 'kill' ? RED_HOT : RED) : CYAN;
+  const craftColor = lockedLike ? (stage === 'kill' ? RED_HOT : RED) : CYAN;
   const footer = ION_LOCK_FOOTER[stage];
-  const dashOffset = RPM_C * (1 - rpm);
-  const tipDeg = rpm * 360;
-  const accent = accentFor(stage);
+  const pill = ION_LOCK_PILL[stage];
+  const pillOn = stage !== 'none';
 
-  const minorTicks = [10, 20, 40, 50, 70, 80, 100, 110, 130, 140, 160, 170, 190, 200, 220, 230, 250, 260, 280, 290, 310, 320, 340, 350];
+  const craftOpacity =
+    stage === 'none' ? 0.08 : stage === 'identified' ? 0.55 : stage === 'lock' ? 0.92 : 1;
+  const tickOpacity =
+    stage === 'none' ? 0.35 : stage === 'identified' ? 0.7 : stage === 'lock' ? 0.88 : 1;
 
-  const stageClass =
-    stage === 'none'
-      ? ''
-      : stage === 'identified'
-        ? 'identified'
-        : stage === 'kill'
-          ? 'locked kill'
-          : 'locked';
+  const aria =
+    stage === 'kill'
+      ? `Kill targeting reticle at ${Math.round(rpm * 100)} percent`
+      : stage === 'lock'
+        ? `Locked targeting reticle at ${Math.round(rpm * 100)} percent`
+        : stage === 'identified'
+          ? `Target identified reticle at ${Math.round(rpm * 100)} percent`
+          : `CRT targeting scope at ${Math.round(rpm * 100)} percent`;
 
   return (
     <div
-      className={`ion-twin-overlay ${stageClass}`.trim()}
+      className={`ion-twin-overlay ion-twin-overlay--${stage}${lockedLike ? ' locked' : ''}`}
       data-lock-stage={stage}
       style={
         {
@@ -89,190 +215,125 @@ export function IonTwinOverlay({
           ['--ion-speed']: speedNorm,
           ['--ion-throttle']: throttle,
           ['--ion-load']: loadFeel,
+          ['--ion-accent']: accent,
+          ['--ion-tick']: tickColor,
+          ['--ion-craft']: craftColor,
         } as CSSProperties
       }
     >
       <div className="ion-scanlines" />
-      <div className="ion-grid" />
+
+      {/* Decorative brushed bezel + knobs (CSS only, not controls) */}
+      <div className="ion-crt-housing" aria-hidden>
+        <span className="ion-knob ion-knob--l" />
+        <span className="ion-led ion-led--a" />
+        <span className="ion-led ion-led--b" />
+        <div className="ion-bezel">
+          <div className="ion-bezel-ring" />
+        </div>
+        <span className="ion-knob ion-knob--r1" />
+        <span className="ion-knob ion-knob--r2" />
+      </div>
 
       <div className="ion-status">
         <span className="aurebesh ion-status-ab">ION TWIN</span>
-        <span className="ion-status-lat">ION TWIN · SCIFI</span>
-        <span className={`ion-lock-pill ${locked ? 'on' : stage === 'identified' ? 'ident' : ''}`}>
+        <span className="ion-status-lat">CRT SCOPE</span>
+        <span className={`ion-lock-pill${pillOn ? ' on' : ''} ion-lock-pill--${stage}`}>
           <span className="aurebesh">{pill}</span>
           <span className="ion-lock-lat">{pill}</span>
         </span>
       </div>
 
-      <div className="ion-orbs" aria-hidden>
-        <span className="ion-orb left" />
-        <span className="ion-orb right" />
-      </div>
-
-      {/* Hexagonal outer frame — original geometry */}
-      <svg className="ion-hex" viewBox="0 0 400 400" aria-hidden>
-        <defs>
-          <linearGradient id="ionHexStroke" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor={accent} stopOpacity="0.95" />
-            <stop offset="50%" stopColor="#ffb020" stopOpacity="0.35" />
-            <stop offset="100%" stopColor={accent} stopOpacity="0.9" />
-          </linearGradient>
-        </defs>
-        <polygon
-          points="200,18 362,110 362,290 200,382 38,290 38,110"
-          fill="none"
-          stroke="url(#ionHexStroke)"
-          strokeWidth={locked ? 2 : 1.5}
-          opacity={locked ? 0.85 : 0.7}
-        />
-        <polygon
-          points="200,42 340,122 340,278 200,358 60,278 60,122"
-          fill={locked ? 'rgba(61,255,122,0.04)' : 'rgba(255,176,32,0.03)'}
-          stroke={accent}
-          strokeWidth="0.75"
-          opacity={locked ? 0.5 : 0.4}
-        />
-        <g stroke={accent} strokeWidth="1.5" fill="none" opacity="0.85">
-          <path d="M190 28 L200 18 L210 28" />
-          <path d="M352 100 L362 110 L352 122" />
-          <path d="M352 278 L362 290 L352 300" />
-          <path d="M210 372 L200 382 L190 372" />
-          <path d="M48 300 L38 290 L48 278" />
-          <path d="M48 122 L38 110 L48 100" />
-        </g>
-      </svg>
-
       <svg
-        className="ion-reticle"
+        className="ion-crt-scope"
         viewBox="0 0 320 320"
         role="img"
-        aria-label={
-          locked
-            ? `Locked targeting reticle at ${Math.round(rpm * 100)} percent`
-            : stage === 'identified'
-              ? `Target identified at ${Math.round(rpm * 100)} percent`
-              : `RPM-linked targeting reticle at ${Math.round(rpm * 100)} percent`
-        }
+        aria-label={aria}
       >
         <defs>
-          <filter id="ionGlow" x="-40%" y="-40%" width="180%" height="180%">
-            <feGaussianBlur stdDeviation="1.4" result="b" />
+          <filter id="ionPhosphor" x="-50%" y="-50%" width="200%" height="200%">
+            <feGaussianBlur stdDeviation="1.2" result="b" />
             <feMerge>
               <feMergeNode in="b" />
               <feMergeNode in="SourceGraphic" />
             </feMerge>
           </filter>
+          <filter id="ionPhosphorHot" x="-80%" y="-80%" width="260%" height="260%">
+            <feGaussianBlur stdDeviation="2.4" result="b" />
+            <feGaussianBlur stdDeviation="5" in="SourceGraphic" result="b2" />
+            <feMerge>
+              <feMergeNode in="b2" />
+              <feMergeNode in="b" />
+              <feMergeNode in="SourceGraphic" />
+            </feMerge>
+          </filter>
+          <clipPath id="ionCrtClip">
+            <circle cx="160" cy="160" r="150" />
+          </clipPath>
+          <radialGradient id="ionVoid" cx="50%" cy="50%" r="50%">
+            <stop offset="0%" stopColor="#020508" />
+            <stop offset="70%" stopColor="#000000" />
+            <stop offset="100%" stopColor="#000000" />
+          </radialGradient>
         </defs>
 
-        {/* Nested rings */}
-        <circle cx="160" cy="160" r="142" fill="none" stroke={accent} strokeWidth="0.6" opacity="0.25" />
-        <circle cx="160" cy="160" r="118" fill="none" stroke={accent} strokeWidth="1.2" opacity="0.55" />
-        <circle cx="160" cy="160" r="88" fill="none" stroke="#ffb020" strokeWidth="1" opacity={locked ? 0.35 : 0.4} />
-        <circle cx="160" cy="160" r="52" fill="none" stroke={accent} strokeWidth={locked ? 2 : 1.5} opacity={locked ? 0.85 : 0.7} />
+        <circle cx="160" cy="160" r="150" fill="url(#ionVoid)" />
 
-        {/* Major + minor ticks */}
-        <g stroke={accent} strokeLinecap="round" filter="url(#ionGlow)">
-          <g strokeWidth={locked ? 2.2 : 2} opacity="0.9">
-            <line x1="160" y1="22" x2="160" y2="38" />
-            <line x1="160" y1="282" x2="160" y2="298" />
-            <line x1="22" y1="160" x2="38" y2="160" />
-            <line x1="282" y1="160" x2="298" y2="160" />
-            <line x1="71.4" y1="71.4" x2="82.7" y2="82.7" />
-            <line x1="237.3" y1="237.3" x2="248.6" y2="248.6" />
-            <line x1="248.6" y1="71.4" x2="237.3" y2="82.7" />
-            <line x1="82.7" y1="237.3" x2="71.4" y2="248.6" />
-          </g>
-          <g strokeWidth="1" opacity="0.45">
-            {minorTicks.map((deg) => (
-              <line key={deg} transform={`rotate(${deg} 160 160)`} x1="160" y1="36" x2="160" y2="46" />
-            ))}
-          </g>
-        </g>
-
-        {/* RPM arc driven by rpmNorm */}
-        <g filter="url(#ionGlow)">
+        <g clipPath="url(#ionCrtClip)" opacity={tickOpacity}>
+          {/* Outer soft ring */}
           <circle
             cx="160"
             cy="160"
-            r={RPM_R}
+            r="148"
             fill="none"
-            stroke="rgba(255,176,32,0.15)"
-            strokeWidth="5"
+            stroke={tickColor}
+            strokeWidth="0.5"
+            opacity="0.35"
+            filter="url(#ionPhosphor)"
           />
-          <circle
-            className="ion-rpm-arc"
-            cx="160"
-            cy="160"
-            r={RPM_R}
-            fill="none"
-            stroke="#ffb020"
-            strokeWidth="5"
-            strokeLinecap="round"
-            strokeDasharray={RPM_C}
-            strokeDashoffset={dashOffset}
-            transform="rotate(-90 160 160)"
-            opacity="0.95"
-          />
-          <circle
-            className="ion-rpm-tip"
-            cx="160"
-            cy="28"
-            r="3.5"
-            fill={locked ? '#3dff7a' : '#ffb020'}
-            opacity="0.95"
-            transform={`rotate(${tipDeg} 160 160)`}
+
+          {/* Dense tick ring — longer at 12/6, shorter toward 3/9 */}
+          <g stroke={tickColor} strokeLinecap="round" filter="url(#ionPhosphor)">
+            {TICK_DEGS.map((deg) => {
+              const { inner, outer } = tickLength(deg);
+              const vertical = Math.min(
+                Math.min(Math.abs(deg % 360), Math.abs((deg % 360) - 360)),
+                Math.abs((deg % 360) - 180),
+              );
+              const sw = vertical < 8 ? 1.6 : vertical < 25 ? 1.2 : 0.85;
+              return (
+                <line
+                  key={deg}
+                  transform={`rotate(${deg} 160 160)`}
+                  x1="160"
+                  y1={inner}
+                  x2="160"
+                  y2={outer}
+                  strokeWidth={sw}
+                />
+              );
+            })}
+          </g>
+
+          <CardinalCrosshair color={tickColor} snapped={lockedLike} />
+
+          <TwinIonCraft
+            color={craftColor}
+            opacity={craftOpacity}
+            bloom={lockedLike}
           />
         </g>
-
-        {/* Crosshair */}
-        <g stroke={accent} strokeWidth={locked ? 1.2 : 1} opacity={locked ? 0.85 : 0.65}>
-          <line x1="160" y1="118" x2="160" y2="142" />
-          <line x1="160" y1="178" x2="160" y2="202" />
-          <line x1="118" y1="160" x2="142" y2="160" />
-          <line x1="178" y1="160" x2="202" y2="160" />
-        </g>
-        <circle cx="160" cy="160" r={locked ? 6 : 4} fill="none" stroke={accent} strokeWidth={locked ? 2 : 1.5} />
-        <circle cx="160" cy="160" r={locked ? 2 : 1.5} fill={accent} />
-
-        <text
-          x="160"
-          y="230"
-          textAnchor="middle"
-          fontFamily="ui-monospace, Menlo, Consolas, monospace"
-          fontSize="11"
-          fill={accent}
-          letterSpacing="0.2em"
-          opacity="0.75"
-        >
-          {stage === 'kill' ? 'KILL' : locked ? 'ACQUIRED' : stage === 'identified' ? 'IDENTIFIED' : 'RPM ARC'}
-        </text>
-        <text
-          x="160"
-          y="248"
-          textAnchor="middle"
-          fontFamily="ui-monospace, Menlo, Consolas, monospace"
-          fontSize="16"
-          fontWeight="700"
-          fill="#ffb020"
-          letterSpacing="0.08em"
-        >
-          {Math.round(rpm * 100)}%
-        </text>
       </svg>
 
-      <div className="ion-brackets" aria-hidden>
-        <span className="br tl">
-          <BracketSvg locked={locked} />
+      {/* Bottom Aurebesh readout strip inside scope area */}
+      <div className="ion-readout" aria-hidden>
+        <span className="ion-readout-seg">
+          <span className="aurebesh">{footer.aurebesh}</span>
         </span>
-        <span className="br tr">
-          <BracketSvg locked={locked} />
-        </span>
-        <span className="br bl">
-          <BracketSvg locked={locked} />
-        </span>
-        <span className="br brc">
-          <BracketSvg locked={locked} />
-        </span>
+        <span className="ion-readout-div" />
+        <span className="ion-readout-seg ion-readout-lat">{footer.latin}</span>
+        <span className="ion-readout-div" />
+        <span className="ion-readout-seg aurebesh">{Math.round(rpm * 100)}</span>
       </div>
 
       <div className="ion-footer">
@@ -282,3 +343,5 @@ export function IonTwinOverlay({
     </div>
   );
 }
+
+export type { IonLockStage as LockStage };
