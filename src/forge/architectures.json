@@ -1,0 +1,173 @@
+[
+  {
+    "id": "v8-muscle",
+    "name": "Crossplane V8",
+    "patch": {
+      "voice": "combustion",
+      "cylinders": 8,
+      "firing": "crossplane",
+      "idleRpm": 700,
+      "redline": 6200,
+      "rumble": 0.88,
+      "growl": 0.78,
+      "metallic": 0.1,
+      "turbo": 0,
+      "crackle": 0.65,
+      "distortion": 0.38,
+      "gears": 6,
+      "hasManual": true
+    }
+  },
+  {
+    "id": "flatplane",
+    "name": "Flat-plane V8",
+    "patch": {
+      "voice": "combustion",
+      "cylinders": 8,
+      "firing": "even",
+      "idleRpm": 900,
+      "redline": 9000,
+      "rumble": 0.35,
+      "growl": 0.6,
+      "metallic": 0.4,
+      "rasp": 0.7,
+      "turbo": 0,
+      "gears": 7
+    }
+  },
+  {
+    "id": "i4-turbo",
+    "name": "Turbo I4",
+    "patch": {
+      "voice": "combustion",
+      "cylinders": 4,
+      "firing": "even",
+      "idleRpm": 850,
+      "redline": 7000,
+      "rumble": 0.3,
+      "growl": 0.45,
+      "turbo": 0.8,
+      "blowoff": 0.9,
+      "turboPitch": 0.7,
+      "gears": 6
+    }
+  },
+  {
+    "id": "i6",
+    "name": "Straight-six",
+    "patch": {
+      "voice": "combustion",
+      "cylinders": 6,
+      "firing": "smooth",
+      "idleRpm": 800,
+      "redline": 7800,
+      "rumble": 0.32,
+      "growl": 0.55,
+      "metallic": 0.35,
+      "turbo": 0.4
+    }
+  },
+  {
+    "id": "v10",
+    "name": "V10",
+    "patch": {
+      "voice": "combustion",
+      "cylinders": 10,
+      "firing": "even",
+      "idleRpm": 1000,
+      "redline": 9000,
+      "rumble": 0.4,
+      "growl": 0.7,
+      "metallic": 0.5,
+      "rasp": 0.72,
+      "turbo": 0
+    }
+  },
+  {
+    "id": "v12",
+    "name": "V12",
+    "patch": {
+      "voice": "combustion",
+      "cylinders": 12,
+      "firing": "smooth",
+      "idleRpm": 850,
+      "redline": 8500,
+      "rumble": 0.28,
+      "growl": 0.58,
+      "metallic": 0.45,
+      "rasp": 0.6
+    }
+  },
+  {
+    "id": "rotary",
+    "name": "Rotary",
+    "patch": {
+      "voice": "combustion",
+      "cylinders": 2,
+      "firing": "odd-fire",
+      "idleRpm": 1100,
+      "redline": 9500,
+      "rumble": 0.2,
+      "growl": 0.5,
+      "metallic": 0.7,
+      "rasp": 0.8,
+      "air": 0.65
+    }
+  },
+  {
+    "id": "inverter",
+    "name": "Inverter",
+    "patch": {
+      "voice": "electric",
+      "cylinders": 0,
+      "firing": "smooth",
+      "idleRpm": 400,
+      "redline": 16000,
+      "metallic": 0.92,
+      "rumble": 0.1,
+      "gears": 1,
+      "hasManual": false
+    }
+  },
+  {
+    "id": "turbine",
+    "name": "Turbine",
+    "patch": {
+      "voice": "turbine",
+      "cylinders": 0,
+      "idleRpm": 1400,
+      "redline": 14000,
+      "air": 0.85,
+      "metallic": 0.8,
+      "gears": 1,
+      "hasManual": false
+    }
+  },
+  {
+    "id": "twin-ion",
+    "name": "Twin ion",
+    "patch": {
+      "voice": "starfighter",
+      "idleRpm": 900,
+      "redline": 11000,
+      "metallic": 0.95,
+      "air": 0.9,
+      "rasp": 0.85,
+      "rumble": 0.55,
+      "gears": 4,
+      "hasManual": true
+    }
+  },
+  {
+    "id": "lofi-pad",
+    "name": "Lo-fi pad",
+    "patch": {
+      "voice": "lofi",
+      "hasMusic": true,
+      "hasManual": false,
+      "rumble": 0.35,
+      "body": 0.85,
+      "rasp": 0.1
+    }
+  }
+]

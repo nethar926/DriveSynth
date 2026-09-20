@@ -1,5 +1,5 @@
 import type { CSSProperties } from 'react';
-import type { EngineId } from '../audio';
+import { getBuiltin, type EngineId } from '../audio';
 import type { GaugeCluster } from '../hooks/useUiPrefs';
 import { AerospaceF14Overlay } from './aerospace-f14/AerospaceF14Overlay';
 import { IonTwinOverlay } from './ion-twin/IonTwinOverlay';
@@ -27,6 +27,8 @@ export interface DriveSkinProps {
 
 /** engineId → skin id (Visual Skins registry) */
 export function skinIdForEngine(engineId: string): string {
+  const builtin = getBuiltin(engineId);
+  if (builtin?.revforge) return builtin.kind === 'scifi' ? 'ion-twin' : builtin.kind === 'aerospace' ? 'aerospace-f14' : builtin.kind === 'ev-whine' ? 'ev-inverter' : 'ice-v8';
   switch (engineId) {
     case 'tie-fighter':
       return 'ion-twin';

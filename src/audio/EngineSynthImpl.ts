@@ -14,6 +14,7 @@ import type {
 import { nextLockStage, packSupportsLockLadder } from './lockStage';
 import { clamp, createNoiseBuffer, lerp, makeShaper, rpmCurve, smooth, smoothstep } from './utils';
 import pulseWorkletUrl from './worklets/pulse-engine-processor.js?url';
+import { RevForgeSynth } from '../forge/RevForgeSynth';
 
 type Kind = EnginePatch['kind'];
 
@@ -273,6 +274,8 @@ export class EngineSynthImpl implements EngineSynth {
       throttle: clamp(d.throttle),
       load: d.load !== undefined ? clamp(d.load, -1, 1) : this.driving.load,
       reverse: !!d.reverse,
+      rpm: Number.isFinite(d.rpm) ? clamp(d.rpm!, 0, 20000) : undefined,
+      rpmNorm: Number.isFinite(d.rpmNorm) ? clamp(d.rpmNorm!) : undefined,
     };
     this.applyDriving(false);
   }
@@ -1561,10 +1564,10 @@ export class EngineSynthImpl implements EngineSynth {
     const kind = this.patchMeta.kind;
 
     const curve = Number(p.rpmCurve ?? 0.55);
-    let rpmNorm = rpmCurve(d.speed, curve);
-    if (d.speed < 0.04) {
+    let rpmNorm = d.rpmNorm ?? rpmCurve(d.speed, curve);
+    if (d.rpmNorm === undefined && d.speed < 0.04) {
       rpmNorm = Math.max(rpmNorm, d.throttle * 0.55);
-    } else {
+    } else if (d.rpmNorm === undefined) {
       rpmNorm = clamp(rpmNorm + d.throttle * 0.12);
     }
 
@@ -1806,7 +1809,7 @@ export class EngineSynthImpl implements EngineSynth {
 
     const idle = Number(p.rpmIdle ?? 55);
     const red = Number(p.rpmRedline ?? 240);
-    let fund = lerp(idle, red, rpmNorm);
+    let fund = d.rpm !== undefined ? d.rpm * Number(p.cylinders ?? 8) / 120 : lerp(idle, red, rpmNorm);
     if (d.reverse) fund *= 0.92;
     this.hud.fundamentalHz = fund;
 
@@ -2461,5 +2464,6 @@ function writeUpshiftSfxPref(enabled: boolean): void {
 }
 
 export function createEngineSynth(ctx: AudioContext, patch?: EnginePatch): EngineSynth {
+  if (patch?.revforge) return new RevForgeSynth(ctx, patch);
   return new EngineSynthImpl(ctx, patch);
 }

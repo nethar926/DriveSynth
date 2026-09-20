@@ -1,25 +1,26 @@
-import { useCallback, useEffect, useState } from 'react';
-import { Navigate, Route, Routes } from 'react-router-dom';
-import { AppShell } from '../components/AppShell';
-import { useAudioEngine } from '../hooks/useAudioEngine';
-import { useGeolocation } from '../hooks/useGeolocation';
-import { usePatches } from '../hooks/usePatches';
-import { useUiPrefs } from '../hooks/useUiPrefs';
-import { BuilderPage } from '../pages/BuilderPage';
-import { CustomizePage } from '../pages/CustomizePage';
-import { DiagPage } from '../pages/DiagPage';
-import { DrivePage } from '../pages/DrivePage';
-import { EnginesPage } from '../pages/EnginesPage';
-import type { EnginePatch } from '../audio';
-import { getBuiltin } from '../audio';
-import { skinIdForEngine } from '../skins/DriveSkinSlot';
+import { useCallback, useEffect, useState } from "react";
+import { Navigate, Route, Routes } from "react-router-dom";
+import { AppShell } from "../components/AppShell";
+import { useAudioEngine } from "../hooks/useAudioEngine";
+import { useGeolocation } from "../hooks/useGeolocation";
+import { usePatches } from "../hooks/usePatches";
+import { useUiPrefs } from "../hooks/useUiPrefs";
+import { BuilderPage } from "../pages/BuilderPage";
+import { CustomizePage } from "../pages/CustomizePage";
+import { DiagPage } from "../pages/DiagPage";
+import { ForgePage } from "../forge/ForgePage";
+import { DrivePage } from "../pages/DrivePage";
+import { EnginesPage } from "../pages/EnginesPage";
+import type { EnginePatch } from "../audio";
+import { getBuiltin } from "../audio";
+import { skinIdForEngine } from "../skins/DriveSkinSlot";
 
 export default function App() {
   const { prefs, update, reset } = useUiPrefs();
-  const audio = useAudioEngine(prefs.selectedEngineId);
+  const { userPatches, savePatch, deletePatch } = usePatches();
+  const audio = useAudioEngine(prefs.selectedEngineId, userPatches);
   const [gpsEnabled, setGpsEnabled] = useState(false);
   const gps = useGeolocation(gpsEnabled);
-  const { userPatches, savePatch, deletePatch } = usePatches();
 
   useEffect(() => {
     const eng = audio.getEngine();
@@ -27,7 +28,10 @@ export default function App() {
     // Mute via output node so patch masterGain stays intact
     const out = eng.output;
     // When running and unmuted, leave gain to EngineSynth.start(); only force 0 when muted.
-    const target = prefs.masterMuted ? 0 : audio.running ? 1 : out.gain.value;
+    const target =
+      prefs.masterMuted || !audio.running
+        ? 0
+        : Math.max(0, Math.min(1, prefs.masterVolume ?? 0.65));
     const now = eng.context.currentTime;
     try {
       out.gain.cancelScheduledValues(now);
@@ -35,7 +39,7 @@ export default function App() {
     } catch {
       out.gain.value = target;
     }
-  }, [prefs.masterMuted, audio, audio.running]);
+  }, [prefs.masterMuted, prefs.masterVolume, audio]);
 
   const onSelectEngine = useCallback(
     (patch: EnginePatch) => {
@@ -58,7 +62,7 @@ export default function App() {
     (id: string) => {
       deletePatch(id);
       if (audio.engineId === id || prefs.selectedEngineId === id) {
-        const fallback = getBuiltin('v8-rumble');
+        const fallback = getBuiltin("v8-rumble");
         if (fallback) {
           audio.loadPatch(fallback);
           update({ selectedEngineId: fallback.id });
@@ -72,6 +76,24 @@ export default function App() {
 
   return (
     <Routes>
+      {["/", "/drive"].map((path) => (
+        <Route
+          key={path}
+          path={path}
+          element={
+            <ForgePage
+              audio={audio}
+              gps={gps}
+              prefs={prefs}
+              update={update}
+              onSelectEngine={onSelectEngine}
+              onSavePatch={onSavePatch}
+              onGpsEnabled={setGpsEnabled}
+              userPatches={userPatches}
+            />
+          }
+        />
+      ))}
       <Route
         element={
           <AppShell
@@ -84,26 +106,16 @@ export default function App() {
         }
       >
         <Route
-          path="/"
+          path="/cockpit"
           element={
             <DrivePage
               audio={audio}
               gps={gps}
               prefs={prefs}
               update={update}
-              onEnableGps={() => setGpsEnabled(true)}
-            />
-          }
-        />
-        <Route
-          path="/drive"
-          element={
-            <DrivePage
-              audio={audio}
-              gps={gps}
-              prefs={prefs}
-              update={update}
-              onEnableGps={() => setGpsEnabled(true)}
+              onEnableGps={() =>
+                gpsEnabled ? gps.start() : setGpsEnabled(true)
+              }
             />
           }
         />
@@ -123,7 +135,9 @@ export default function App() {
         />
         <Route
           path="/customize"
-          element={<CustomizePage prefs={prefs} update={update} reset={reset} />}
+          element={
+            <CustomizePage prefs={prefs} update={update} reset={reset} />
+          }
         />
         <Route
           path="/builder"
@@ -136,10 +150,7 @@ export default function App() {
             />
           }
         />
-        <Route
-          path="/diag"
-          element={<DiagPage audio={audio} gps={gps} />}
-        />
+        <Route path="/diag" element={<DiagPage audio={audio} gps={gps} />} />
         <Route path="*" element={<Navigate to="/drive" replace />} />
       </Route>
     </Routes>

@@ -1,3 +1,4 @@
+import type { RevForgeVoiceConfig } from '../forge/voiceTypes';
 export type EngineId = string;
 
 export type TopologyId =
@@ -40,6 +41,12 @@ export interface DrivingInput {
   /** Load lean -1..1 */
   load?: number;
   reverse?: boolean;
+  /** Physical drivetrain RPM, supplied by the merged simulator. Legacy callers may omit it. */
+  rpm?: number;
+  rpmNorm?: number;
+  acceleration?: number;
+  shifting?: boolean;
+  overrun?: boolean;
 }
 
 export interface EngineParams {
@@ -157,6 +164,8 @@ export interface SynthNodeDesc {
 }
 
 export interface EnginePatch {
+  /** Native RevForge parameters; persisted with custom presets. */
+  revforge?: RevForgeVoiceConfig;
   version: 0;
   id: EngineId;
   name: string;
@@ -191,6 +200,7 @@ export interface EngineSynth {
     rpmNorm: number;
     loadFeel: number;
     fundamentalHz: number;
+    rpm?: number;
     driveMood?: string;
     /** Ion Twin lock ladder; always 'none' for non-scifi packs */
     lockStage?: LockStage;

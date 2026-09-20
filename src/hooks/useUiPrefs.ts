@@ -29,6 +29,7 @@ export interface UiPrefs {
   speedUnit: SpeedUnit;
   showKeepAliveTip: boolean;
   masterMuted: boolean;
+  masterVolume: number;
   selectedEngineId: string;
   mapping: ControlMapping;
   /** Optional Ion Twin lock chirp; off by default. */
@@ -54,7 +55,8 @@ export const DEFAULT_UI: UiPrefs = {
   speedUnit: 'mph',
   showKeepAliveTip: true,
   masterMuted: false,
-  selectedEngineId: 'v8-rumble',
+  masterVolume: .65,
+  selectedEngineId: 'revforge-road-66',
   mapping: {
     revPad: 'throttle',
     speedSlider: 'speed',

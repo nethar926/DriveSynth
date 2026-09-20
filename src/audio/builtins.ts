@@ -1,4 +1,5 @@
 import type { EngineKind, EnginePatch, EngineParams, ParamMeta } from './types';
+import { REVFORGE_PATCHES } from '../forge/catalog';
 
 export const V8_DEFAULTS: EngineParams = {
   masterGain: 0.7,
@@ -278,6 +279,7 @@ export const BUILTIN_PATCHES: EnginePatch[] = [
       author: 'DriveSynth',
     },
   },
+  ...REVFORGE_PATCHES,
 ];
 
 export function defaultsForTopology(topology: string): EngineParams {
