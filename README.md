@@ -56,10 +56,16 @@ interface EngineSynth {
   getParams(): EngineParams;
   toPatch(): EnginePatch;
   fromPatch(patch: EnginePatch): void;
+  /** MANUAL paddle up: eng.triggerUiCue('upshift') when Customize toggle on (default off). */
+  triggerUiCue?(cue: 'upshift' | string): void;
+  setUpshiftSfxEnabled(enabled: boolean): void;
+  getUpshiftSfxEnabled(): boolean;
 }
 ```
 
 Frontend maps mph → `speed` 0..1 via `mphToSpeed`. Audio owns RPM curves and smoothing.
+
+**Frontend upshift cue:** when MANUAL paddle up and upshift SFX is on, call `eng.triggerUiCue('upshift')` (short mechanical bark; does not pitch-jump the drive stack). Pref key `ds-upshift-sfx` / Customize “MANUAL upshift bark”.
 
 ## Key files
 

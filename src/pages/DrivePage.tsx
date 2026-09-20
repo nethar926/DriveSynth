@@ -165,6 +165,10 @@ export function DrivePage({ audio, gps, prefs, onEnableGps }: Props) {
     audio.setLockSfxEnabled(!!prefs.ionTwinLockSfx);
   }, [audio, prefs.ionTwinLockSfx]);
 
+  useEffect(() => {
+    audio.setUpshiftSfxEnabled(!!prefs.upshiftSfx);
+  }, [audio, prefs.upshiftSfx]);
+
   const numeralClass = useAurebesh ? 'aurebesh' : undefined;
 
   useEffect(() => {

@@ -115,6 +115,18 @@ export function CustomizePage({ prefs, update, reset }: Props) {
           <span>Ion Twin lock SFX</span>
         </label>
         <p className="help-text dim">Optional chirp when TARGET LOCK engages (off by default).</p>
+        <label className="toggle-row mt tesla-touch">
+          <input
+            type="checkbox"
+            checked={prefs.upshiftSfx}
+            onChange={(e) => update({ upshiftSfx: e.target.checked })}
+          />
+          <span>MANUAL upshift bark</span>
+        </label>
+        <p className="help-text dim">
+          Optional short mechanical bark on MANUAL paddle up (off by default). Frontend:{' '}
+          <code>eng.triggerUiCue(&apos;upshift&apos;)</code>.
+        </p>
       </section>
 
       <section className="panel">

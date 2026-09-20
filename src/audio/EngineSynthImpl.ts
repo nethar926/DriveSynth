@@ -177,6 +177,8 @@ export class EngineSynthImpl implements EngineSynth {
   private lockSfxEnabled = false;
   /** Soft-cue for Frontend; prefer polling getHud().lockStage if unset. */
   onLockStageChange?: (stage: LockStage) => void;
+  /** MANUAL upshift bark; default false; localStorage `ds-upshift-sfx`. */
+  private upshiftSfxEnabled = false;
 
   constructor(ctx: AudioContext, patch?: EnginePatch) {
     this.context = ctx;
@@ -203,6 +205,7 @@ export class EngineSynthImpl implements EngineSynth {
     this.g = this.buildGraph(initial.kind, initial.topology);
     this.applyAllParams();
     this.applyDriving(true);
+    this.upshiftSfxEnabled = readUpshiftSfxPref();
   }
 
   get id(): EngineId {
@@ -329,6 +332,27 @@ export class EngineSynthImpl implements EngineSynth {
 
   getLockSfxEnabled(): boolean {
     return this.lockSfxEnabled;
+  }
+
+  setUpshiftSfxEnabled(enabled: boolean): void {
+    this.upshiftSfxEnabled = !!enabled;
+    writeUpshiftSfxPref(this.upshiftSfxEnabled);
+  }
+
+  getUpshiftSfxEnabled(): boolean {
+    return this.upshiftSfxEnabled;
+  }
+
+  /**
+   * Soft UI cue. 'upshift' → short mechanical bark when enabled (ICE/aerospace;
+   * quieter EV; skip scifi). Does not touch setDriving / pitch stack.
+   */
+  triggerUiCue(cue: 'upshift' | string): void {
+    if (this.disposed || !this.started) return;
+    if (cue === 'upshift') {
+      if (!this.upshiftSfxEnabled) return;
+      this.playUpshiftBark();
+    }
   }
 
   getDiag(): EngineDiag {
@@ -1629,6 +1653,84 @@ export class EngineSynthImpl implements EngineSynth {
     }
   }
 
+  /**
+   * Short procedural MANUAL upshift bark: noise burst + dull knock (~80–150ms).
+   * Not a whole-stack pitch jump. ICE/aerospace full; EV quieter; scifi skipped.
+   */
+  private playUpshiftBark(): void {
+    if (this.disposed) return;
+    const kind = this.patchMeta.kind;
+    if (kind === 'scifi') return;
+
+    let scale = 1;
+    if (kind === 'ev-whine') scale = 0.32;
+    else if (kind === 'aerospace') scale = 0.8;
+    // ice → 1
+
+    const ctx = this.context;
+    const now = ctx.currentTime;
+    const dur = 0.11; // ~110ms within 80–150ms
+    try {
+      // Dull mechanical knock (triangle, low)
+      const knock = ctx.createOscillator();
+      knock.type = 'triangle';
+      knock.frequency.setValueAtTime(108, now);
+      knock.frequency.exponentialRampToValueAtTime(62, now + dur * 0.85);
+      const knockLp = ctx.createBiquadFilter();
+      knockLp.type = 'lowpass';
+      knockLp.frequency.value = 420;
+      knockLp.Q.value = 0.9;
+      const knockG = ctx.createGain();
+      const knockPeak = 0.22 * scale;
+      knockG.gain.setValueAtTime(0.0001, now);
+      knockG.gain.exponentialRampToValueAtTime(knockPeak, now + 0.006);
+      knockG.gain.exponentialRampToValueAtTime(0.0001, now + dur);
+      knock.connect(knockLp);
+      knockLp.connect(knockG);
+      knockG.connect(this.output);
+      knock.start(now);
+      knock.stop(now + dur + 0.02);
+      knock.onended = () => {
+        try {
+          knock.disconnect();
+          knockLp.disconnect();
+          knockG.disconnect();
+        } catch {
+          /* ignore */
+        }
+      };
+
+      // Brief mid noise burst (clutch/dog engagement grit)
+      const noise = ctx.createBufferSource();
+      noise.buffer = this.whiteBuf;
+      const bp = ctx.createBiquadFilter();
+      bp.type = 'bandpass';
+      bp.frequency.value = 780;
+      bp.Q.value = 1.4;
+      const ng = ctx.createGain();
+      const noisePeak = 0.16 * scale;
+      ng.gain.setValueAtTime(0.0001, now);
+      ng.gain.exponentialRampToValueAtTime(noisePeak, now + 0.004);
+      ng.gain.exponentialRampToValueAtTime(0.0001, now + 0.085);
+      noise.connect(bp);
+      bp.connect(ng);
+      ng.connect(this.output);
+      noise.start(now);
+      noise.stop(now + 0.1);
+      noise.onended = () => {
+        try {
+          noise.disconnect();
+          bp.disconnect();
+          ng.disconnect();
+        } catch {
+          /* ignore */
+        }
+      };
+    } catch {
+      /* never block drive path */
+    }
+  }
+
   /** One-pole lag + random-walk jitter so character breathes. */
   private stepLivingDrive(immediate: boolean, tc: number, kind: Kind): void {
     const d = this.driving;
@@ -2248,6 +2350,27 @@ export class EngineSynthImpl implements EngineSynth {
     if (g.delayGain) {
       smooth(g.delayGain.gain, doppler * 0.28 + wet * 0.08, tc, ctx);
     }
+  }
+}
+
+const UPSHIFT_SFX_KEY = 'ds-upshift-sfx';
+
+function readUpshiftSfxPref(): boolean {
+  try {
+    if (typeof localStorage === 'undefined') return false;
+    return localStorage.getItem(UPSHIFT_SFX_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
+function writeUpshiftSfxPref(enabled: boolean): void {
+  try {
+    if (typeof localStorage === 'undefined') return;
+    if (enabled) localStorage.setItem(UPSHIFT_SFX_KEY, '1');
+    else localStorage.removeItem(UPSHIFT_SFX_KEY);
+  } catch {
+    /* ignore quota / private mode */
   }
 }
 

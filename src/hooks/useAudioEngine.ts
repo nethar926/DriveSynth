@@ -92,6 +92,30 @@ export function useAudioEngine(initialId = 'v8-rumble') {
     return engineRef.current?.getLockSfxEnabled() ?? false;
   }, []);
 
+  const setUpshiftSfxEnabled = useCallback((enabled: boolean) => {
+    engineRef.current?.setUpshiftSfxEnabled(enabled);
+    // Persist even before Start so Customize toggle sticks (engine may not exist yet).
+    try {
+      if (enabled) localStorage.setItem('ds-upshift-sfx', '1');
+      else localStorage.removeItem('ds-upshift-sfx');
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
+  const getUpshiftSfxEnabled = useCallback((): boolean => {
+    if (engineRef.current) return engineRef.current.getUpshiftSfxEnabled();
+    try {
+      return localStorage.getItem('ds-upshift-sfx') === '1';
+    } catch {
+      return false;
+    }
+  }, []);
+
+  const triggerUiCue = useCallback((cue: 'upshift' | string) => {
+    engineRef.current?.triggerUiCue?.(cue);
+  }, []);
+
   useEffect(() => {
     return () => {
       engineRef.current?.dispose();
@@ -111,6 +135,9 @@ export function useAudioEngine(initialId = 'v8-rumble') {
     getLockStage,
     setLockSfxEnabled,
     getLockSfxEnabled,
+    setUpshiftSfxEnabled,
+    getUpshiftSfxEnabled,
+    triggerUiCue,
     ready,
     running,
     engineId,

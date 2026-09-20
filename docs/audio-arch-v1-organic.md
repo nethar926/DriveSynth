@@ -167,3 +167,26 @@ Public-knowledge acoustic targets; see `/workspace/product-research/acoustic-cue
 
 ### Legal
 - 100% procedural / free; no dribe rips; no commercial samples; no Star Wars audio assets.
+
+---
+
+## Real Engine Simulator lessons (method only, 2026-09-20)
+
+Public product claims from https://realenginesimulator.com/engines — **do not** rip audio or clone their catalog.
+
+**North star:** if dropping a cylinder doesn’t change the lope, we’re still in synth-demo land.
+
+### Fold-in priorities
+1. **P0** Sample-accurate firing-order pulse trains (cross-plane vs flat-plane vs i6 even); expand pack families by geometry, not more osc leads.
+2. **P0** Exhaust = pulse → waveguide/resonator body (already on organic V8 path).
+3. **P1** Intake bus separate; misfire/lump first-class (living-drive + optional drop-cylinder control).
+4. **P1** Jets = spool inertia + broadband core + wet AB (Carrier Jet path).
+5. **P2** Layout diversity as pack identity (twin limp, boxer, rotary-like chamber pulse) — original packs only.
+
+Full Product Research note: `/workspace/product-research/realenginesimulator-lessons.md`
+
+---
+
+## Soft UI cues (Frontend contract)
+
+- **MANUAL upshift bark:** call `eng.triggerUiCue('upshift')` on paddle up when Customize toggle / `ds-upshift-sfx` is on (default off). Procedural noise+knock ~80–150ms; ICE/aerospace full, EV quieter, scifi skipped. Does not alter `setDriving`.

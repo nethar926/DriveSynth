@@ -208,6 +208,17 @@ export interface EngineSynth {
    */
   onLockStageChange?: (stage: LockStage) => void;
 
+  /**
+   * Soft UI cue (Frontend-driven). For 'upshift': short procedural mechanical bark
+   * (noise burst + dull knock) — not a whole-stack pitch jump. Gated by setUpshiftSfxEnabled.
+   * Frontend: call eng.triggerUiCue('upshift') when MANUAL paddle up and toggle on.
+   */
+  triggerUiCue?(cue: 'upshift' | string): void;
+
+  /** Optional MANUAL upshift bark; default false. Persists to localStorage `ds-upshift-sfx`. */
+  setUpshiftSfxEnabled(enabled: boolean): void;
+  getUpshiftSfxEnabled(): boolean;
+
   /** Frontend /diag snapshot — field names stable for iceMode consumers */
   getDiag(): EngineDiag;
 }
