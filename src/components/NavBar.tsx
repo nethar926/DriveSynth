@@ -5,6 +5,7 @@ const links = [
   { to: '/engines', label: 'Engines' },
   { to: '/customize', label: 'Customize' },
   { to: '/builder', label: 'Builder' },
+  { to: '/diag', label: 'Diag' },
 ];
 
 export function NavBar() {

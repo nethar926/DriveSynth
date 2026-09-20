@@ -764,3 +764,42 @@ textarea {
     transition: none !important;
   }
 }
+
+
+/* Diag */
+.diag-page {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.diag-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+}
+.diag-row {
+  display: grid;
+  grid-template-columns: minmax(120px, 34%) 1fr;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--panel) 88%, transparent);
+  min-height: 48px;
+  align-items: start;
+}
+.diag-row dt {
+  color: var(--text-dim);
+  font-size: 0.82rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.diag-row dd {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: 0.88rem;
+  word-break: break-word;
+  line-height: 1.35;
+}

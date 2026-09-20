@@ -7,6 +7,7 @@ import { usePatches } from '../hooks/usePatches';
 import { useUiPrefs } from '../hooks/useUiPrefs';
 import { BuilderPage } from '../pages/BuilderPage';
 import { CustomizePage } from '../pages/CustomizePage';
+import { DiagPage } from '../pages/DiagPage';
 import { DrivePage } from '../pages/DrivePage';
 import { EnginesPage } from '../pages/EnginesPage';
 import type { EnginePatch } from '../audio';
@@ -100,6 +101,10 @@ export default function App() {
           element={<CustomizePage prefs={prefs} update={update} reset={reset} />}
         />
         <Route path="/builder" element={<BuilderPage audio={audio} onSave={onSavePatch} />} />
+        <Route
+          path="/diag"
+          element={<DiagPage audio={audio} gps={gps} />}
+        />
         <Route path="*" element={<Navigate to="/drive" replace />} />
       </Route>
     </Routes>
