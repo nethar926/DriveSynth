@@ -1,5 +1,5 @@
 import { Gauge } from '../components/Gauge';
-import type { UiPrefs, ThemeId, LayoutDensity, GaugeStyle, SpeedUnit } from '../hooks/useUiPrefs';
+import type { UiPrefs, ThemeId, LayoutDensity, GaugeStyle, SpeedUnit, IonTwinSpeedScript } from '../hooks/useUiPrefs';
 
 interface Props {
   prefs: UiPrefs;
@@ -127,6 +127,27 @@ export function CustomizePage({ prefs, update, reset }: Props) {
           Optional short mechanical bark on MANUAL paddle up (off by default). Frontend:{' '}
           <code>eng.triggerUiCue(&apos;upshift&apos;)</code>.
         </p>
+        <h2 className="section-title mt">Ion Twin SPEED script</h2>
+        <p className="help-text dim">
+          Aurebesh is the Ion Twin default. Latin or dual-ghost keeps glanceability under cabin motion.
+          Sets <code>data-speed-script</code> on the shell when that skin is active.
+        </p>
+        <div className="segmented">
+          {([
+            { id: 'aurebesh', label: 'Aurebesh' },
+            { id: 'dual', label: 'Dual ghost' },
+            { id: 'latin', label: 'Latin' },
+          ] as { id: IonTwinSpeedScript; label: string }[]).map((opt) => (
+            <button
+              key={opt.id}
+              type="button"
+              className={`seg-btn ${prefs.ionTwinSpeedScript === opt.id ? 'active' : ''}`}
+              onClick={() => update({ ionTwinSpeedScript: opt.id })}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
       </section>
 
       <section className="panel">

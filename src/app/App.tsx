@@ -90,6 +90,7 @@ export default function App() {
               audio={audio}
               gps={gps}
               prefs={prefs}
+              update={update}
               onEnableGps={() => setGpsEnabled(true)}
             />
           }
@@ -101,6 +102,7 @@ export default function App() {
               audio={audio}
               gps={gps}
               prefs={prefs}
+              update={update}
               onEnableGps={() => setGpsEnabled(true)}
             />
           }

@@ -52,10 +52,15 @@
   --skin-hud-max-w: 1280px;
   --skin-hud-max-h: 800px;
 
-  /* Typography — system / mono only */
+  /* Typography — free/system only (no paid fonts).
+   * No OFL stencil in repo: condensed mono + wide tracking + uppercase
+   * approximates a tactical stencil look without shipping new assets. */
   --skin-font-ui: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   --skin-font-mono: ui-monospace, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
-  --skin-font-display: var(--skin-font-mono);
+  --skin-font-stencil: "Arial Narrow", "Helvetica Neue Condensed", "Roboto Condensed",
+                       ui-monospace, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+  --skin-font-display: var(--skin-font-stencil);
+  --skin-stencil-tracking: 0.22em;
 
   /* Motion */
   --skin-pulse-ms: 1400ms;
@@ -372,6 +377,143 @@
   .aero-throttle { bottom: 12%; left: 10px; }
 }
 
+
+/* ——— Tactical stencil look (system condensed + tracking; no paid/OFL stencil font) ——— */
+.aero-stencil {
+  font-family: var(--skin-font-stencil, ui-monospace, monospace);
+  font-stretch: condensed;
+  letter-spacing: var(--skin-stencil-tracking, 0.22em);
+  text-transform: uppercase;
+  font-weight: 700;
+}
+
+.aero-stencil-svg {
+  font-family: var(--skin-font-stencil, ui-monospace, monospace);
+  text-transform: uppercase;
+}
+
+.aero-status-name {
+  letter-spacing: var(--skin-stencil-tracking, 0.22em);
+}
+
+.aero-gauge-label {
+  font-family: var(--skin-font-stencil, ui-monospace, monospace);
+  font-size: 8px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  font-weight: 700;
+}
+
+/* Secondary flight gauges — thin, peripheral; SPEED remains dominant */
+.aero-aoa {
+  position: absolute;
+  left: 6px;
+  top: 42%;
+  width: 44px;
+  height: 96px;
+  transform: translateY(-50%);
+  z-index: 2;
+  opacity: 0.55;
+  pointer-events: none;
+  filter: drop-shadow(0 0 4px var(--skin-hud-cyan-glow, rgba(124, 255, 178, 0.45)));
+}
+
+.aero-f14-overlay.armed .aero-aoa {
+  opacity: 0.78;
+  filter: drop-shadow(0 0 5px var(--skin-ab-amber-glow, rgba(255, 200, 80, 0.5)));
+}
+
+.aero-aoa-fill {
+  transition: stroke-dashoffset 120ms linear;
+}
+
+.aero-vsi {
+  position: absolute;
+  right: 6px;
+  top: 44%;
+  width: 28px;
+  height: 150px;
+  transform: translateY(-50%);
+  z-index: 2;
+  opacity: 0.5;
+  pointer-events: none;
+  filter: drop-shadow(0 0 4px var(--skin-hud-cyan-glow, rgba(124, 255, 178, 0.45)));
+}
+
+.aero-f14-overlay.armed .aero-vsi {
+  opacity: 0.72;
+  filter: drop-shadow(0 0 5px var(--skin-ab-amber-glow, rgba(255, 200, 80, 0.5)));
+}
+
+.aero-vsi-bug {
+  transition: cy 120ms linear;
+}
+
+.aero-horizon {
+  transition: transform 140ms linear;
+  transform-origin: 170px 170px;
+}
+
+.aero-ab-strip {
+  position: absolute;
+  right: 12px;
+  bottom: 14%;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 22px;
+  pointer-events: none;
+  font-size: 10px;
+  color: var(--skin-text-dim, rgba(216, 255, 232, 0.55));
+}
+
+.aero-ab-strip-label {
+  font-size: 0.58rem;
+  opacity: 0.75;
+}
+
+.aero-ab-strip-track {
+  width: 56px;
+  height: 4px;
+  border-radius: 1px;
+  background: rgba(138, 160, 168, 0.25);
+  border: 1px solid var(--skin-stroke-soft, rgba(124, 255, 178, 0.28));
+  overflow: hidden;
+}
+
+.aero-ab-strip-fill {
+  height: 100%;
+  width: 0%;
+  background: var(--skin-hud-cyan, #7cffb2);
+  box-shadow: 0 0 6px var(--skin-hud-cyan-glow, rgba(124, 255, 178, 0.45));
+  transition: width 120ms linear;
+}
+
+.aero-f14-overlay.armed .aero-ab-strip-fill {
+  background: linear-gradient(90deg, var(--skin-ab-amber, #ffc850), var(--skin-ab-orange, #ff7a2e));
+  box-shadow: 0 0 8px var(--skin-ab-amber-glow, rgba(255, 200, 80, 0.5));
+}
+
+.aero-ab-strip-val {
+  font-size: 0.62rem;
+  min-width: 1.6em;
+  text-align: right;
+  color: var(--skin-hud-cyan, #7cffb2);
+}
+
+.aero-f14-overlay.armed .aero-ab-strip-val,
+.aero-f14-overlay.armed .aero-ab-strip-label {
+  color: var(--skin-ab-amber, #ffc850);
+}
+
+@media (max-width: 1100px), (max-height: 680px) {
+  .aero-aoa { width: 36px; height: 80px; left: 4px; }
+  .aero-vsi { width: 22px; height: 120px; right: 4px; }
+  .aero-ab-strip { bottom: 12%; right: 8px; }
+  .aero-ab-strip-track { width: 44px; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .aero-heat-band,
   .aero-ab-pill.on,
@@ -381,6 +523,10 @@
 
   .aero-load-arc,
   .aero-load-tip,
+  .aero-aoa-fill,
+  .aero-vsi-bug,
+  .aero-horizon,
+  .aero-ab-strip-fill,
   .aero-chevrons span,
   .aero-ab-pill,
   .aero-ladder,

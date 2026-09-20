@@ -4,6 +4,8 @@ export type ThemeId = 'night' | 'day' | 'neon' | 'mono';
 export type LayoutDensity = 'comfortable' | 'compact' | 'spacious';
 export type GaugeStyle = 'arc' | 'bar' | 'numeric';
 export type SpeedUnit = 'mph' | 'kph';
+/** Ion Twin SPEED glyph mode — aurebesh default; latin/dual for cabin glanceability. */
+export type IonTwinSpeedScript = 'aurebesh' | 'latin' | 'dual';
 
 export interface ControlMapping {
   revPad: 'throttle';
@@ -25,6 +27,11 @@ export interface UiPrefs {
   ionTwinLockSfx: boolean;
   /** Optional MANUAL upshift bark; off by default. Also mirrored to `ds-upshift-sfx`. */
   upshiftSfx: boolean;
+  /**
+   * Ion Twin SPEED script. Default aurebesh (always-on, not hold Easter egg).
+   * Latin / dual-ghost for Customize glanceability under cabin motion.
+   */
+  ionTwinSpeedScript: IonTwinSpeedScript;
 }
 
 const KEY = 'drivesynth.ui.v1';
@@ -45,14 +52,36 @@ export const DEFAULT_UI: UiPrefs = {
   },
   ionTwinLockSfx: false,
   upshiftSfx: false,
+  ionTwinSpeedScript: 'aurebesh',
 };
+
+const LEGACY_AUREBESH_KEY = 'drivesynth.ionTwin.aurebeshNumerals';
+
+function migrateIonTwinSpeedScript(
+  parsed: Partial<UiPrefs>,
+): IonTwinSpeedScript {
+  const v = parsed.ionTwinSpeedScript;
+  if (v === 'aurebesh' || v === 'latin' || v === 'dual') return v;
+  // Legacy hold-to-flip Boolean: explicit false → latin; otherwise default aurebesh.
+  try {
+    const legacy = localStorage.getItem(LEGACY_AUREBESH_KEY);
+    if (legacy === 'false' || legacy === '0') return 'latin';
+  } catch {
+    /* ignore */
+  }
+  return 'aurebesh';
+}
 
 function load(): UiPrefs {
   try {
     const raw = localStorage.getItem(KEY);
     const dsUpshift = localStorage.getItem('ds-upshift-sfx') === '1';
     if (!raw) {
-      return { ...DEFAULT_UI, upshiftSfx: dsUpshift };
+      return {
+        ...DEFAULT_UI,
+        upshiftSfx: dsUpshift,
+        ionTwinSpeedScript: migrateIonTwinSpeedScript({}),
+      };
     }
     const parsed = JSON.parse(raw) as Partial<UiPrefs>;
     const upshiftSfx =
@@ -62,6 +91,7 @@ function load(): UiPrefs {
       ...parsed,
       mapping: { ...DEFAULT_UI.mapping, ...parsed.mapping },
       upshiftSfx,
+      ionTwinSpeedScript: migrateIonTwinSpeedScript(parsed),
     };
   } catch {
     return { ...DEFAULT_UI };

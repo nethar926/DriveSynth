@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { Gauge } from '../components/Gauge';
 import { RevPad } from '../components/RevPad';
 import { DriveSkinSlot, skinIdForEngine } from '../skins/DriveSkinSlot';
@@ -6,7 +6,7 @@ import { getBuiltin, mphToSpeed } from '../audio';
 import type { EngineKind } from '../audio';
 import type { useAudioEngine } from '../hooks/useAudioEngine';
 import type { useGeolocation } from '../hooks/useGeolocation';
-import type { UiPrefs } from '../hooks/useUiPrefs';
+import type { IonTwinSpeedScript, UiPrefs } from '../hooks/useUiPrefs';
 import {
   ION_LOCK_CHIP,
   type IonLockStage,
@@ -16,11 +16,12 @@ interface Props {
   audio: ReturnType<typeof useAudioEngine>;
   gps: ReturnType<typeof useGeolocation>;
   prefs: UiPrefs;
+  update: (p: Partial<UiPrefs>) => void;
   onEnableGps: () => void;
 }
 
-const AUREBESH_KEY = 'drivesynth.ionTwin.aurebeshNumerals';
 const AUREBESH_HINT_KEY = 'drivesynth.ionTwin.aurebeshHintUsed';
+const SPEED_SCRIPT_CYCLE: IonTwinSpeedScript[] = ['aurebesh', 'dual', 'latin'];
 
 function loadBool(key: string, fallback = false): boolean {
   try {
@@ -134,7 +135,7 @@ function pickCommentaryChips(opts: {
   return out;
 }
 
-export function DrivePage({ audio, gps, prefs, onEnableGps }: Props) {
+export function DrivePage({ audio, gps, prefs, update, onEnableGps }: Props) {
   const [manualSpeed, setManualSpeed] = useState(0);
   const [rev, setRev] = useState(0);
   const [useManual, setUseManual] = useState(false);
@@ -148,7 +149,6 @@ export function DrivePage({ audio, gps, prefs, onEnableGps }: Props) {
   const [gearMode, setGearMode] = useState<'auto' | 'manual'>('auto');
   const [accelFeel, setAccelFeel] = useState(0);
   const [chips, setChips] = useState<string[]>(['IDLE']);
-  const [aurebeshOn, setAurebeshOn] = useState(() => loadBool(AUREBESH_KEY));
   const [hintUsed, setHintUsed] = useState(() => loadBool(AUREBESH_HINT_KEY));
   const prevMph = useRef(0);
   const throttleProxy = useRef(0);
@@ -159,7 +159,12 @@ export function DrivePage({ audio, gps, prefs, onEnableGps }: Props) {
 
   const skinId = skinIdForEngine(audio.engineId || prefs.selectedEngineId || 'v8-rumble');
   const isIonTwin = skinId === 'ion-twin';
-  const useAurebesh = isIonTwin && aurebeshOn;
+  /** SPEED-only script; telemetry / gauges stay Latin (glanceability). */
+  const speedScript: IonTwinSpeedScript | undefined = isIonTwin
+    ? prefs.ionTwinSpeedScript
+    : undefined;
+  const speedUsesAurebesh =
+    speedScript === 'aurebesh' || speedScript === 'dual';
 
   useEffect(() => {
     audio.setLockSfxEnabled(!!prefs.ionTwinLockSfx);
@@ -168,8 +173,6 @@ export function DrivePage({ audio, gps, prefs, onEnableGps }: Props) {
   useEffect(() => {
     audio.setUpshiftSfxEnabled(!!prefs.upshiftSfx);
   }, [audio, prefs.upshiftSfx]);
-
-  const numeralClass = useAurebesh ? 'aurebesh' : undefined;
 
   useEffect(() => {
     const onVis = () => {
@@ -290,17 +293,12 @@ export function DrivePage({ audio, gps, prefs, onEnableGps }: Props) {
   const unit = prefs.speedUnit === 'kph' ? 'km/h' : 'mph';
   const rpmReadout = `${Math.round(800 + hud.rpmNorm * 6200)}`;
 
-  const flipAurebesh = () => {
+  const cycleSpeedScript = () => {
     if (!isIonTwin) return;
-    setAurebeshOn((prev) => {
-      const next = !prev;
-      try {
-        localStorage.setItem(AUREBESH_KEY, String(next));
-      } catch {
-        /* ignore */
-      }
-      return next;
-    });
+    const cur = prefs.ionTwinSpeedScript;
+    const idx = SPEED_SCRIPT_CYCLE.indexOf(cur);
+    const next = SPEED_SCRIPT_CYCLE[(idx + 1) % SPEED_SCRIPT_CYCLE.length];
+    update({ ionTwinSpeedScript: next });
     if (!hintUsed) {
       setHintUsed(true);
       try {
@@ -323,9 +321,12 @@ export function DrivePage({ audio, gps, prefs, onEnableGps }: Props) {
     clearLongPress();
     longPressTimer.current = window.setTimeout(() => {
       longPressTimer.current = null;
-      flipAurebesh();
+      cycleSpeedScript();
     }, 550);
   };
+
+  const speedToggleLabel =
+    speedScript === 'latin' ? '123' : speedScript === 'dual' ? 'AB+1' : 'AB';
 
   return (
     <div className="drive-page">
@@ -389,31 +390,43 @@ export function DrivePage({ audio, gps, prefs, onEnableGps }: Props) {
             MANUAL
           </button>
         </div>
-        <div className="speed-hero">
+        <div
+          className="speed-hero"
+          {...(speedScript ? { 'data-speed-script': speedScript } : {})}
+        >
           <div
-            className={`speed-hero-value${numeralClass ? ` ${numeralClass}` : ''}`}
+            className={`speed-hero-value${speedUsesAurebesh ? ' aurebesh' : ''}`}
+            style={
+              speedScript === 'dual'
+                ? ({ ['--speed-digits' as string]: `"${speedLabel}"` } as CSSProperties)
+                : undefined
+            }
             onPointerDown={onSpeedPointerDown}
             onPointerUp={clearLongPress}
             onPointerLeave={clearLongPress}
             onPointerCancel={clearLongPress}
             role={isIonTwin ? 'button' : undefined}
-            aria-label={isIonTwin ? 'Speed — hold to flip Aurebesh numerals' : undefined}
+            aria-label={
+              isIonTwin
+                ? `Speed — Aurebesh default; hold to cycle script (now ${speedScript})`
+                : undefined
+            }
           >
             {speedLabel}
           </div>
           <div className="speed-hero-unit">{unit}</div>
           {isIonTwin && !hintUsed && (
-            <p className="aurebesh-hint">hold speed to flip glyphs</p>
+            <p className="aurebesh-hint">Aurebesh SPEED · hold to cycle · Customize for Latin/dual</p>
           )}
           {isIonTwin && (
             <button
               type="button"
               className="aurebesh-toggle"
-              onClick={flipAurebesh}
-              aria-pressed={aurebeshOn}
-              title="Toggle Aurebesh numerals"
+              onClick={cycleSpeedScript}
+              aria-pressed={speedUsesAurebesh}
+              title="Cycle SPEED script: Aurebesh → dual ghost → Latin"
             >
-              {aurebeshOn ? 'AB' : '123'}
+              {speedToggleLabel}
             </button>
           )}
         </div>
@@ -430,24 +443,24 @@ export function DrivePage({ audio, gps, prefs, onEnableGps }: Props) {
 
         <div className="telemetry-strip">
           <div className="tele-cell">
-            <div className={`tele-value${numeralClass ? ` ${numeralClass}` : ''}`}>
+            <div className="tele-value">
               {Math.round(hud.loadFeel * 100)}
             </div>
             <div className="tele-label">LOAD %</div>
           </div>
           <div className="tele-cell">
-            <div className={`tele-value${numeralClass ? ` ${numeralClass}` : ''}`}>{rpmReadout}</div>
+            <div className="tele-value">{rpmReadout}</div>
             <div className="tele-label">REVS</div>
           </div>
           <div className="tele-cell">
-            <div className={`tele-value${numeralClass ? ` ${numeralClass}` : ''}`}>
+            <div className="tele-value">
               {Math.round(accelFeel * 100)}
             </div>
             <div className="tele-label">ACCEL</div>
           </div>
         </div>
         <div className="hud-secondary">
-          <div className={useAurebesh ? 'aurebesh' : undefined}>
+          <div>
             <Gauge
               style={prefs.gaugeStyle}
               value={hud.rpmNorm}
