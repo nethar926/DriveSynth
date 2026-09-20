@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Gauge } from '../components/Gauge';
 import { RevPad } from '../components/RevPad';
-import { DriveSkinSlot } from '../skins/DriveSkinSlot';
-import { mphToSpeed } from '../audio';
+import { DriveSkinSlot, skinIdForEngine } from '../skins/DriveSkinSlot';
+import { getBuiltin, mphToSpeed } from '../audio';
+import type { EngineKind } from '../audio';
 import type { useAudioEngine } from '../hooks/useAudioEngine';
 import type { useGeolocation } from '../hooks/useGeolocation';
 import type { UiPrefs } from '../hooks/useUiPrefs';
@@ -14,16 +15,154 @@ interface Props {
   onEnableGps: () => void;
 }
 
+const AUREBESH_KEY = 'drivesynth.ionTwin.aurebeshNumerals';
+const AUREBESH_HINT_KEY = 'drivesynth.ionTwin.aurebeshHintUsed';
+
+function loadBool(key: string, fallback = false): boolean {
+  try {
+    const v = localStorage.getItem(key);
+    if (v === null) return fallback;
+    return v === 'true' || v === '1';
+  } catch {
+    return fallback;
+  }
+}
+
+/** Mirror IonTwinOverlay acquireLocked thresholds. */
+function ionAcquireLocked(throttle: number, rpmNorm: number, loadFeel: number): boolean {
+  return (
+    (throttle >= 0.55 && rpmNorm >= 0.58) ||
+    (rpmNorm >= 0.72 && loadFeel >= 0.42) ||
+    (throttle >= 0.68 && loadFeel >= 0.55)
+  );
+}
+
+function resolveKind(engineId: string): EngineKind {
+  const builtin = getBuiltin(engineId);
+  if (builtin) return builtin.kind;
+  if (engineId.includes('tie') || engineId.includes('scifi')) return 'scifi';
+  if (engineId.includes('f14') || engineId.includes('aero')) return 'aerospace';
+  if (engineId.includes('ev')) return 'ev-whine';
+  return 'ice';
+}
+
+/** Glanceable one-word commentary chips — max 3. Prefer Audio driveMood. */
+const MOOD_DISPLAY: Record<string, string> = {
+  // CoS / future Audio tokens
+  IDLE: 'IDLE',
+  LOPE: 'LOPE',
+  INTAKE: 'INTAKE',
+  LOAD: 'LOAD',
+  SPOOLING: 'SPOOLING',
+  AB: 'AB ARMED',
+  'AB ARMED': 'AB ARMED',
+  REGEN: 'REGEN',
+  LOCK: 'LOCK',
+  // Current Audio EngineSynthImpl driveMood strings
+  PULL: 'LOAD',
+  CRUISE: 'LOAD',
+};
+
+function chipsFromDriveMood(mood: unknown): string[] | null {
+  if (mood == null) return null;
+  const raw: string[] = Array.isArray(mood)
+    ? mood.map(String)
+    : typeof mood === 'string'
+      ? mood.split(/[|,+\s]+/).filter(Boolean)
+      : [];
+  if (raw.length === 0) return null;
+  const out: string[] = [];
+  const seen = new Set<string>();
+  for (const token of raw) {
+    const key = token.trim().toUpperCase();
+    const label = MOOD_DISPLAY[key] ?? (key.length <= 12 ? key : null);
+    if (!label || seen.has(label)) continue;
+    seen.add(label);
+    out.push(label);
+    if (out.length >= 3) break;
+  }
+  return out.length ? out : null;
+}
+
+function pickCommentaryChips(opts: {
+  kind: EngineKind;
+  skinId: string;
+  speedNorm: number;
+  throttle: number;
+  prevThrottle: number;
+  rpmNorm: number;
+  loadFeel: number;
+  driveMood?: unknown;
+}): string[] {
+  const fromAudio = chipsFromDriveMood(opts.driveMood);
+  if (fromAudio) return fromAudio;
+
+  const { kind, skinId, speedNorm, throttle, prevThrottle, rpmNorm, loadFeel } = opts;
+  const rising = throttle - prevThrottle > 0.02;
+  const chips: string[] = [];
+
+  const idle = speedNorm < 0.03 && throttle < 0.12;
+  if (idle) chips.push('IDLE');
+
+  if (kind === 'ice') {
+    if (!idle && rpmNorm > 0.18 && rpmNorm < 0.55 && Math.abs(loadFeel) < 0.35) chips.push('LOPE');
+    if (rising && throttle > 0.2) chips.push(throttle > 0.55 || loadFeel > 0.35 ? 'LOAD' : 'INTAKE');
+    else if (!idle && (loadFeel > 0.4 || throttle > 0.6)) chips.push('LOAD');
+  } else if (kind === 'aerospace') {
+    if (rising || (rpmNorm > 0.25 && rpmNorm < 0.75 && throttle > 0.15 && throttle < 0.7)) {
+      chips.push('SPOOLING');
+    }
+    if (throttle >= 0.72 || rpmNorm >= 0.85) chips.push('AB ARMED');
+  } else if (kind === 'ev-whine') {
+    if (speedNorm > 0.08 && throttle < 0.18 && !rising) chips.push('REGEN');
+    else if (rising) chips.push('LOAD');
+  } else if (kind === 'scifi' || skinId === 'ion-twin') {
+    if (ionAcquireLocked(throttle, rpmNorm, loadFeel) || (throttle >= 0.65 && rpmNorm >= 0.6)) {
+      chips.push('LOCK');
+    } else if (rising) chips.push('INTAKE');
+  }
+
+  if (chips.length === 0 && !idle) {
+    if (rising) chips.push(kind === 'aerospace' ? 'SPOOLING' : 'LOAD');
+    else if (throttle > 0.45) chips.push('LOAD');
+  }
+
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const c of chips) {
+    if (seen.has(c)) continue;
+    seen.add(c);
+    out.push(c);
+    if (out.length >= 3) break;
+  }
+  return out;
+}
+
 export function DrivePage({ audio, gps, prefs, onEnableGps }: Props) {
   const [manualSpeed, setManualSpeed] = useState(0);
   const [rev, setRev] = useState(0);
   const [useManual, setUseManual] = useState(false);
-  const [hud, setHud] = useState({ rpmNorm: 0, loadFeel: 0, fundamentalHz: 55 });
+  const [hud, setHud] = useState({
+    rpmNorm: 0,
+    loadFeel: 0,
+    fundamentalHz: 55,
+    driveMood: undefined as unknown,
+  });
   const [tabBackgrounded, setTabBackgrounded] = useState(false);
   const [gearMode, setGearMode] = useState<'auto' | 'manual'>('auto');
   const [accelFeel, setAccelFeel] = useState(0);
+  const [chips, setChips] = useState<string[]>(['IDLE']);
+  const [aurebeshOn, setAurebeshOn] = useState(() => loadBool(AUREBESH_KEY));
+  const [hintUsed, setHintUsed] = useState(() => loadBool(AUREBESH_HINT_KEY));
   const prevMph = useRef(0);
   const throttleProxy = useRef(0);
+  const prevThrottleRef = useRef(0);
+  const longPressTimer = useRef<number | null>(null);
+
+  const skinId = skinIdForEngine(audio.engineId || prefs.selectedEngineId || 'v8-rumble');
+  const isIonTwin = skinId === 'ion-twin';
+  const useAurebesh = isIonTwin && aurebeshOn;
+  const numeralClass = useAurebesh ? 'aurebesh' : undefined;
 
   useEffect(() => {
     const onVis = () => {
@@ -34,15 +173,20 @@ export function DrivePage({ audio, gps, prefs, onEnableGps }: Props) {
     return () => document.removeEventListener('visibilitychange', onVis);
   }, []);
 
+  // Force Latin when leaving ion-twin
+  useEffect(() => {
+    if (!isIonTwin && aurebeshOn) {
+      /* keep preference stored, but never apply off-skin */
+    }
+  }, [isIonTwin, aurebeshOn]);
+
   const gpsActive = gps.status === 'live' && !useManual;
   const displayMph = gpsActive ? gps.mph : manualSpeed * 120;
 
-  // Δspeed → throttle proxy when GPS live
   useEffect(() => {
     if (!gpsActive) return;
     const delta = gps.mph - prevMph.current;
     prevMph.current = gps.mph;
-    // positive accel bumps throttle; coast decays
     const bump = Math.max(0, delta * 0.35);
     throttleProxy.current = Math.min(
       1,
@@ -67,8 +211,41 @@ export function DrivePage({ audio, gps, prefs, onEnableGps }: Props) {
           reverse: false,
         });
         const eng = audio.getEngine();
-        if (eng) setHud(eng.getHud());
+        let rpmNorm = 0;
+        let loadFeel = 0;
+        let driveMood: unknown;
+        if (eng) {
+          const h = eng.getHud() as {
+            rpmNorm: number;
+            loadFeel: number;
+            fundamentalHz: number;
+            driveMood?: unknown;
+          };
+          setHud({
+            rpmNorm: h.rpmNorm,
+            loadFeel: h.loadFeel,
+            fundamentalHz: h.fundamentalHz,
+            driveMood: h.driveMood,
+          });
+          rpmNorm = h.rpmNorm;
+          loadFeel = h.loadFeel;
+          driveMood = h.driveMood;
+        }
         setAccelFeel(throttle);
+        const kind = resolveKind(audio.engineId || 'v8-rumble');
+        setChips(
+          pickCommentaryChips({
+            kind,
+            skinId: skinIdForEngine(audio.engineId || 'v8-rumble'),
+            speedNorm: speed,
+            throttle,
+            prevThrottle: prevThrottleRef.current,
+            rpmNorm,
+            loadFeel,
+            driveMood,
+          }),
+        );
+        prevThrottleRef.current = throttle;
       }
 
       raf = requestAnimationFrame(tick);
@@ -86,6 +263,43 @@ export function DrivePage({ audio, gps, prefs, onEnableGps }: Props) {
 
   const unit = prefs.speedUnit === 'kph' ? 'km/h' : 'mph';
   const rpmReadout = `${Math.round(800 + hud.rpmNorm * 6200)}`;
+
+  const flipAurebesh = () => {
+    if (!isIonTwin) return;
+    setAurebeshOn((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem(AUREBESH_KEY, String(next));
+      } catch {
+        /* ignore */
+      }
+      return next;
+    });
+    if (!hintUsed) {
+      setHintUsed(true);
+      try {
+        localStorage.setItem(AUREBESH_HINT_KEY, '1');
+      } catch {
+        /* ignore */
+      }
+    }
+  };
+
+  const clearLongPress = () => {
+    if (longPressTimer.current != null) {
+      window.clearTimeout(longPressTimer.current);
+      longPressTimer.current = null;
+    }
+  };
+
+  const onSpeedPointerDown = () => {
+    if (!isIonTwin) return;
+    clearLongPress();
+    longPressTimer.current = window.setTimeout(() => {
+      longPressTimer.current = null;
+      flipAurebesh();
+    }, 550);
+  };
 
   return (
     <div className="drive-page">
@@ -148,30 +362,71 @@ export function DrivePage({ audio, gps, prefs, onEnableGps }: Props) {
           </button>
         </div>
         <div className="speed-hero">
-          <div className="speed-hero-value">{speedLabel}</div>
+          <div
+            className={`speed-hero-value${numeralClass ? ` ${numeralClass}` : ''}`}
+            onPointerDown={onSpeedPointerDown}
+            onPointerUp={clearLongPress}
+            onPointerLeave={clearLongPress}
+            onPointerCancel={clearLongPress}
+            role={isIonTwin ? 'button' : undefined}
+            aria-label={isIonTwin ? 'Speed — hold to flip Aurebesh numerals' : undefined}
+          >
+            {speedLabel}
+          </div>
           <div className="speed-hero-unit">{unit}</div>
+          {isIonTwin && !hintUsed && (
+            <p className="aurebesh-hint">hold speed to flip glyphs</p>
+          )}
+          {isIonTwin && (
+            <button
+              type="button"
+              className="aurebesh-toggle"
+              onClick={flipAurebesh}
+              aria-pressed={aurebeshOn}
+              title="Toggle Aurebesh numerals"
+            >
+              {aurebeshOn ? 'AB' : '123'}
+            </button>
+          )}
         </div>
+
+        {chips.length > 0 && (
+          <div className="commentary-chips" aria-live="polite">
+            {chips.map((c) => (
+              <span key={c} className="commentary-chip glass">
+                {c}
+              </span>
+            ))}
+          </div>
+        )}
+
         <div className="telemetry-strip">
           <div className="tele-cell">
-            <div className="tele-value">{Math.round(hud.loadFeel * 100)}</div>
+            <div className={`tele-value${numeralClass ? ` ${numeralClass}` : ''}`}>
+              {Math.round(hud.loadFeel * 100)}
+            </div>
             <div className="tele-label">LOAD %</div>
           </div>
           <div className="tele-cell">
-            <div className="tele-value">{rpmReadout}</div>
+            <div className={`tele-value${numeralClass ? ` ${numeralClass}` : ''}`}>{rpmReadout}</div>
             <div className="tele-label">REVS</div>
           </div>
           <div className="tele-cell">
-            <div className="tele-value">{Math.round(accelFeel * 100)}</div>
+            <div className={`tele-value${numeralClass ? ` ${numeralClass}` : ''}`}>
+              {Math.round(accelFeel * 100)}
+            </div>
             <div className="tele-label">ACCEL</div>
           </div>
         </div>
         <div className="hud-secondary">
-          <Gauge
-            style={prefs.gaugeStyle}
-            value={hud.rpmNorm}
-            label="REVS"
-            readout={rpmReadout}
-          />
+          <div className={useAurebesh ? 'aurebesh' : undefined}>
+            <Gauge
+              style={prefs.gaugeStyle}
+              value={hud.rpmNorm}
+              label="REVS"
+              readout={rpmReadout}
+            />
+          </div>
           <div className="hud-rev">
             <RevPad value={rev} onChange={setRev} />
           </div>
@@ -182,7 +437,9 @@ export function DrivePage({ audio, gps, prefs, onEnableGps }: Props) {
         <label className="slider-block">
           <div className="slider-head">
             <span>Speed {gpsActive && !useManual ? '(GPS)' : '(manual)'}</span>
-            <span>{speedLabel} {unit}</span>
+            <span>
+              {speedLabel} {unit}
+            </span>
           </div>
           <input
             className="big-slider"

@@ -11,6 +11,7 @@ import { DiagPage } from '../pages/DiagPage';
 import { DrivePage } from '../pages/DrivePage';
 import { EnginesPage } from '../pages/EnginesPage';
 import type { EnginePatch } from '../audio';
+import { getBuiltin } from '../audio';
 import { skinIdForEngine } from '../skins/DriveSkinSlot';
 
 export default function App() {
@@ -18,7 +19,7 @@ export default function App() {
   const audio = useAudioEngine(prefs.selectedEngineId);
   const [gpsEnabled, setGpsEnabled] = useState(false);
   const gps = useGeolocation(gpsEnabled);
-  const { userPatches, savePatch } = usePatches();
+  const { userPatches, savePatch, deletePatch } = usePatches();
 
   useEffect(() => {
     const eng = audio.getEngine();
@@ -51,6 +52,20 @@ export default function App() {
       update({ selectedEngineId: patch.id });
     },
     [savePatch, audio, update],
+  );
+
+  const onDeleteUserPatch = useCallback(
+    (id: string) => {
+      deletePatch(id);
+      if (audio.engineId === id || prefs.selectedEngineId === id) {
+        const fallback = getBuiltin('v8-rumble');
+        if (fallback) {
+          audio.loadPatch(fallback);
+          update({ selectedEngineId: fallback.id });
+        }
+      }
+    },
+    [deletePatch, audio, prefs.selectedEngineId, update],
   );
 
   const onMuteToggle = () => update({ masterMuted: !prefs.masterMuted });
@@ -97,6 +112,8 @@ export default function App() {
               selectedId={audio.engineId}
               userPatches={userPatches}
               onSelect={onSelectEngine}
+              onDeleteUserPatch={onDeleteUserPatch}
+              audio={audio}
             />
           }
         />
@@ -104,7 +121,17 @@ export default function App() {
           path="/customize"
           element={<CustomizePage prefs={prefs} update={update} reset={reset} />}
         />
-        <Route path="/builder" element={<BuilderPage audio={audio} onSave={onSavePatch} />} />
+        <Route
+          path="/builder"
+          element={
+            <BuilderPage
+              audio={audio}
+              onSave={onSavePatch}
+              userPatches={userPatches}
+              onDeleteUserPatch={onDeleteUserPatch}
+            />
+          }
+        />
         <Route
           path="/diag"
           element={<DiagPage audio={audio} gps={gps} />}

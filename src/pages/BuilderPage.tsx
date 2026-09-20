@@ -8,6 +8,8 @@ import type { useAudioEngine } from '../hooks/useAudioEngine';
 interface Props {
   audio: ReturnType<typeof useAudioEngine>;
   onSave: (patch: EnginePatch) => void;
+  userPatches: EnginePatch[];
+  onDeleteUserPatch: (id: string) => void;
 }
 
 interface GraphNode extends SynthNodeDesc {
@@ -153,7 +155,16 @@ function nextId() {
   return `n${Date.now().toString(36)}${idSeq}`;
 }
 
-export function BuilderPage({ audio, onSave }: Props) {
+const SCREAM_LABEL_OVERRIDE: Record<string, string> = {
+  formantHowl: 'Intensity',
+  corePitch: 'Pitch center',
+  carrierBite: 'Grit',
+  wetHiss: 'Wet/Dry',
+};
+
+const SCREAM_PARAM_IDS = new Set(Object.keys(SCREAM_LABEL_OVERRIDE));
+
+export function BuilderPage({ audio, onSave, userPatches, onDeleteUserPatch }: Props) {
   const [params, setParams] = useState<EngineParams | null>(null);
   const [name, setName] = useState(audio.patchName);
   const [mockSpeed, setMockSpeed] = useState(0.25);
@@ -191,7 +202,15 @@ export function BuilderPage({ audio, onSave }: Props) {
     [audio],
   );
 
-  const metas = paramMetaForKind(kind);
+  const displayMetas = useMemo(() => {
+    const metas = paramMetaForKind(kind);
+    if (kind !== 'scifi') return metas;
+    return metas.map((m) =>
+      SCREAM_LABEL_OVERRIDE[m.id] ? { ...m, label: SCREAM_LABEL_OVERRIDE[m.id] } : m,
+    );
+  }, [kind]);
+  const screamMetas = kind === 'scifi' ? displayMetas.filter((m) => SCREAM_PARAM_IDS.has(m.id)) : [];
+  const otherMetas = kind === 'scifi' ? displayMetas.filter((m) => !SCREAM_PARAM_IDS.has(m.id)) : displayMetas;
   const selected = nodes.find((n) => n.id === selectedId) ?? null;
   const nodeMetas = selected ? paramMetaForNodeType(selected.type) : [];
 
@@ -663,14 +682,64 @@ export function BuilderPage({ audio, onSave }: Props) {
         )}
       </section>
 
+      {kind === 'scifi' && (
+        <section className="panel">
+          <h2 className="section-title">Ion Twin scream</h2>
+          <label className="toggle-row">
+            <input
+              type="checkbox"
+              checked={Number(params.formantHowl ?? 0) > 0.001}
+              onChange={(e) => {
+                if (e.target.checked) {
+                  const restore = Number(params.formantHowl ?? 0) > 0.001 ? Number(params.formantHowl) : 0.72;
+                  onParam('formantHowl', restore > 0.001 ? restore : 0.72);
+                } else {
+                  onParam('formantHowl', 0);
+                }
+              }}
+            />
+            <span>Scream</span>
+          </label>
+          <div className="param-grid">
+            {screamMetas.map((m) => (
+              <ParamRail key={m.id} meta={m} value={Number(params[m.id] ?? m.min)} onChange={onParam} />
+            ))}
+          </div>
+        </section>
+      )}
+
       <section className="panel">
         <h2 className="section-title">Engine params · {kind}</h2>
         <div className="param-grid">
-          {metas.map((m) => (
+          {otherMetas.map((m) => (
             <ParamRail key={m.id} meta={m} value={Number(params[m.id] ?? m.min)} onChange={onParam} />
           ))}
         </div>
       </section>
+
+      {userPatches.length > 0 && (
+        <section className="panel">
+          <h2 className="section-title">Your presets</h2>
+          <ul className="user-preset-list">
+            {userPatches.map((p) => (
+              <li key={p.id} className="user-preset-row">
+                <span className="user-preset-name">{p.name}</span>
+                <span className="user-preset-meta">{p.kind} · {p.topology}</span>
+                <button
+                  type="button"
+                  className="engine-delete-btn"
+                  onClick={() => {
+                    if (!window.confirm(`Delete preset “${p.name}”? This cannot be undone.`)) return;
+                    onDeleteUserPatch(p.id);
+                  }}
+                >
+                  Delete
+                </button>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       <section className="panel">
         <h2 className="section-title">Save / Export / Import</h2>

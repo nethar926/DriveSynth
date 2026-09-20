@@ -78,6 +78,13 @@ class PulseEngineProcessor extends AudioWorkletProcessor {
     this._b6 = 0;
     this._dc = 0;
 
+    // Living drive: continuous micro-wander + sparse valvetrain
+    this._rpmWander = 0;
+    this._filtWander = 0;
+    this._gainWander = 0;
+    this._tickWait = (Math.random() * 6000) | 0;
+    this._timingWander = 0;
+
     this.port.onmessage = (e) => {
       const d = e.data || {};
       if (d.type === 'reset') {
@@ -88,6 +95,11 @@ class PulseEngineProcessor extends AudioWorkletProcessor {
         this._muff = 0;
         this._bodyLp = 0;
         this._crackleHold = 0;
+        this._rpmWander = 0;
+        this._filtWander = 0;
+        this._gainWander = 0;
+        this._timingWander = 0;
+        this._tickWait = (Math.random() * 4000) | 0;
       }
     };
   }
@@ -186,8 +198,16 @@ class PulseEngineProcessor extends AudioWorkletProcessor {
       const crackAmt = crackP.length > 1 ? crackP[i] : crack0;
       const master = gainP.length > 1 ? gainP[i] : gain0;
 
-      const safeRpm = Math.max(200, Math.min(9000, rpm));
-      const revsPerSample = safeRpm / (60 * sr);
+      // Continuous micro-jitter on effective RPM / pulse timing
+      this._rpmWander += (Math.random() * 2 - 1) * (0.00035 + jit * 0.0005);
+      this._rpmWander *= 0.994;
+      this._timingWander += (Math.random() * 2 - 1) * (0.0002 + jit * 0.0004);
+      this._timingWander *= 0.991;
+      const safeRpm = Math.max(
+        200,
+        Math.min(9000, rpm * (1 + this._rpmWander * (0.6 + jit * 1.4))),
+      );
+      const revsPerSample = (safeRpm / (60 * sr)) * (1 + this._timingWander);
       this._phase += revsPerSample;
 
       // Half-order mechanical AM lope (stronger at idle)
@@ -268,7 +288,9 @@ class PulseEngineProcessor extends AudioWorkletProcessor {
       const bodyRaw = excited * 0.72 + excited2 * 0.38;
       this._bodyLp += (0.18 + thr * 0.12) * (bodyRaw - this._bodyLp);
 
-      const muffA = 0.1 + muffMix * 0.58;
+      this._filtWander += (Math.random() * 2 - 1) * 0.0025;
+      this._filtWander *= 0.988;
+      const muffA = Math.max(0.04, Math.min(0.85, 0.1 + muffMix * 0.58 + this._filtWander * 0.08));
       this._muff += muffA * (bodyRaw - this._muff);
       const exhaust =
         bodyRaw * (1 - muffMix * 0.7) + this._muff * (0.4 + muffMix * 0.6) + this._bodyLp * 0.25;
@@ -285,12 +307,16 @@ class PulseEngineProcessor extends AudioWorkletProcessor {
       const midTick = this._mechBp * rough * (0.05 + safeRpm / 9000 * 0.1 + thr * 0.06) * lopeAm2;
       const tw = this._white();
       this._tickLp += 0.35 * (tw - this._tickLp);
-      const tick =
-        (tw - this._tickLp) *
-        rough *
-        rough *
-        (0.012 + thr * 0.02) *
-        (Math.random() < 0.02 + rough * 0.03 ? 1 : 0.15);
+      // Stochastic valvetrain clatter — sparse irregular, not a metronome
+      this._tickWait -= 1;
+      let tick = (tw - this._tickLp) * rough * rough * 0.004;
+      if (this._tickWait <= 0) {
+        const burst = (tw - this._tickLp) * rough * (0.035 + thr * 0.05) * (0.45 + Math.random() * 0.7);
+        tick += burst;
+        const gapSec = 0.07 + Math.random() * (0.22 + (1 - thr) * 0.35) + rough * Math.random() * 0.12;
+        const dens = 0.55 + safeRpm / 7000;
+        this._tickWait = Math.max(64, Math.floor((gapSec * sr) / dens));
+      }
       const mech = idleBed + midTick + tick;
 
       // --- Intake × throttle ---
@@ -339,8 +365,11 @@ class PulseEngineProcessor extends AudioWorkletProcessor {
       const dcOut = dcIn - this._dc;
       this._dc += 0.0005 * (dcIn - this._dc);
       const dcCorr = dcOut - dcIn;
-      sampleL = (sampleL + dcCorr) * master * 0.88;
-      sampleR = (sampleR + dcCorr) * master * 0.88;
+      this._gainWander += (Math.random() * 2 - 1) * 0.0018;
+      this._gainWander *= 0.99;
+      const liveGain = master * 0.88 * (1 + this._gainWander * (0.5 + rough * 0.8));
+      sampleL = (sampleL + dcCorr) * liveGain;
+      sampleR = (sampleR + dcCorr) * liveGain;
 
       const pan = Math.max(-1, Math.min(1, load * 0.35));
       ch0[i] = sampleL * (1 - Math.max(0, pan) * 0.35);

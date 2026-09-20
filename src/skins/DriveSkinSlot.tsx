@@ -22,8 +22,12 @@ export function skinIdForEngine(engineId: string): string {
       return 'ion-twin';
     case 'v8-rumble':
     case 'i4-zip':
+    case 'i6-silk':
       return 'ice-v8';
     case 'ev-whine':
+    case 'ev-inverter-climb':
+    case 'ev-regen-howl':
+    case 'ev-dual-motor':
       return 'ev-inverter';
     case 'aerospace-f14':
       return 'aerospace-f14';

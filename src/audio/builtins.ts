@@ -78,15 +78,79 @@ export const F14_DEFAULTS: EngineParams = {
   masterGain: 0.74,
   stereoWidth: 0.62,
   limiterCeiling: 0.95,
-  spoolPitch: 95,
-  intakeWhine: 0.58,
-  compressor: 0.62,
-  turbine: 0.7,
-  jetRoar: 0.68,
-  afterburn: 0.78,
-  jetScream: 0.65,
-  idleSpool: 0.55,
+  spoolPitch: 88,
+  intakeWhine: 0.48,
+  compressor: 0.72,
+  turbine: 0.74,
+  jetRoar: 0.7,
+  afterburn: 0.8,
+  jetScream: 0.42,
+  idleSpool: 0.58,
+  spoolInertia: 0.64,
+  airframe: 0.55,
   rpmCurve: 0.52,
+};
+
+export const I6_DEFAULTS: EngineParams = {
+  masterGain: 0.68,
+  stereoWidth: 0.32,
+  limiterCeiling: 0.95,
+  rpmIdle: 62,
+  rpmRedline: 280,
+  cylinders: 6,
+  roughness: 0.18,
+  growl: 0.38,
+  presence: 0.52,
+  intake: 0.48,
+  exhaust: 0.55,
+  ignitionNoise: 0.14,
+  muffling: 0.28,
+  rpmCurve: 0.5,
+  pulseWidth: 0.36,
+  pulseJitter: 0.05,
+  exhaustLength: 0.42,
+  exhaustFeedback: 0.7,
+  crackle: 0.18,
+};
+
+export const EV_CLIMB_DEFAULTS: EngineParams = {
+  masterGain: 0.68,
+  stereoWidth: 0.38,
+  limiterCeiling: 0.95,
+  whinePitch: 220,
+  gearSteps: 0.55,
+  inverterBuzz: 0.48,
+  presence: 0.62,
+  muffling: 0.18,
+  rpmCurve: 0.42,
+  gearMesh: 0.55,
+};
+
+export const EV_REGEN_DEFAULTS: EngineParams = {
+  masterGain: 0.66,
+  stereoWidth: 0.36,
+  limiterCeiling: 0.95,
+  whinePitch: 320,
+  gearSteps: 0.2,
+  inverterBuzz: 0.28,
+  presence: 0.58,
+  muffling: 0.22,
+  rpmCurve: 0.38,
+  regenHowl: 0.78,
+};
+
+export const EV_DUAL_DEFAULTS: EngineParams = {
+  masterGain: 0.7,
+  stereoWidth: 0.72,
+  limiterCeiling: 0.95,
+  whinePitch: 160,
+  gearSteps: 0.4,
+  inverterBuzz: 0.42,
+  presence: 0.55,
+  muffling: 0.2,
+  rpmCurve: 0.45,
+  dualBeat: 0.68,
+  motorRoar: 0.72,
 };
 
 export const BUILTIN_PATCHES: EnginePatch[] = [
@@ -119,6 +183,20 @@ export const BUILTIN_PATCHES: EnginePatch[] = [
   },
   {
     version: 0,
+    id: 'i6-silk',
+    name: 'I6 Silk',
+    kind: 'ice',
+    topology: 'i6-silk',
+    params: { ...I6_DEFAULTS } as Record<string, number | string>,
+    meta: {
+      blurb:
+        'Straight-six silk: even-fire organic pulses on the V8 path — smoother lope, softer roughness, refined waveguide body.',
+      tags: ['ice', 'i6', 'pulse', 'free'],
+      author: 'DriveSynth',
+    },
+  },
+  {
+    version: 0,
     id: 'ev-whine',
     name: 'EV Whine',
     kind: 'ev-whine',
@@ -132,6 +210,48 @@ export const BUILTIN_PATCHES: EnginePatch[] = [
   },
   {
     version: 0,
+    id: 'ev-inverter-climb',
+    name: 'Inverter Climb',
+    kind: 'ev-whine',
+    topology: 'ev-inverter-climb',
+    params: { ...EV_CLIMB_DEFAULTS } as Record<string, number | string>,
+    meta: {
+      blurb:
+        'Ascending inverter whine with stepped gear mesh — climbs with speed/throttle. Original procedural EV — no samples.',
+      tags: ['ev', 'inverter', 'gear', 'free'],
+      author: 'DriveSynth',
+    },
+  },
+  {
+    version: 0,
+    id: 'ev-regen-howl',
+    name: 'Regen Howl',
+    kind: 'ev-whine',
+    topology: 'ev-regen-howl',
+    params: { ...EV_REGEN_DEFAULTS } as Record<string, number | string>,
+    meta: {
+      blurb:
+        'High whistle that blooms on decel: speed high + throttle drop opens regen howl. Original procedural EV — no samples.',
+      tags: ['ev', 'regen', 'decel', 'free'],
+      author: 'DriveSynth',
+    },
+  },
+  {
+    version: 0,
+    id: 'ev-dual-motor',
+    name: 'Dual Motor',
+    kind: 'ev-whine',
+    topology: 'ev-dual-motor',
+    params: { ...EV_DUAL_DEFAULTS } as Record<string, number | string>,
+    meta: {
+      blurb:
+        'Split L/R inverter beat under dense mid motor roar — Plaid-class mood, fully original synthesis.',
+      tags: ['ev', 'dual-motor', 'roar', 'free'],
+      author: 'DriveSynth',
+    },
+  },
+  {
+    version: 0,
     id: 'aerospace-f14',
     name: 'Carrier Jet',
     kind: 'aerospace',
@@ -139,8 +259,8 @@ export const BUILTIN_PATCHES: EnginePatch[] = [
     params: { ...F14_DEFAULTS } as Record<string, number | string>,
     meta: {
       blurb:
-        'Twin-spool jet: intake whine, compressor/turbine layers, afterburner roar, throttle-linked scream. Original synthesis — no samples.',
-      tags: ['aerospace', 'jet', 'twin-spool', 'free'],
+        'Organic Harrier-class jet: spool/compressor noise + buried whine, dense core roar, wet AB morph, airframe buffet. Spool inertia lags throttle — no laser scream. Original synthesis — no samples.',
+      tags: ['aerospace', 'jet', 'twin-spool', 'organic', 'free'],
       author: 'DriveSynth',
     },
   },
@@ -164,8 +284,16 @@ export function defaultsForTopology(topology: string): EngineParams {
   switch (topology) {
     case 'i4-zip':
       return { ...I4_DEFAULTS };
+    case 'i6-silk':
+      return { ...I6_DEFAULTS };
     case 'ev-whine':
       return { ...EV_DEFAULTS };
+    case 'ev-inverter-climb':
+      return { ...EV_CLIMB_DEFAULTS };
+    case 'ev-regen-howl':
+      return { ...EV_REGEN_DEFAULTS };
+    case 'ev-dual-motor':
+      return { ...EV_DUAL_DEFAULTS };
     case 'tie-fighter':
       return { ...TIE_DEFAULTS };
     case 'aerospace-f14':
@@ -248,6 +376,10 @@ export function paramMetaForKind(kind: EnginePatch['kind']): ParamMeta[] {
       { id: 'inverterBuzz', label: 'Inverter', min: 0, max: 1, step: 0.01 },
       { id: 'presence', label: 'Presence', min: 0, max: 1, step: 0.01 },
       { id: 'muffling', label: 'Muffling', min: 0, max: 1, step: 0.01 },
+      { id: 'gearMesh', label: 'Gear Mesh', min: 0, max: 1, step: 0.01 },
+      { id: 'regenHowl', label: 'Regen Howl', min: 0, max: 1, step: 0.01 },
+      { id: 'dualBeat', label: 'Dual Beat', min: 0, max: 1, step: 0.01 },
+      { id: 'motorRoar', label: 'Motor Roar', min: 0, max: 1, step: 0.01 },
       { id: 'rpmCurve', label: 'Speed Curve', min: 0, max: 1, step: 0.01 },
     ];
   }
@@ -256,13 +388,15 @@ export function paramMetaForKind(kind: EnginePatch['kind']): ParamMeta[] {
     return [
       ...master,
       { id: 'spoolPitch', label: 'Spool Hz', min: 40, max: 280, step: 1, unit: 'Hz' },
-      { id: 'intakeWhine', label: 'Intake Whine', min: 0, max: 1, step: 0.01 },
+      { id: 'intakeWhine', label: 'Whine', min: 0, max: 1, step: 0.01 },
       { id: 'compressor', label: 'Compressor', min: 0, max: 1, step: 0.01 },
-      { id: 'turbine', label: 'Turbine', min: 0, max: 1, step: 0.01 },
-      { id: 'jetRoar', label: 'Jet Roar', min: 0, max: 1, step: 0.01 },
+      { id: 'turbine', label: 'Core Roar', min: 0, max: 1, step: 0.01 },
+      { id: 'jetRoar', label: 'Exhaust', min: 0, max: 1, step: 0.01 },
       { id: 'afterburn', label: 'Afterburner', min: 0, max: 1, step: 0.01 },
-      { id: 'jetScream', label: 'Scream', min: 0, max: 1, step: 0.01 },
+      { id: 'jetScream', label: 'Nozzle Hiss', min: 0, max: 1, step: 0.01 },
       { id: 'idleSpool', label: 'Idle Spool', min: 0, max: 1, step: 0.01 },
+      { id: 'spoolInertia', label: 'Spool Inertia', min: 0, max: 1, step: 0.01 },
+      { id: 'airframe', label: 'Airframe', min: 0, max: 1, step: 0.01 },
       { id: 'rpmCurve', label: 'Spool Curve', min: 0, max: 1, step: 0.01 },
     ];
   }
@@ -331,7 +465,7 @@ export function paramMetaForNodeType(type: string): ParamMeta[] {
     case 'Afterburner':
       return [
         { id: 'afterburn', label: 'Afterburn', min: 0, max: 1, step: 0.01 },
-        { id: 'jetScream', label: 'Scream', min: 0, max: 1, step: 0.01 },
+        { id: 'jetScream', label: 'Nozzle Hiss', min: 0, max: 1, step: 0.01 },
       ];
     case 'CompressorStage':
       return [

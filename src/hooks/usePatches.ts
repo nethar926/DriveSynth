@@ -3,6 +3,7 @@ import type { EnginePatch } from '../audio';
 import { BUILTIN_PATCHES } from '../audio';
 
 const KEY = 'drivesynth.patches.v1';
+const BUILTIN_IDS = new Set(BUILTIN_PATCHES.map((p) => p.id));
 
 function loadUser(): EnginePatch[] {
   try {
@@ -39,6 +40,7 @@ export function usePatches() {
   }, []);
 
   const deletePatch = useCallback((id: string) => {
+    if (BUILTIN_IDS.has(id)) return;
     setUserPatches((list) => list.filter((p) => p.id !== id));
   }, []);
 

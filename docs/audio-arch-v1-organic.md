@@ -76,14 +76,18 @@ Throttle morphs **spool ↔ wet AB**, not one oscillator sliding up.
 - Redline is a roar/blur, not a supersaw  
 - `npm run build` green; `getDiag()` still accurate
 
-## TODO — aerospace-f14 (next pass)
+## Status — aerospace-f14 + living drive (landed)
 
-V8 organic path landed first. Carrier Jet still uses oscillator scream/spool stack.
+Carrier Jet rebuilt as organic 4-bus (spool/compressor · core · exhaust/AB · airframe):
+band-limited spool noise + buried BPF whine, spool inertia + wander, soft AB hysteresis,
+airframe buffet × load. No saw/square pack identity.
 
-- Rebuild as spool / core / exhaust(+AB) / airframe buses (see Aerospace section above)
-- Replace pure saw scream with band-limited noise + mild irregular whine
-- Throttle morphs spool ↔ wet AB, not one oscillator sliding up
-- Keep pack id `aerospace-f14` and `setDriving` / `getDiag` contracts
+**Living drive (all packs):** throttle/load hysteresis; continuous micro-jitter on timing/gain/filters
+(ICE worklet + osc fallback); stochastic valvetrain ticks; EV inverter detune wander;
+optional `getHud().driveMood` (`idle`/`lope`/`spooling`/`ab`/`regen`/`cruise`/`pull`).
+
+**Also shipped:** `i6-silk` (even-fire ICE on V8 path); EV packs `ev-inverter-climb`,
+`ev-regen-howl`, `ev-dual-motor`.
 
 
 ---

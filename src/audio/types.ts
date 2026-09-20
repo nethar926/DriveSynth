@@ -3,7 +3,11 @@ export type EngineId = string;
 export type TopologyId =
   | 'v8-rumble'
   | 'i4-zip'
+  | 'i6-silk'
   | 'ev-whine'
+  | 'ev-inverter-climb'
+  | 'ev-regen-howl'
+  | 'ev-dual-motor'
   | 'tie-fighter'
   | 'aerospace-f14'
   | 'custom';
@@ -81,21 +85,34 @@ export interface EngineParams {
   whinePitch?: number;
   gearSteps?: number;
   inverterBuzz?: number;
-  // Aerospace / jet
-  /** Spool / N1 base pitch Hz */
+  // Aerospace / jet (organic 4-bus)
+  /** Spool / blade-pass reference Hz */
   spoolPitch?: number;
-  /** Intake whine level 0..1 */
+  /** Mild compressor whine under noise 0..1 */
   intakeWhine?: number;
-  /** Compressor stage level 0..1 */
+  /** Spool / compressor noise bed 0..1 */
   compressor?: number;
-  /** Turbine / N2 layer 0..1 */
+  /** Core mid/low roar level 0..1 (param id kept as turbine) */
   turbine?: number;
-  /** Jet roar / exhaust noise body 0..1 */
+  /** Exhaust low roar 0..1 */
   jetRoar?: number;
-  /** Throttle-linked scream 0..1 */
+  /** Nozzle hiss / thin AB hiss 0..1 (was jet scream) */
   jetScream?: number;
   /** Idle spool presence at speed≈0 0..1 */
   idleSpool?: number;
+  /** Spool inertia / lag behind throttle 0..1 */
+  spoolInertia?: number;
+  /** Airframe buffet / rumble 0..1 */
+  airframe?: number;
+  // EV extras
+  /** Gear mesh / mechanical grit 0..1 */
+  gearMesh?: number;
+  /** Regen / decel whistle bloom 0..1 */
+  regenHowl?: number;
+  /** Dual-motor L/R beat amount 0..1 */
+  dualBeat?: number;
+  /** Dense mid motor roar (EV) 0..1 */
+  motorRoar?: number;
   [paramId: string]: number | string | undefined;
 }
 
@@ -166,8 +183,8 @@ export interface EngineSynth {
   /** Map builder node graph onto live params (v1). */
   applyGraphToParams?(graph: SynthNodeDesc[]): void;
 
-  /** Derived HUD values for gauges */
-  getHud(): { rpmNorm: number; loadFeel: number; fundamentalHz: number };
+  /** Derived HUD values for gauges (+ optional driveMood commentary hint) */
+  getHud(): { rpmNorm: number; loadFeel: number; fundamentalHz: number; driveMood?: string };
 
   /** Frontend /diag snapshot — field names stable for iceMode consumers */
   getDiag(): EngineDiag;

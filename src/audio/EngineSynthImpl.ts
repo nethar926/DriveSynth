@@ -82,26 +82,49 @@ interface GraphHandles {
   delayGain?: GainNode;
   panL?: StereoPannerNode;
   panR?: StereoPannerNode;
-  // Aerospace / twin jet
-  spoolL?: OscillatorNode;
-  spoolR?: OscillatorNode;
+  // Aerospace organic 4-bus
   spoolGain?: GainNode;
-  intakeWhineOsc?: OscillatorNode;
-  intakeWhineOsc2?: OscillatorNode;
-  intakeWhineGain?: GainNode;
   compressorFilt?: BiquadFilterNode;
   compressorGain?: GainNode;
-  turbineOsc?: OscillatorNode;
-  turbineOsc2?: OscillatorNode;
-  turbineGain?: GainNode;
+  intakeWhineOsc?: OscillatorNode;
+  intakeWhineOsc2?: OscillatorNode;
+  intakeWhineOsc3?: OscillatorNode;
+  intakeWhineFilt?: BiquadFilterNode;
+  intakeWhineGain?: GainNode;
+  spoolFlutter?: OscillatorNode;
+  spoolFlutterDepth?: GainNode;
+  buzzSaw1?: OscillatorNode;
+  buzzSaw2?: OscillatorNode;
+  buzzSawGain?: GainNode;
+  coreFilt?: BiquadFilterNode;
+  coreFilt2?: BiquadFilterNode;
+  coreGain?: GainNode;
+  coreRoughLfo?: OscillatorNode;
+  coreRoughDepth?: GainNode;
   jetRoarFilt?: BiquadFilterNode;
   jetRoarGain?: GainNode;
   afterFilt?: BiquadFilterNode;
-  screamOsc?: OscillatorNode;
-  screamFilt?: BiquadFilterNode;
-  screamGain?: GainNode;
-  idleSpoolOsc?: OscillatorNode;
-  idleSpoolGain?: GainNode;
+  afterShaper?: WaveShaperNode;
+  nozzleFilt?: BiquadFilterNode;
+  nozzleGain?: GainNode;
+  airframeFilt?: BiquadFilterNode;
+  airframeGain?: GainNode;
+  airframeLfo?: OscillatorNode;
+  airframeAmDepth?: GainNode;
+  // EV living / pack extras
+  meshFilt?: BiquadFilterNode;
+  meshGain?: GainNode;
+  regenOsc?: OscillatorNode;
+  regenOsc2?: OscillatorNode;
+  regenFilt?: BiquadFilterNode;
+  regenGain?: GainNode;
+  motorFilt?: BiquadFilterNode;
+  motorGain?: GainNode;
+  dualWhineR?: OscillatorNode;
+  dualWhineGainR?: GainNode;
+  // ICE osc valvetrain tick
+  tickGain?: GainNode;
+  tickFilt?: BiquadFilterNode;
 }
 
 const workletContexts = new WeakSet<BaseAudioContext>();
@@ -116,13 +139,26 @@ export class EngineSynthImpl implements EngineSynth {
   private driving: DrivingInput = { speed: 0, throttle: 0, load: 0, reverse: false };
   private disposed = false;
   private g: GraphHandles;
-  private hud = { rpmNorm: 0, loadFeel: 0, fundamentalHz: 55 };
+  private hud = { rpmNorm: 0, loadFeel: 0, fundamentalHz: 55, driveMood: 'idle' };
   private whiteBuf: AudioBuffer;
   private pinkBuf: AudioBuffer;
   private workletPromise: Promise<boolean> | null = null;
   private workletError: string | undefined;
   private started = false;
   private customGraph: SynthNodeDesc[] | undefined;
+  /** Living drive: lagged throttle/load (hysteresis) */
+  private throttleLag = 0;
+  private loadLag = 0;
+  /** Aerospace spool inertia + wander */
+  private spoolLag = 0;
+  private spoolWander = 0;
+  private abLag = 0;
+  /** EV inverter detune wander */
+  private evDetuneWander = 0;
+  private prevThrottle = 0;
+  private driveMood = 'idle';
+  private liveJit = { filt: 0, gain: 0, pitch: 0 };
+  private valveTickWait = 0;
 
   constructor(ctx: AudioContext, patch?: EnginePatch) {
     this.context = ctx;
@@ -260,7 +296,7 @@ export class EngineSynthImpl implements EngineSynth {
   }
 
   getHud() {
-    return { ...this.hud };
+    return { ...this.hud, driveMood: this.driveMood };
   }
 
   getDiag(): EngineDiag {
@@ -694,6 +730,19 @@ export class EngineSynthImpl implements EngineSynth {
 
     g.noiseSrc!.connect(ignFilt);
     ignFilt.connect(ignGain);
+
+    // Sparse valvetrain tick (gated in applyIceDriving)
+    const tickFilt = ctx.createBiquadFilter();
+    tickFilt.type = 'bandpass';
+    tickFilt.frequency.value = 3200;
+    tickFilt.Q.value = 4;
+    g.tickFilt = tickFilt;
+    const tickGain = ctx.createGain();
+    tickGain.gain.value = 0.001;
+    g.tickGain = tickGain;
+    g.noiseSrc!.connect(tickFilt);
+    tickFilt.connect(tickGain);
+    tickGain.connect(muffler);
     ignGain.connect(muffler);
 
     mechGain.connect(muffler);
@@ -709,6 +758,7 @@ export class EngineSynthImpl implements EngineSynth {
 
   private buildEv(g: GraphHandles): void {
     const ctx = this.context;
+    const topo = this.patchMeta.topology;
 
     const whineGain = ctx.createGain();
     whineGain.gain.value = 0.25;
@@ -761,177 +811,316 @@ export class EngineSynthImpl implements EngineSynth {
     buzzFilt.connect(buzzGain);
     buzzGain.connect(muffler);
 
-    const pan = ctx.createStereoPanner();
-    pan.pan.value = 0;
-    g.panL = pan;
-    muffler.connect(pan);
-    pan.connect(g.master);
+    // Gear mesh bed (climb / general)
+    const meshFilt = ctx.createBiquadFilter();
+    meshFilt.type = 'bandpass';
+    meshFilt.frequency.value = 1200;
+    meshFilt.Q.value = 2.2;
+    g.meshFilt = meshFilt;
+    const meshGain = ctx.createGain();
+    meshGain.gain.value = 0;
+    g.meshGain = meshGain;
+    g.noiseSrc!.connect(meshFilt);
+    meshFilt.connect(meshGain);
+    meshGain.connect(muffler);
+
+    // Regen howl layer (high thin whistle)
+    const regenOsc = ctx.createOscillator();
+    regenOsc.type = 'sine';
+    regenOsc.frequency.value = 1400;
+    regenOsc.start();
+    g.regenOsc = regenOsc;
+    const regenOsc2 = ctx.createOscillator();
+    regenOsc2.type = 'triangle';
+    regenOsc2.frequency.value = 2100;
+    regenOsc2.detune.value = 9;
+    regenOsc2.start();
+    g.regenOsc2 = regenOsc2;
+    const regenFilt = ctx.createBiquadFilter();
+    regenFilt.type = 'bandpass';
+    regenFilt.frequency.value = 1800;
+    regenFilt.Q.value = 7;
+    g.regenFilt = regenFilt;
+    const regenGain = ctx.createGain();
+    regenGain.gain.value = 0;
+    g.regenGain = regenGain;
+    regenOsc.connect(regenFilt);
+    regenOsc2.connect(regenFilt);
+    regenFilt.connect(regenGain);
+    regenGain.connect(muffler);
+
+    // Dense mid motor roar (dual-motor / body)
+    const motorFilt = ctx.createBiquadFilter();
+    motorFilt.type = 'lowpass';
+    motorFilt.frequency.value = 900;
+    motorFilt.Q.value = 0.7;
+    g.motorFilt = motorFilt;
+    const motorGain = ctx.createGain();
+    motorGain.gain.value = topo === 'ev-dual-motor' ? 0.22 : 0.04;
+    g.motorGain = motorGain;
+    g.pinkSrc!.connect(motorFilt);
+    motorFilt.connect(motorGain);
+
+    if (topo === 'ev-dual-motor') {
+      // Split L/R inverter beat
+      const panL = ctx.createStereoPanner();
+      panL.pan.value = -0.55;
+      g.panL = panL;
+      const panR = ctx.createStereoPanner();
+      panR.pan.value = 0.55;
+      g.panR = panR;
+
+      const dualR = ctx.createOscillator();
+      dualR.type = 'sine';
+      dualR.frequency.value = 188;
+      dualR.detune.value = 14;
+      dualR.start();
+      g.dualWhineR = dualR;
+      const dualGainR = ctx.createGain();
+      dualGainR.gain.value = 0.18;
+      g.dualWhineGainR = dualGainR;
+      dualR.connect(dualGainR);
+
+      muffler.connect(panL);
+      dualGainR.connect(panR);
+      motorGain.connect(panL);
+      motorGain.connect(panR);
+      panL.connect(g.master);
+      panR.connect(g.master);
+    } else {
+      const pan = ctx.createStereoPanner();
+      pan.pan.value = 0;
+      g.panL = pan;
+      muffler.connect(pan);
+      motorGain.connect(pan);
+      pan.connect(g.master);
+    }
   }
+
 
   private buildAerospace(g: GraphHandles): void {
     const ctx = this.context;
 
-    // Twin spool fundamentals (L/R slight detune)
-    const spoolGain = ctx.createGain();
-    spoolGain.gain.value = 0.22;
-    g.spoolGain = spoolGain;
+    // ——— Bus 1: Spool / compressor ———
+    // Band-limited noise dominates; mild detuned BPF whine buried underneath.
+    const spoolBus = ctx.createGain();
+    spoolBus.gain.value = 1;
+    g.spoolGain = spoolBus;
 
-    const spoolL = ctx.createOscillator();
-    spoolL.type = 'sawtooth';
-    spoolL.frequency.value = 95;
-    spoolL.start();
-    g.spoolL = spoolL;
-
-    const spoolR = ctx.createOscillator();
-    spoolR.type = 'sawtooth';
-    spoolR.frequency.value = 97;
-    spoolR.detune.value = 9;
-    spoolR.start();
-    g.spoolR = spoolR;
-
-    const spoolMix = ctx.createGain();
-    spoolMix.gain.value = 1;
-    spoolL.connect(spoolMix);
-    spoolR.connect(spoolMix);
-    spoolMix.connect(spoolGain);
-
-    // Intake whine — high sine stack
-    const intakeWhineGain = ctx.createGain();
-    intakeWhineGain.gain.value = 0.12;
-    g.intakeWhineGain = intakeWhineGain;
-
-    const intakeWhineOsc = ctx.createOscillator();
-    intakeWhineOsc.type = 'sine';
-    intakeWhineOsc.frequency.value = 1800;
-    intakeWhineOsc.start();
-    g.intakeWhineOsc = intakeWhineOsc;
-
-    const intakeWhineOsc2 = ctx.createOscillator();
-    intakeWhineOsc2.type = 'triangle';
-    intakeWhineOsc2.frequency.value = 2700;
-    intakeWhineOsc2.start();
-    g.intakeWhineOsc2 = intakeWhineOsc2;
-
-    intakeWhineOsc.connect(intakeWhineGain);
-    intakeWhineOsc2.connect(intakeWhineGain);
-
-    // Compressor stage — bandpass noise
     const compressorFilt = ctx.createBiquadFilter();
     compressorFilt.type = 'bandpass';
-    compressorFilt.frequency.value = 2200;
-    compressorFilt.Q.value = 3.5;
+    compressorFilt.frequency.value = 1800;
+    compressorFilt.Q.value = 1.6;
     g.compressorFilt = compressorFilt;
 
     const compressorGain = ctx.createGain();
-    compressorGain.gain.value = 0.1;
+    compressorGain.gain.value = 0.18;
     g.compressorGain = compressorGain;
 
     g.noiseSrc!.connect(compressorFilt);
     compressorFilt.connect(compressorGain);
+    compressorGain.connect(spoolBus);
 
-    // Turbine / N2 — brighter harmonics
-    const turbineGain = ctx.createGain();
-    turbineGain.gain.value = 0.14;
-    g.turbineGain = turbineGain;
+    // Mild irregular whine (sine/triangle only — no saw/square identity)
+    const intakeWhineFilt = ctx.createBiquadFilter();
+    intakeWhineFilt.type = 'bandpass';
+    intakeWhineFilt.frequency.value = 2100;
+    intakeWhineFilt.Q.value = 6;
+    g.intakeWhineFilt = intakeWhineFilt;
 
-    const turbineOsc = ctx.createOscillator();
-    turbineOsc.type = 'triangle';
-    turbineOsc.frequency.value = 380;
-    turbineOsc.start();
-    g.turbineOsc = turbineOsc;
+    const intakeWhineGain = ctx.createGain();
+    intakeWhineGain.gain.value = 0.035;
+    g.intakeWhineGain = intakeWhineGain;
 
-    const turbineOsc2 = ctx.createOscillator();
-    turbineOsc2.type = 'sine';
-    turbineOsc2.frequency.value = 760;
-    turbineOsc2.start();
-    g.turbineOsc2 = turbineOsc2;
+    const whine1 = ctx.createOscillator();
+    whine1.type = 'sine';
+    whine1.frequency.value = 420;
+    whine1.start();
+    g.intakeWhineOsc = whine1;
 
-    turbineOsc.connect(turbineGain);
-    turbineOsc2.connect(turbineGain);
+    const whine2 = ctx.createOscillator();
+    whine2.type = 'sine';
+    whine2.frequency.value = 428;
+    whine2.detune.value = 7;
+    whine2.start();
+    g.intakeWhineOsc2 = whine2;
 
-    // Jet roar — pink body
+    const whine3 = ctx.createOscillator();
+    whine3.type = 'triangle';
+    whine3.frequency.value = 845;
+    whine3.detune.value = -11;
+    whine3.start();
+    g.intakeWhineOsc3 = whine3;
+
+    const whineMix = ctx.createGain();
+    whineMix.gain.value = 0.55;
+    whine1.connect(whineMix);
+    whine2.connect(whineMix);
+    whine3.connect(whineMix);
+
+    const flutter = ctx.createOscillator();
+    flutter.type = 'sine';
+    flutter.frequency.value = 2.4;
+    flutter.start();
+    g.spoolFlutter = flutter;
+    const flutterDepth = ctx.createGain();
+    flutterDepth.gain.value = 0.22;
+    g.spoolFlutterDepth = flutterDepth;
+    const whineAm = ctx.createGain();
+    whineAm.gain.value = 0.7;
+    flutter.connect(flutterDepth);
+    flutterDepth.connect(whineAm.gain);
+    whineMix.connect(whineAm);
+    whineAm.connect(intakeWhineFilt);
+    intakeWhineFilt.connect(intakeWhineGain);
+    intakeWhineGain.connect(spoolBus);
+
+    const buzzSawGain = ctx.createGain();
+    buzzSawGain.gain.value = 0;
+    g.buzzSawGain = buzzSawGain;
+    const bs1 = ctx.createOscillator();
+    bs1.type = 'sine';
+    bs1.frequency.value = 980;
+    bs1.start();
+    g.buzzSaw1 = bs1;
+    const bs2 = ctx.createOscillator();
+    bs2.type = 'sine';
+    bs2.frequency.value = 1470;
+    bs2.detune.value = 5;
+    bs2.start();
+    g.buzzSaw2 = bs2;
+    bs1.connect(buzzSawGain);
+    bs2.connect(buzzSawGain);
+    buzzSawGain.connect(spoolBus);
+
+    // ——— Bus 2: Core ———
+    const coreFilt = ctx.createBiquadFilter();
+    coreFilt.type = 'lowpass';
+    coreFilt.frequency.value = 1100;
+    coreFilt.Q.value = 0.65;
+    g.coreFilt = coreFilt;
+
+    const coreFilt2 = ctx.createBiquadFilter();
+    coreFilt2.type = 'bandpass';
+    coreFilt2.frequency.value = 380;
+    coreFilt2.Q.value = 0.9;
+    g.coreFilt2 = coreFilt2;
+
+    const coreGain = ctx.createGain();
+    coreGain.gain.value = 0.28;
+    g.coreGain = coreGain;
+
+    const coreRoughLfo = ctx.createOscillator();
+    coreRoughLfo.type = 'sine';
+    coreRoughLfo.frequency.value = 1.7;
+    coreRoughLfo.start();
+    g.coreRoughLfo = coreRoughLfo;
+    const coreRoughDepth = ctx.createGain();
+    coreRoughDepth.gain.value = 0.12;
+    g.coreRoughDepth = coreRoughDepth;
+    const coreAm = ctx.createGain();
+    coreAm.gain.value = 0.85;
+    coreRoughLfo.connect(coreRoughDepth);
+    coreRoughDepth.connect(coreAm.gain);
+
+    g.pinkSrc!.connect(coreFilt);
+    coreFilt.connect(coreFilt2);
+    coreFilt2.connect(coreAm);
+    coreAm.connect(coreGain);
+
+    // ——— Bus 3: Exhaust / AB ———
     const jetRoarFilt = ctx.createBiquadFilter();
     jetRoarFilt.type = 'lowpass';
-    jetRoarFilt.frequency.value = 900;
-    jetRoarFilt.Q.value = 0.7;
+    jetRoarFilt.frequency.value = 420;
+    jetRoarFilt.Q.value = 0.55;
     g.jetRoarFilt = jetRoarFilt;
 
     const jetRoarGain = ctx.createGain();
-    jetRoarGain.gain.value = 0.2;
+    jetRoarGain.gain.value = 0.22;
     g.jetRoarGain = jetRoarGain;
 
     g.pinkSrc!.connect(jetRoarFilt);
     jetRoarFilt.connect(jetRoarGain);
 
-    // Afterburner — highpass roar (throttle^2)
     const afterFilt = ctx.createBiquadFilter();
-    afterFilt.type = 'highpass';
-    afterFilt.frequency.value = 1600;
+    afterFilt.type = 'bandpass';
+    afterFilt.frequency.value = 900;
+    afterFilt.Q.value = 0.8;
     g.afterFilt = afterFilt;
+
+    const afterShaper = ctx.createWaveShaper();
+    afterShaper.curve = makeShaper(0.35) as Float32Array<ArrayBuffer>;
+    g.afterShaper = afterShaper;
 
     const afterGain = ctx.createGain();
     afterGain.gain.value = 0;
     g.afterGain = afterGain;
 
     g.noiseSrc!.connect(afterFilt);
-    afterFilt.connect(afterGain);
+    afterFilt.connect(afterShaper);
+    afterShaper.connect(afterGain);
 
-    // Throttle-linked scream
-    const screamOsc = ctx.createOscillator();
-    screamOsc.type = 'sawtooth';
-    screamOsc.frequency.value = 520;
-    screamOsc.start();
-    g.screamOsc = screamOsc;
+    const nozzleFilt = ctx.createBiquadFilter();
+    nozzleFilt.type = 'highpass';
+    nozzleFilt.frequency.value = 4500;
+    nozzleFilt.Q.value = 0.7;
+    g.nozzleFilt = nozzleFilt;
 
-    const screamFilt = ctx.createBiquadFilter();
-    screamFilt.type = 'bandpass';
-    screamFilt.frequency.value = 1400;
-    screamFilt.Q.value = 8;
-    g.screamFilt = screamFilt;
+    const nozzleGain = ctx.createGain();
+    nozzleGain.gain.value = 0;
+    g.nozzleGain = nozzleGain;
 
-    const screamGain = ctx.createGain();
-    screamGain.gain.value = 0;
-    g.screamGain = screamGain;
+    g.noiseSrc!.connect(nozzleFilt);
+    nozzleFilt.connect(nozzleGain);
 
-    screamOsc.connect(screamFilt);
-    screamFilt.connect(screamGain);
+    // ——— Bus 4: Airframe ———
+    const airframeFilt = ctx.createBiquadFilter();
+    airframeFilt.type = 'lowpass';
+    airframeFilt.frequency.value = 70;
+    airframeFilt.Q.value = 0.8;
+    g.airframeFilt = airframeFilt;
 
-    // Idle spool presence (audible at speed=0)
-    const idleSpoolOsc = ctx.createOscillator();
-    idleSpoolOsc.type = 'sine';
-    idleSpoolOsc.frequency.value = 48;
-    idleSpoolOsc.start();
-    g.idleSpoolOsc = idleSpoolOsc;
+    const airframeGain = ctx.createGain();
+    airframeGain.gain.value = 0.05;
+    g.airframeGain = airframeGain;
 
-    const idleSpoolGain = ctx.createGain();
-    idleSpoolGain.gain.value = 0.12;
-    g.idleSpoolGain = idleSpoolGain;
-    idleSpoolOsc.connect(idleSpoolGain);
+    const airframeLfo = ctx.createOscillator();
+    airframeLfo.type = 'sine';
+    airframeLfo.frequency.value = 0.85;
+    airframeLfo.start();
+    g.airframeLfo = airframeLfo;
+    const airframeAmDepth = ctx.createGain();
+    airframeAmDepth.gain.value = 0.35;
+    g.airframeAmDepth = airframeAmDepth;
+    const airAm = ctx.createGain();
+    airAm.gain.value = 0.7;
+    airframeLfo.connect(airframeAmDepth);
+    airframeAmDepth.connect(airAm.gain);
+
+    g.pinkSrc!.connect(airframeFilt);
+    airframeFilt.connect(airAm);
+    airAm.connect(airframeGain);
 
     const sum = ctx.createGain();
     sum.gain.value = 1;
-    spoolGain.connect(sum);
-    intakeWhineGain.connect(sum);
-    compressorGain.connect(sum);
-    turbineGain.connect(sum);
+    spoolBus.connect(sum);
+    coreGain.connect(sum);
     jetRoarGain.connect(sum);
     afterGain.connect(sum);
-    screamGain.connect(sum);
-    idleSpoolGain.connect(sum);
+    nozzleGain.connect(sum);
+    airframeGain.connect(sum);
 
     const panL = ctx.createStereoPanner();
-    panL.pan.value = -0.25;
+    panL.pan.value = -0.22;
     g.panL = panL;
-
     const panR = ctx.createStereoPanner();
-    panR.pan.value = 0.25;
+    panR.pan.value = 0.22;
     g.panR = panR;
 
-    // Soft stereo width: sum → slight L/R
     const splitL = ctx.createGain();
-    splitL.gain.value = 0.7;
+    splitL.gain.value = 0.72;
     const splitR = ctx.createGain();
-    splitR.gain.value = 0.7;
+    splitR.gain.value = 0.72;
     sum.connect(splitL);
     sum.connect(splitR);
     splitL.connect(panL);
@@ -939,6 +1128,7 @@ export class EngineSynthImpl implements EngineSynth {
     panL.connect(g.master);
     panR.connect(g.master);
   }
+
 
   private buildScifi(g: GraphHandles): void {
     const ctx = this.context;
@@ -1169,14 +1359,17 @@ export class EngineSynthImpl implements EngineSynth {
     stopOsc(g.howlOsc2);
     stopOsc(g.humOsc);
     stopOsc(g.wetAmLfo);
-    stopOsc(g.spoolL);
-    stopOsc(g.spoolR);
     stopOsc(g.intakeWhineOsc);
     stopOsc(g.intakeWhineOsc2);
-    stopOsc(g.turbineOsc);
-    stopOsc(g.turbineOsc2);
-    stopOsc(g.screamOsc);
-    stopOsc(g.idleSpoolOsc);
+    stopOsc(g.intakeWhineOsc3);
+    stopOsc(g.spoolFlutter);
+    stopOsc(g.buzzSaw1);
+    stopOsc(g.buzzSaw2);
+    stopOsc(g.coreRoughLfo);
+    stopOsc(g.airframeLfo);
+    stopOsc(g.regenOsc);
+    stopOsc(g.regenOsc2);
+    stopOsc(g.dualWhineR);
     try {
       g.pulseNode?.disconnect();
       g.pulseGainOut?.disconnect();
@@ -1251,9 +1444,12 @@ export class EngineSynthImpl implements EngineSynth {
     this.hud.loadFeel = loadFeel;
     this.hud.rpmNorm = rpmNorm;
 
-    if (g.panL) {
+    // Living drive: throttle/load hysteresis + micro-jitter (not 1:1 with slider)
+    this.stepLivingDrive(immediate, tc, kind);
+
+    if (g.panL && kind !== 'aerospace' && this.patchMeta.topology !== 'ev-dual-motor') {
       const width = Number(p.stereoWidth ?? 0.35);
-      smooth(g.panL.pan, (d.load ?? 0) * width * 0.6, tc, ctx);
+      smooth(g.panL.pan, this.loadLag * width * 0.6, tc, ctx);
     }
 
     if (kind === 'ice') {
@@ -1264,6 +1460,27 @@ export class EngineSynthImpl implements EngineSynth {
       this.applyAerospaceDriving(rpmNorm, d, tc);
     } else {
       this.applyScifiDriving(rpmNorm, d, tc);
+    }
+    this.hud.driveMood = this.driveMood;
+  }
+
+  /** One-pole lag + random-walk jitter so character breathes. */
+  private stepLivingDrive(immediate: boolean, tc: number, kind: Kind): void {
+    const d = this.driving;
+    const hTc =
+      kind === 'aerospace' ? 0.2 : kind === 'ev-whine' ? 0.11 : 0.15;
+    if (immediate || tc <= 0.015) {
+      this.throttleLag = d.throttle;
+      this.loadLag = d.load ?? 0;
+      this.liveJit = { filt: 0, gain: 0, pitch: 0 };
+    } else {
+      const a = 1 - Math.exp(-Math.max(0.012, tc) / hTc);
+      this.throttleLag += (d.throttle - this.throttleLag) * a;
+      this.loadLag += ((d.load ?? 0) - this.loadLag) * a;
+      const walk = (v: number, amt: number) => v * 0.94 + (Math.random() * 2 - 1) * amt;
+      this.liveJit.filt = walk(this.liveJit.filt, 0.01);
+      this.liveJit.gain = walk(this.liveJit.gain, 0.008);
+      this.liveJit.pitch = walk(this.liveJit.pitch, 0.006);
     }
   }
 
@@ -1282,13 +1499,22 @@ export class EngineSynthImpl implements EngineSynth {
     // fund ≈ aggregate firing Hz ≈ N*rpm/120 → rpm = fund*120/N
     const rpm = clamp(fund * (120 / Math.max(4, cyl)), 200, 9000);
 
+    const thr = this.throttleLag;
+    const thrRaw = d.throttle;
+    const loadL = this.loadLag;
+
     if (g.iceMode === 'worklet' && g.pulseNode) {
-      this.setWorkletParam('rpm', rpm, tc);
-      this.setWorkletParam('throttle', d.throttle, tc);
-      this.setWorkletParam('load', d.load ?? 0, tc);
+      // Hysteresis on throttle/load; worklet adds its own micro-jitter / valvetrain
+      this.setWorkletParam('rpm', rpm * (1 + this.liveJit.pitch * 0.012), tc);
+      this.setWorkletParam('throttle', thr, tc);
+      this.setWorkletParam('load', loadL, tc);
       this.setWorkletParam('cylinders', cyl, tc);
       this.setWorkletParam('pulseWidth', Number(p.pulseWidth ?? 0.35), tc);
-      this.setWorkletParam('pulseJitter', Number(p.pulseJitter ?? 0.08), tc);
+      this.setWorkletParam(
+        'pulseJitter',
+        Math.min(0.5, Number(p.pulseJitter ?? 0.08) + 0.02 + Math.abs(this.liveJit.pitch) * 0.08),
+        tc,
+      );
       this.setWorkletParam('roughness', Number(p.roughness ?? 0.4), tc);
       this.setWorkletParam('growl', Number(p.growl ?? 0.6) * (0.7 + Number(p.exhaust ?? 0.5) * 0.4), tc);
       this.setWorkletParam('exhaustLength', Number(p.exhaustLength ?? 0.45), tc);
@@ -1302,14 +1528,18 @@ export class EngineSynthImpl implements EngineSynth {
       this.setWorkletParam('crackle', Number(p.crackle ?? 0.35), tc);
       const presenceBoost = 0.75 + Number(p.presence ?? 0.45) * 0.4;
       this.setWorkletParam('masterGain', clamp(Number(p.masterGain ?? 0.7) * presenceBoost), tc);
+      if (d.speed < 0.04 && thrRaw < 0.12) this.driveMood = 'idle';
+      else if (d.speed < 0.04) this.driveMood = 'lope';
+      else if (thrRaw > 0.7) this.driveMood = 'pull';
+      else this.driveMood = 'cruise';
+      this.prevThrottle = thrRaw;
       return;
     }
 
     // Oscillator fallback: noise + soft pulse imitation (no triple-saw lead)
     const firing = (fund / 60) * (cyl / 2);
 
-    if (g.fund) smooth(g.fund.frequency, fund, tc, ctx);
-    if (g.fund2) smooth(g.fund2.frequency, fund * 0.5, tc, ctx);
+    if (g.fund2) smooth(g.fund2.frequency, fund * 0.5 * (1 + this.liveJit.pitch * 0.008), tc, ctx);
     if (g.sub) smooth(g.sub.frequency, fund * 0.5, tc, ctx);
     if (g.pulseLfo) smooth(g.pulseLfo.frequency, clamp(firing, 2, 48), tc, ctx);
     if (g.unevenLfo) smooth(g.unevenLfo.frequency, clamp(firing * 0.5, 1.0, 18), tc, ctx);
@@ -1322,7 +1552,14 @@ export class EngineSynthImpl implements EngineSynth {
     const ign = Number(p.ignitionNoise ?? 0.25);
     const rough = Number(p.roughness ?? 0.35);
     const parked = d.speed < 0.04;
-    const thr = d.throttle;
+    // thr/load already lagged above for worklet; reuse
+    const fj = this.liveJit.filt;
+    const gj = this.liveJit.gain;
+
+    if (g.fund) {
+      // Micro pitch wander
+      smooth(g.fund.frequency, fund * (1 + this.liveJit.pitch * 0.01), tc, ctx);
+    }
 
     if (g.fundGain) {
       const base =
@@ -1340,11 +1577,16 @@ export class EngineSynthImpl implements EngineSynth {
       smooth(g.subGain.gain, growl * 0.28 * (0.4 + rpmNorm * 0.4 + thr * 0.12), tc, ctx);
     }
     if (g.presenceFilt) {
-      smooth(g.presenceFilt.frequency, 280 + presence * 500 + thr * 350 + rpmNorm * 200, tc, ctx);
+      smooth(
+        g.presenceFilt.frequency,
+        280 + presence * 500 + thr * 350 + rpmNorm * 200 + fj * 40,
+        tc,
+        ctx,
+      );
     }
     if (g.muffler) {
       const open = lerp(700, 4200, 1 - muffling);
-      smooth(g.muffler.frequency, open + thr * 1400 + rpmNorm * 500, tc, ctx);
+      smooth(g.muffler.frequency, open + thr * 1400 + rpmNorm * 500 + fj * 80, tc, ctx);
     }
     if (g.intakeGain) {
       const throttleFeel = parked ? Math.max(thr, thr * thr) : thr;
@@ -1375,56 +1617,164 @@ export class EngineSynthImpl implements EngineSynth {
     if (g.mechGain) {
       smooth(
         g.mechGain.gain,
-        0.1 + rough * 0.14 + rpmNorm * 0.05 + thr * 0.04 + (parked ? 0.06 : 0),
+        (0.1 + rough * 0.14 + rpmNorm * 0.05 + thr * 0.04 + (parked ? 0.06 : 0)) * (1 + gj * 0.04),
         tc,
         ctx,
       );
     }
     if (g.mechFilt) {
-      smooth(g.mechFilt.frequency, 520 + rpmNorm * 700 + thr * 350, tc, ctx);
+      smooth(g.mechFilt.frequency, 520 + rpmNorm * 700 + thr * 350 + fj * 50, tc, ctx);
     }
+
+    // Stochastic valvetrain tick (osc fallback) — sparse, irregular
+    if (g.tickGain) {
+      this.valveTickWait -= 1;
+      if (this.valveTickWait <= 0) {
+        const t0 = ctx.currentTime;
+        const amp = 0.02 + rough * 0.05 + thr * 0.02;
+        try {
+          g.tickGain.gain.cancelScheduledValues(t0);
+          g.tickGain.gain.setValueAtTime(amp, t0);
+          g.tickGain.gain.exponentialRampToValueAtTime(0.0008, t0 + 0.028 + Math.random() * 0.02);
+        } catch {
+          g.tickGain.gain.value = 0.001;
+        }
+        this.valveTickWait = Math.floor(8 + Math.random() * (28 + (1 - thr) * 40));
+      }
+    }
+
+    if (parked && thrRaw < 0.12) this.driveMood = 'idle';
+    else if (parked) this.driveMood = 'lope';
+    else if (thrRaw > 0.7) this.driveMood = 'pull';
+    else this.driveMood = 'cruise';
+    this.prevThrottle = thrRaw;
   }
 
   private applyEvDriving(rpmNorm: number, d: DrivingInput, tc: number): void {
     const p = this.params;
     const g = this.g;
     const ctx = this.context;
+    const topo = this.patchMeta.topology;
 
+    const thr = this.throttleLag;
+    const thrRaw = d.throttle;
     const base = Number(p.whinePitch ?? 180);
     const steps = Number(p.gearSteps ?? 0.35);
+
+    // Inverter beat wander / detune drift
+    this.evDetuneWander += (Math.random() * 2 - 1) * 0.35;
+    this.evDetuneWander *= 0.97;
+    this.liveJit.pitch = this.liveJit.pitch * 0.96 + (Math.random() * 2 - 1) * 0.008;
+
     const stepped = Math.floor(rpmNorm * (3 + steps * 5)) / (3 + steps * 5);
-    const pitchMul = lerp(0.35, 1, Math.max(stepped, rpmNorm * 0.7));
-    let fund = base * pitchMul * (0.5 + rpmNorm * 0.5 + d.throttle * 0.15);
+    let pitchMul = lerp(0.35, 1, Math.max(stepped, rpmNorm * 0.7));
+    if (topo === 'ev-inverter-climb') {
+      // Stronger ascending climb with speed/throttle
+      pitchMul = lerp(0.28, 1.15, Math.max(stepped, rpmNorm * 0.55 + thr * 0.35));
+    }
+    let fund = base * pitchMul * (0.5 + rpmNorm * 0.5 + thr * 0.15);
+    fund *= 1 + this.liveJit.pitch * 0.02;
     if (d.reverse) fund *= 0.85;
     this.hud.fundamentalHz = fund;
 
-    if (g.whine1) smooth(g.whine1.frequency, fund, tc, ctx);
-    if (g.whine2) smooth(g.whine2.frequency, fund * 2, tc, ctx);
+    const det = this.evDetuneWander;
+    if (g.whine1) smooth(g.whine1.frequency, fund * (1 + det * 0.0008), tc, ctx);
+    if (g.whine2) smooth(g.whine2.frequency, fund * 2 * (1 - det * 0.0005), tc, ctx);
     if (g.whine3) smooth(g.whine3.frequency, fund * 3.01, tc, ctx);
+    if (g.whine1) g.whine1.detune.value = det * 0.4;
+    if (g.whine2) g.whine2.detune.value = -det * 0.55;
 
     const presence = Number(p.presence ?? 0.55);
     if (g.whineGain) {
       const vol =
-        (0.08 + rpmNorm * 0.22 + d.throttle * 0.12) * (0.6 + presence * 0.6) +
-        (d.speed < 0.03 ? d.throttle * 0.15 : 0);
-      smooth(g.whineGain.gain, vol, tc, ctx);
+        (0.08 + rpmNorm * 0.22 + thr * 0.12) * (0.6 + presence * 0.6) +
+        (d.speed < 0.03 ? thrRaw * 0.15 : 0);
+      smooth(g.whineGain.gain, vol * (1 + this.liveJit.gain * 0.03), tc, ctx);
     }
     if (g.buzzGain) {
       smooth(
         g.buzzGain.gain,
-        Number(p.inverterBuzz ?? 0.4) * (0.04 + rpmNorm * 0.1 + d.throttle * 0.08),
+        Number(p.inverterBuzz ?? 0.4) * (0.04 + rpmNorm * 0.1 + thr * 0.08),
         tc,
         ctx,
       );
     }
     if (g.buzzFilt) {
-      smooth(g.buzzFilt.frequency, 2800 + rpmNorm * 3500, tc, ctx);
+      smooth(g.buzzFilt.frequency, 2800 + rpmNorm * 3500 + this.liveJit.filt * 90, tc, ctx);
     }
     if (g.muffler) {
       const muff = Number(p.muffling ?? 0.2);
-      smooth(g.muffler.frequency, lerp(2500, 9000, 1 - muff), tc, ctx);
+      smooth(g.muffler.frequency, lerp(2500, 9000, 1 - muff) + this.liveJit.filt * 60, tc, ctx);
     }
+
+    // Gear mesh (climb pack emphasizes)
+    const meshAmt = Number(p.gearMesh ?? (topo === 'ev-inverter-climb' ? 0.55 : 0.15));
+    if (g.meshFilt) {
+      smooth(g.meshFilt.frequency, 700 + rpmNorm * 1800 + thr * 600, tc, ctx);
+    }
+    if (g.meshGain) {
+      const mesh =
+        meshAmt *
+        (0.02 + rpmNorm * 0.1 + thr * 0.08) *
+        (topo === 'ev-inverter-climb' ? 1.35 : 0.55);
+      smooth(g.meshGain.gain, mesh, tc, ctx);
+    }
+
+    // Regen howl: blooms on decel (speed high, throttle drop)
+    const regenAmt = Number(p.regenHowl ?? (topo === 'ev-regen-howl' ? 0.78 : 0.15));
+    const dThr = this.prevThrottle - thrRaw;
+    const decel = d.speed > 0.18 && (dThr > 0.01 || thrRaw < 0.22);
+    const regenGate =
+      topo === 'ev-regen-howl'
+        ? clamp(d.speed * 1.1) * (decel ? 1 : clamp(0.15 + (1 - thrRaw) * 0.35))
+        : clamp(d.speed * 0.5) * (decel ? 0.55 : 0);
+    if (g.regenOsc) smooth(g.regenOsc.frequency, 900 + d.speed * 2200 + (1 - thrRaw) * 800, tc, ctx);
+    if (g.regenOsc2) smooth(g.regenOsc2.frequency, 1400 + d.speed * 2800, tc, ctx);
+    if (g.regenFilt) {
+      smooth(g.regenFilt.frequency, 1200 + d.speed * 2400 + this.liveJit.filt * 70, tc, ctx);
+    }
+    if (g.regenGain) {
+      smooth(g.regenGain.gain, regenAmt * regenGate * (0.06 + d.speed * 0.14), tc, ctx);
+    }
+
+    // Dual motor L/R beat + mid roar
+    const dual = Number(p.dualBeat ?? (topo === 'ev-dual-motor' ? 0.68 : 0));
+    const roar = Number(p.motorRoar ?? (topo === 'ev-dual-motor' ? 0.72 : 0.12));
+    if (g.dualWhineR) {
+      smooth(g.dualWhineR.frequency, fund * (1.02 + dual * 0.04) * (1 - det * 0.001), tc, ctx);
+      g.dualWhineR.detune.value = 8 + det * 0.8 + dual * 18;
+    }
+    if (g.dualWhineGainR) {
+      smooth(g.dualWhineGainR.gain, dual * (0.08 + rpmNorm * 0.16 + thr * 0.1), tc, ctx);
+    }
+    if (g.motorFilt) {
+      smooth(g.motorFilt.frequency, 500 + rpmNorm * 900 + thr * 400, tc, ctx);
+    }
+    if (g.motorGain) {
+      smooth(
+        g.motorGain.gain,
+        roar * (0.06 + rpmNorm * 0.22 + thr * 0.12) * (topo === 'ev-dual-motor' ? 1 : 0.35),
+        tc,
+        ctx,
+      );
+    }
+    if (g.panL && topo === 'ev-dual-motor') {
+      const width = Number(p.stereoWidth ?? 0.7);
+      smooth(g.panL.pan, -0.35 - width * 0.3 + this.loadLag * 0.1, tc, ctx);
+    }
+    if (g.panR && topo === 'ev-dual-motor') {
+      const width = Number(p.stereoWidth ?? 0.7);
+      smooth(g.panR.pan, 0.35 + width * 0.3 + this.loadLag * 0.1, tc, ctx);
+    }
+
+    if (topo === 'ev-regen-howl' && regenGate > 0.35) this.driveMood = 'regen';
+    else if (d.speed < 0.04 && thrRaw < 0.08) this.driveMood = 'idle';
+    else if (thrRaw > 0.55) this.driveMood = 'pull';
+    else this.driveMood = 'cruise';
+
+    this.prevThrottle = thrRaw;
   }
+
 
   private applyAerospaceDriving(rpmNorm: number, d: DrivingInput, tc: number): void {
     const p = this.params;
@@ -1432,118 +1782,165 @@ export class EngineSynthImpl implements EngineSynth {
     const ctx = this.context;
 
     const spoolBase = Number(p.spoolPitch ?? 95);
-    let fund = spoolBase * lerp(0.45, 2.4, rpmNorm) * (1 + d.throttle * 0.22);
-    if (d.reverse) fund *= 0.88;
-    this.hud.fundamentalHz = fund;
+    const idleAmt = Number(p.idleSpool ?? 0.55);
+    const roar = Number(p.jetRoar ?? 0.68);
+    const intake = Number(p.intakeWhine ?? 0.5);
+    const comp = Number(p.compressor ?? 0.65);
+    const coreAmt = Number(p.turbine ?? 0.7);
+    const after = Number(p.afterburn ?? 0.78);
+    const nozzle = Number(p.jetScream ?? 0.45);
+    const airframeAmt = Number(p.airframe ?? 0.55);
+    const inertia = Number(p.spoolInertia ?? 0.62);
 
     const parked = d.speed < 0.04;
-    const idleAmt = Number(p.idleSpool ?? 0.55);
-    const roar = Number(p.jetRoar ?? 0.65);
-    const intake = Number(p.intakeWhine ?? 0.55);
-    const comp = Number(p.compressor ?? 0.6);
-    const turb = Number(p.turbine ?? 0.65);
-    const after = Number(p.afterburn ?? 0.75);
-    const scream = Number(p.jetScream ?? 0.6);
+    const thr = this.throttleLag; // lagged throttle (hysteresis)
+    const thrRaw = d.throttle;
 
-    if (g.spoolL) smooth(g.spoolL.frequency, fund, tc, ctx);
-    if (g.spoolR) smooth(g.spoolR.frequency, fund * 1.018, tc, ctx);
-    if (g.spoolGain) {
-      const vol =
-        0.08 +
-        rpmNorm * 0.2 +
-        d.throttle * 0.14 +
-        (parked ? idleAmt * 0.1 + d.throttle * 0.08 : 0);
-      smooth(g.spoolGain.gain, vol * (0.55 + turb * 0.55), tc, ctx);
+    // Spool target + rate wander (living)
+    this.spoolWander += (Math.random() * 2 - 1) * 0.012;
+    this.spoolWander *= 0.96;
+    const spoolTarget = clamp(
+      rpmNorm * 0.62 + thr * 0.48 + (parked ? idleAmt * 0.22 + thr * 0.18 : 0) + this.spoolWander * 0.04,
+    );
+    const spoolTc = lerp(0.14, 0.52, inertia);
+    if (tc <= 0.015) {
+      this.spoolLag = spoolTarget;
+    } else {
+      const a = 1 - Math.exp(-Math.max(0.012, tc) / Math.max(0.08, spoolTc));
+      this.spoolLag += (spoolTarget - this.spoolLag) * a;
+    }
+    const spool = clamp(this.spoolLag);
+
+    // Soft AB onset hysteresis (lags open more than close a bit)
+    const abWant = Math.max(0, thrRaw - 0.42) / 0.58;
+    const abTc = abWant > this.abLag ? 0.22 : 0.12;
+    if (tc <= 0.015) this.abLag = abWant * abWant;
+    else {
+      const aa = 1 - Math.exp(-Math.max(0.012, tc) / abTc);
+      this.abLag += (abWant * abWant - this.abLag) * aa;
+    }
+    const abWet = clamp(this.abLag);
+
+    let fund = spoolBase * lerp(0.55, 1.85, spool) * (1 + thr * 0.08);
+    fund *= 1 + this.liveJit.pitch * 0.015;
+    if (d.reverse) fund *= 0.9;
+    this.hud.fundamentalHz = fund;
+
+    const spoolSmooth = Math.max(tc, spoolTc * 0.55);
+    const abSmooth = Math.min(tc, 0.08);
+    const fj = this.liveJit.filt;
+    const gj = this.liveJit.gain;
+
+    if (g.compressorFilt) {
+      smooth(g.compressorFilt.frequency, 900 + spool * 2400 + thr * 400 + fj * 80, spoolSmooth, ctx);
+      g.compressorFilt.Q.value = 1.2 + spool * 0.8;
+    }
+    if (g.compressorGain) {
+      const spoolNoise =
+        comp *
+        (0.08 + spool * 0.28 + (parked ? idleAmt * 0.06 : 0)) *
+        (1 - thrRaw * thrRaw * 0.35) *
+        (1 + gj * 0.04);
+      smooth(g.compressorGain.gain, spoolNoise, spoolSmooth, ctx);
     }
 
-    if (g.intakeWhineOsc) {
-      smooth(g.intakeWhineOsc.frequency, 1200 + rpmNorm * 2800 + d.throttle * 1600, tc, ctx);
-    }
-    if (g.intakeWhineOsc2) {
-      smooth(g.intakeWhineOsc2.frequency, 2000 + rpmNorm * 3600 + d.throttle * 2000, tc, ctx);
+    if (g.intakeWhineOsc) smooth(g.intakeWhineOsc.frequency, fund * 4.2, spoolSmooth, ctx);
+    if (g.intakeWhineOsc2) smooth(g.intakeWhineOsc2.frequency, fund * 4.28, spoolSmooth, ctx);
+    if (g.intakeWhineOsc3) smooth(g.intakeWhineOsc3.frequency, fund * 8.35, spoolSmooth, ctx);
+    if (g.intakeWhineFilt) {
+      smooth(g.intakeWhineFilt.frequency, 1400 + spool * 2200 + fj * 60, spoolSmooth, ctx);
+      g.intakeWhineFilt.Q.value = 5 + intake * 4;
     }
     if (g.intakeWhineGain) {
       smooth(
         g.intakeWhineGain.gain,
-        intake * (0.04 + rpmNorm * 0.14 + d.throttle * 0.16 + (parked ? d.throttle * 0.1 : 0)),
-        tc,
+        intake * (0.012 + spool * 0.055) * (1 - thrRaw * 0.25),
+        spoolSmooth,
         ctx,
       );
+    }
+    if (g.spoolFlutter) {
+      smooth(g.spoolFlutter.frequency, 1.6 + spool * 3.2 + Math.abs(this.spoolWander) * 2, spoolSmooth, ctx);
     }
 
-    if (g.compressorFilt) {
-      smooth(g.compressorFilt.frequency, 1400 + rpmNorm * 2200 + d.throttle * 900, tc, ctx);
-    }
-    if (g.compressorGain) {
-      smooth(
-        g.compressorGain.gain,
-        comp * (0.05 + rpmNorm * 0.16 + d.throttle * 0.12),
-        tc,
-        ctx,
-      );
+    const buzz = Math.max(0, spool - 0.68) * 3.2;
+    if (g.buzzSaw1) smooth(g.buzzSaw1.frequency, fund * 9.8, spoolSmooth, ctx);
+    if (g.buzzSaw2) smooth(g.buzzSaw2.frequency, fund * 14.6, spoolSmooth, ctx);
+    if (g.buzzSawGain) {
+      smooth(g.buzzSawGain.gain, buzz * intake * 0.018, spoolSmooth, ctx);
     }
 
-    if (g.turbineOsc) smooth(g.turbineOsc.frequency, fund * 3.8, tc, ctx);
-    if (g.turbineOsc2) smooth(g.turbineOsc2.frequency, fund * 7.2, tc, ctx);
-    if (g.turbineGain) {
+    if (g.coreFilt) {
+      smooth(g.coreFilt.frequency, 700 + spool * 900 + thr * 500 + fj * 40, spoolSmooth, ctx);
+    }
+    if (g.coreFilt2) {
+      smooth(g.coreFilt2.frequency, 220 + spool * 420 + thr * 180, spoolSmooth, ctx);
+    }
+    if (g.coreGain) {
       smooth(
-        g.turbineGain.gain,
-        turb * (0.06 + rpmNorm * 0.18 + d.throttle * 0.14),
-        tc,
+        g.coreGain.gain,
+        coreAmt * (0.12 + spool * 0.32 + thr * 0.14 + (parked ? idleAmt * 0.07 : 0)) * (1 + gj * 0.03),
+        spoolSmooth,
         ctx,
       );
+    }
+    if (g.coreRoughLfo) {
+      smooth(g.coreRoughLfo.frequency, 1.2 + spool * 2.8 + thr, abSmooth, ctx);
     }
 
     if (g.jetRoarFilt) {
-      smooth(g.jetRoarFilt.frequency, 500 + rpmNorm * 1400 + d.throttle * 800, tc, ctx);
+      smooth(g.jetRoarFilt.frequency, 280 + rpmNorm * 500 + thr * 400, abSmooth, ctx);
     }
     if (g.jetRoarGain) {
-      smooth(
-        g.jetRoarGain.gain,
-        roar * (0.1 + rpmNorm * 0.28 + d.throttle * 0.18 + (parked ? idleAmt * 0.08 : 0)),
-        tc,
-        ctx,
-      );
+      const exhaust =
+        roar * (0.08 + rpmNorm * 0.16 + thr * thr * 0.28 + (parked ? idleAmt * 0.05 : 0));
+      smooth(g.jetRoarGain.gain, exhaust, abSmooth, ctx);
     }
 
-    // Afterburner roar — strong throttle^2
     if (g.afterGain) {
-      smooth(g.afterGain.gain, after * d.throttle * d.throttle * 0.38, tc, ctx);
+      smooth(g.afterGain.gain, after * abWet * 0.42, abSmooth, ctx);
     }
     if (g.afterFilt) {
-      smooth(g.afterFilt.frequency, 1200 + d.throttle * 2400, tc, ctx);
+      smooth(g.afterFilt.frequency, 600 + thrRaw * 1600 + fj * 50, abSmooth, ctx);
+    }
+    if (g.afterShaper) {
+      g.afterShaper.curve = makeShaper(0.25 + abWet * 0.45) as Float32Array<ArrayBuffer>;
     }
 
-    // Throttle-linked scream
-    if (g.screamOsc) {
-      smooth(g.screamOsc.frequency, 420 + rpmNorm * 900 + d.throttle * 1100, tc, ctx);
+    if (g.nozzleFilt) {
+      smooth(g.nozzleFilt.frequency, 3800 + thrRaw * 3200, abSmooth, ctx);
     }
-    if (g.screamFilt) {
-      smooth(g.screamFilt.frequency, 900 + rpmNorm * 1600 + d.throttle * 1800, tc, ctx);
-      g.screamFilt.Q.value = 5 + scream * 8;
-    }
-    if (g.screamGain) {
-      smooth(g.screamGain.gain, scream * d.throttle * (0.08 + rpmNorm * 0.22) * 0.55, tc, ctx);
+    if (g.nozzleGain) {
+      smooth(g.nozzleGain.gain, nozzle * abWet * 0.07, abSmooth, ctx);
     }
 
-    if (g.idleSpoolOsc) {
-      smooth(g.idleSpoolOsc.frequency, spoolBase * 0.48, tc, ctx);
+    const loadAbs = Math.abs(this.loadLag);
+    const buffet = clamp(loadAbs * 0.7 + (parked ? thr * 0.45 : rpmNorm * 0.2) + thr * 0.15);
+    if (g.airframeFilt) {
+      smooth(g.airframeFilt.frequency, 45 + buffet * 55, abSmooth, ctx);
     }
-    if (g.idleSpoolGain) {
-      const idle =
-        idleAmt * clamp(1 - rpmNorm * 1.8) * 0.22 + (parked ? idleAmt * 0.08 + d.throttle * 0.06 : 0);
-      smooth(g.idleSpoolGain.gain, idle, tc, ctx);
+    if (g.airframeGain) {
+      smooth(g.airframeGain.gain, airframeAmt * buffet * 0.16, abSmooth, ctx);
+    }
+    if (g.airframeLfo) {
+      smooth(g.airframeLfo.frequency, 0.55 + buffet * 1.8, abSmooth, ctx);
     }
 
     if (g.panL) {
       const width = Number(p.stereoWidth ?? 0.6);
-      smooth(g.panL.pan, -0.15 - width * 0.25 + (d.load ?? 0) * width * 0.2, tc, ctx);
+      smooth(g.panL.pan, -0.12 - width * 0.22 + this.loadLag * width * 0.18, tc, ctx);
     }
     if (g.panR) {
       const width = Number(p.stereoWidth ?? 0.6);
-      smooth(g.panR.pan, 0.15 + width * 0.25 + (d.load ?? 0) * width * 0.2, tc, ctx);
+      smooth(g.panR.pan, 0.12 + width * 0.22 + this.loadLag * width * 0.18, tc, ctx);
     }
+
+    if (abWet > 0.35) this.driveMood = 'ab';
+    else if (spool < 0.35 && parked) this.driveMood = thrRaw > 0.15 ? 'spooling' : 'idle';
+    else if (spool < 0.55) this.driveMood = 'spooling';
+    else this.driveMood = 'cruise';
   }
+
 
   private applyScifiDriving(rpmNorm: number, d: DrivingInput, tc: number): void {
     const p = this.params;
