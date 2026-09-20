@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { EngineParams, EnginePatch, SynthNodeDesc, SynthNodeType } from '../audio';
-import { paramMetaForKind, paramMetaForNodeType } from '../audio';
+import type { EngineKind } from '../audio';
+import { defaultPatchIdForKind, getBuiltin, paramMetaForKind, paramMetaForNodeType } from '../audio';
 import { ParamRail } from '../components/ParamRail';
 import type { useAudioEngine } from '../hooks/useAudioEngine';
 
@@ -20,13 +21,18 @@ interface WireDrag {
   y: number;
 }
 
-const PALETTE: { type: SynthNodeType; label: string; color: string }[] = [
-  { type: 'PulseTrain', label: 'PulseTrain', color: '#ff8a5c' },
-  { type: 'ExhaustWaveguide', label: 'Exhaust', color: '#ff5c7a' },
-  { type: 'IntakeNoise', label: 'Intake', color: '#3dffb5' },
-  { type: 'Mechanical', label: 'Mechanical', color: '#c9a227' },
-  { type: 'FormantHowl', label: 'FormantHowl', color: '#b388ff' },
-  { type: 'WetRoadNoise', label: 'WetRoad', color: '#5c9dff' },
+const NODE_W = 156;
+const NODE_H = 72;
+const GRID = 20;
+
+const CATEGORY_TABS: { kind: EngineKind; label: string }[] = [
+  { kind: 'ice', label: 'Internal Combustion' },
+  { kind: 'ev-whine', label: 'EV' },
+  { kind: 'aerospace', label: 'Aerospace' },
+  { kind: 'scifi', label: 'SciFi' },
+];
+
+const SHARED_PALETTE: { type: SynthNodeType; label: string; color: string }[] = [
   { type: 'Filter', label: 'Filter', color: '#5cadee' },
   { type: 'Gain', label: 'Gain', color: '#8b97ab' },
   { type: 'Mix', label: 'Mix', color: '#e8eef8' },
@@ -34,9 +40,28 @@ const PALETTE: { type: SynthNodeType; label: string; color: string }[] = [
   { type: 'Noise', label: 'Noise', color: '#8b97ab' },
 ];
 
-const NODE_W = 156;
-const NODE_H = 72;
-const GRID = 20;
+const PALETTE_BY_KIND: Record<EngineKind, { type: SynthNodeType; label: string; color: string }[]> = {
+  ice: [
+    { type: 'PulseTrain', label: 'PulseTrain', color: '#ff8a5c' },
+    { type: 'ExhaustWaveguide', label: 'Exhaust', color: '#ff5c7a' },
+    { type: 'IntakeNoise', label: 'Intake', color: '#3dffb5' },
+    { type: 'Mechanical', label: 'Mechanical', color: '#c9a227' },
+    ...SHARED_PALETTE,
+  ],
+  'ev-whine': [...SHARED_PALETTE],
+  aerospace: [
+    { type: 'TurbineSpool', label: 'TurbineSpool', color: '#ff8a5c' },
+    { type: 'IntakeWhine', label: 'IntakeWhine', color: '#3dffb5' },
+    { type: 'CompressorStage', label: 'Compressor', color: '#c9a227' },
+    { type: 'Afterburner', label: 'Afterburner', color: '#ff5c7a' },
+    ...SHARED_PALETTE,
+  ],
+  scifi: [
+    { type: 'FormantHowl', label: 'FormantHowl', color: '#b388ff' },
+    { type: 'WetRoadNoise', label: 'WetRoad', color: '#5c9dff' },
+    ...SHARED_PALETTE,
+  ],
+};
 
 function defaultParams(type: SynthNodeType): Record<string, number | string> {
   switch (type) {
@@ -52,6 +77,14 @@ function defaultParams(type: SynthNodeType): Record<string, number | string> {
       return { formantHowl: 0.7, formantSpread: 0.55, resonance: 0.65 };
     case 'WetRoadNoise':
       return { wetHiss: 0.55, doppler: 0.4 };
+    case 'TurbineSpool':
+      return { spoolPitch: 95, turbine: 0.7, idleSpool: 0.55 };
+    case 'IntakeWhine':
+      return { intakeWhine: 0.58 };
+    case 'Afterburner':
+      return { afterburn: 0.78, jetScream: 0.65 };
+    case 'CompressorStage':
+      return { compressor: 0.62, jetRoar: 0.68 };
     case 'Filter':
     case 'biquad':
       return { frequency: 1200, Q: 1.2, gain: 0 };
@@ -85,6 +118,16 @@ function defaultGraphForKind(kind: string): GraphNode[] {
       { id: 'n2', type: 'Noise', params: { gain: 0.3 }, outs: [{ to: 'n3' }], x: 40, y: 200 },
       { id: 'n3', type: 'Mix', params: { gain: 1 }, outs: [{ to: 'n4' }], x: 260, y: 130 },
       { id: 'n4', type: 'Gain', params: { gain: 0.65 }, outs: [], x: 460, y: 130 },
+    ];
+  }
+  if (kind === 'aerospace') {
+    return [
+      { id: 'n1', type: 'TurbineSpool', params: defaultParams('TurbineSpool'), outs: [{ to: 'n5' }], x: 36, y: 40 },
+      { id: 'n2', type: 'IntakeWhine', params: defaultParams('IntakeWhine'), outs: [{ to: 'n5' }], x: 36, y: 150 },
+      { id: 'n3', type: 'CompressorStage', params: defaultParams('CompressorStage'), outs: [{ to: 'n5' }], x: 240, y: 40 },
+      { id: 'n4', type: 'Afterburner', params: defaultParams('Afterburner'), outs: [{ to: 'n5' }], x: 240, y: 150 },
+      { id: 'n5', type: 'Mix', params: defaultParams('Mix'), outs: [{ to: 'n6' }], x: 460, y: 100 },
+      { id: 'n6', type: 'Gain', params: defaultParams('Gain'), outs: [], x: 640, y: 100 },
     ];
   }
   return [
@@ -127,6 +170,27 @@ export function BuilderPage({ audio, onSave }: Props) {
 
   const eng = audio.getEngine();
   const kind = useMemo(() => eng?.toPatch().kind ?? 'ice', [eng, params, audio.engineId]);
+  const [category, setCategory] = useState<EngineKind>('ice');
+  useEffect(() => {
+    setCategory(kind as EngineKind);
+  }, [kind]);
+  const palette = PALETTE_BY_KIND[category] ?? PALETTE_BY_KIND.ice;
+
+  const switchCategory = useCallback(
+    (next: EngineKind) => {
+      setCategory(next);
+      const id = defaultPatchIdForKind(next);
+      const patch = getBuiltin(id);
+      if (patch) {
+        audio.loadPatch(patch);
+        setNodes(defaultGraphForKind(next));
+        setSelectedId(null);
+        setMsg(`Category → ${CATEGORY_TABS.find((t) => t.kind === next)?.label ?? next}`);
+      }
+    },
+    [audio],
+  );
+
   const metas = paramMetaForKind(kind);
   const selected = nodes.find((n) => n.id === selectedId) ?? null;
   const nodeMetas = selected ? paramMetaForNodeType(selected.type) : [];
@@ -397,7 +461,7 @@ export function BuilderPage({ audio, onSave }: Props) {
     }
   };
 
-  const colorFor = (type: string) => PALETTE.find((p) => p.type === type)?.color ?? '#8b97ab';
+  const colorFor = (type: string) => palette.find((p) => p.type === type)?.color ?? '#8b97ab';
 
   if (!audio.running || !params) {
     return (
@@ -472,8 +536,22 @@ export function BuilderPage({ audio, onSave }: Props) {
 
       <section className="panel graph-panel">
         <h2 className="section-title">Node graph · {kind}</h2>
+        <div className="category-tabs" role="tablist" aria-label="Engine category">
+          {CATEGORY_TABS.map((t) => (
+            <button
+              key={t.kind}
+              type="button"
+              role="tab"
+              aria-selected={category === t.kind}
+              className={`category-tab ${category === t.kind ? 'active' : ''}`}
+              onClick={() => switchCategory(t.kind)}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
         <div className="palette-row">
-          {PALETTE.map((p) => (
+          {palette.map((p) => (
             <button
               key={p.type}
               type="button"
