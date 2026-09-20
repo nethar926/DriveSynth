@@ -83,6 +83,8 @@ export class EngineSynthImpl implements EngineSynth {
     this.context = ctx;
     this.output = ctx.createGain();
     this.output.gain.value = 0;
+    // Critical: without this, the graph never reaches the speakers (silent on all devices).
+    this.output.connect(ctx.destination);
 
     this.whiteBuf = createNoiseBuffer(ctx, 2, false);
     this.pinkBuf = createNoiseBuffer(ctx, 2, true);
@@ -108,6 +110,16 @@ export class EngineSynthImpl implements EngineSynth {
     if (this.disposed) return;
     if (this.context.state === 'suspended') {
       await this.context.resume();
+    }
+    // iOS Safari: a tiny buffer play inside the user-gesture stack helps unlock audio.
+    try {
+      const unlock = this.context.createBuffer(1, 1, this.context.sampleRate);
+      const src = this.context.createBufferSource();
+      src.buffer = unlock;
+      src.connect(this.context.destination);
+      src.start(0);
+    } catch {
+      /* ignore unlock helper failures */
     }
     smooth(this.output.gain, 1, 0.08, this.context);
   }

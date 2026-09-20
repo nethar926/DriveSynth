@@ -56,15 +56,16 @@ export function DrivePage({ audio, gps, prefs, onEnableGps }: Props) {
         ? rev
         : Math.max(rev, gpsActive ? throttleProxy.current : rev);
 
-      audio.setDriving({
-        speed,
-        throttle,
-        load: throttle * 0.4 - 0.1,
-        reverse: false,
-      });
-
-      const eng = audio.getEngine();
-      setHud(eng.getHud());
+      if (audio.running) {
+        audio.setDriving({
+          speed,
+          throttle,
+          load: throttle * 0.4 - 0.1,
+          reverse: false,
+        });
+        const eng = audio.getEngine();
+        if (eng) setHud(eng.getHud());
+      }
 
       raf = requestAnimationFrame(tick);
     };
@@ -96,7 +97,7 @@ export function DrivePage({ audio, gps, prefs, onEnableGps }: Props) {
           >
             Start / Resume Engine
           </button>
-          <p className="gate-hint">Tap to unlock audio (required by the browser).</p>
+          <p className="gate-hint">Tap to unlock audio, then drag REV or raise Speed (turn off silent mode on iPhone).</p>
         </div>
       )}
 

@@ -25,16 +25,17 @@ function readSnapshot(
   gps: Props['gps'],
 ): Snapshot {
   const eng = audio.getEngine();
-  const ctx = eng.context;
-  const baseLatency =
-    typeof ctx.baseLatency === 'number' && Number.isFinite(ctx.baseLatency)
-      ? `${(ctx.baseLatency * 1000).toFixed(1)} ms`
-      : 'n/a';
+  const ctx = eng?.context ?? audio.context.current;
 
   let geoFixAge = '—';
   if (gps.timestamp != null) {
     geoFixAge = `${Math.max(0, Date.now() - gps.timestamp)} ms`;
   }
+
+  const baseLatency =
+    ctx && typeof ctx.baseLatency === 'number' && Number.isFinite(ctx.baseLatency)
+      ? `${(ctx.baseLatency * 1000).toFixed(1)} ms`
+      : 'n/a';
 
   return {
     ua: navigator.userAgent,
@@ -44,8 +45,8 @@ function readSnapshot(
     geoStatus: gps.status,
     geoAccuracy: gps.accuracy != null ? `±${Math.round(gps.accuracy)} m` : '—',
     geoFixAge,
-    acState: ctx.state,
-    sampleRate: `${ctx.sampleRate} Hz`,
+    acState: ctx?.state ?? 'not started',
+    sampleRate: ctx ? `${ctx.sampleRate} Hz` : '—',
     baseLatency,
   };
 }

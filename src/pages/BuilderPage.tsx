@@ -10,7 +10,7 @@ interface Props {
 }
 
 export function BuilderPage({ audio, onSave }: Props) {
-  const [params, setParams] = useState<EngineParams>(() => audio.getEngine().getParams());
+  const [params, setParams] = useState<EngineParams | null>(null);
   const [name, setName] = useState(audio.patchName);
   const [mockSpeed, setMockSpeed] = useState(0.25);
   const [mockThrottle, setMockThrottle] = useState(0.3);
@@ -19,13 +19,19 @@ export function BuilderPage({ audio, onSave }: Props) {
   const [importText, setImportText] = useState('');
   const [msg, setMsg] = useState('');
 
-  const kind = useMemo(() => audio.getEngine().toPatch().kind, [audio, params, audio.engineId]);
+  const eng = audio.getEngine();
+  const kind = useMemo(() => eng?.toPatch().kind ?? 'ice', [eng, params, audio.engineId]);
   const metas = paramMetaForKind(kind);
 
   useEffect(() => {
-    setParams(audio.getEngine().getParams());
+    const e = audio.getEngine();
+    if (!e) {
+      setParams(null);
+      return;
+    }
+    setParams(e.getParams());
     setName(audio.patchName);
-  }, [audio, audio.engineId, audio.patchName]);
+  }, [audio, audio.engineId, audio.patchName, audio.running]);
 
   useEffect(() => {
     audio.setDriving({
@@ -38,20 +44,23 @@ export function BuilderPage({ audio, onSave }: Props) {
 
   const onParam = useCallback(
     (id: string, value: number) => {
+      if (!params) return;
       const next = { ...params, [id]: value };
       setParams(next);
-      audio.getEngine().setParams({ [id]: value });
+      audio.getEngine()?.setParams({ [id]: value });
     },
     [audio, params],
   );
 
   const saveNamed = () => {
-    const base = audio.getEngine().toPatch();
+    const live = audio.getEngine();
+    if (!live) return;
+    const base = live.toPatch();
     const patch: EnginePatch = {
       ...base,
       id: `user-${Date.now().toString(36)}`,
       name: name.trim() || base.name,
-      params: { ...audio.getEngine().getParams() } as Record<string, number | string>,
+      params: { ...live.getParams() } as Record<string, number | string>,
       meta: {
         ...base.meta,
         author: 'You',
@@ -64,10 +73,12 @@ export function BuilderPage({ audio, onSave }: Props) {
   };
 
   const exportJson = () => {
+    const live = audio.getEngine();
+    if (!live) return;
     const patch = {
-      ...audio.getEngine().toPatch(),
+      ...live.toPatch(),
       name: name.trim() || audio.patchName,
-      params: { ...audio.getEngine().getParams() },
+      params: { ...live.getParams() },
     };
     const blob = new Blob([JSON.stringify(patch, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
@@ -86,7 +97,7 @@ export function BuilderPage({ audio, onSave }: Props) {
         throw new Error('Invalid EnginePatch');
       }
       audio.loadPatch(patch);
-      setParams(audio.getEngine().getParams());
+      setParams(audio.getEngine()?.getParams() ?? (patch.params as EngineParams));
       setName(patch.name);
       setMsg(`Imported “${patch.name}”`);
       setImportText('');
@@ -94,6 +105,15 @@ export function BuilderPage({ audio, onSave }: Props) {
       setMsg(`Import failed: ${(e as Error).message}`);
     }
   };
+
+  if (!audio.running || !params) {
+    return (
+      <div className="page builder-page">
+        <h1 className="page-title">Synth builder</h1>
+        <p className="page-blurb">Start the engine on Drive first (unlocks audio), then come back to tweak knobs.</p>
+      </div>
+    );
+  }
 
   return (
     <div className="page builder-page">

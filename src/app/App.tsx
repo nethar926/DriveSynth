@@ -21,13 +21,15 @@ export default function App() {
 
   useEffect(() => {
     const eng = audio.getEngine();
+    if (!eng) return;
     // Mute via output node so patch masterGain stays intact
     const out = eng.output;
-    const target = prefs.masterMuted ? 0 : 1;
-    const t = eng.context.currentTime;
+    // When running and unmuted, leave gain to EngineSynth.start(); only force 0 when muted.
+    const target = prefs.masterMuted ? 0 : audio.running ? 1 : out.gain.value;
+    const now = eng.context.currentTime;
     try {
-      out.gain.cancelScheduledValues(t);
-      out.gain.setTargetAtTime(target, t, 0.05);
+      out.gain.cancelScheduledValues(now);
+      out.gain.setTargetAtTime(target, now, 0.05);
     } catch {
       out.gain.value = target;
     }

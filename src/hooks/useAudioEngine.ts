@@ -5,26 +5,37 @@ import { createEngineSynth, getBuiltin } from '../audio';
 export function useAudioEngine(initialId = 'v8-rumble') {
   const ctxRef = useRef<AudioContext | null>(null);
   const engineRef = useRef<EngineSynth | null>(null);
+  const pendingPatchRef = useRef<EnginePatch | null>(null);
+  const selectedIdRef = useRef(initialId);
   const [ready, setReady] = useState(false);
   const [running, setRunning] = useState(false);
   const [engineId, setEngineId] = useState(initialId);
   const [patchName, setPatchName] = useState(() => getBuiltin(initialId)?.name ?? 'Engine');
 
+  selectedIdRef.current = engineId;
+
   const ensure = useCallback(() => {
     if (!ctxRef.current) {
-      const AC = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+      const AC =
+        window.AudioContext ||
+        (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
       ctxRef.current = new AC();
     }
     if (!engineRef.current) {
-      const patch = getBuiltin(initialId) ?? getBuiltin('v8-rumble')!;
+      const patch =
+        pendingPatchRef.current ??
+        getBuiltin(selectedIdRef.current) ??
+        getBuiltin('v8-rumble')!;
+      pendingPatchRef.current = null;
       engineRef.current = createEngineSynth(ctxRef.current, patch);
       setEngineId(patch.id);
       setPatchName(patch.name);
     }
     return engineRef.current;
-  }, [initialId]);
+  }, []);
 
   const start = useCallback(async () => {
+    // Create AudioContext inside the tap gesture (required on iOS).
     const eng = ensure();
     if (ctxRef.current?.state === 'suspended') {
       await ctxRef.current.resume();
@@ -44,13 +55,18 @@ export function useAudioEngine(initialId = 'v8-rumble') {
   }, []);
 
   const loadPatch = useCallback((patch: EnginePatch) => {
-    const eng = ensure();
-    eng.fromPatch(patch);
     setEngineId(patch.id);
     setPatchName(patch.name);
-  }, [ensure]);
+    selectedIdRef.current = patch.id;
+    if (!engineRef.current) {
+      pendingPatchRef.current = patch;
+      return;
+    }
+    engineRef.current.fromPatch(patch);
+  }, []);
 
-  const getEngine = useCallback(() => ensure(), [ensure]);
+  /** Engine exists only after Start — null beforehand (mobile-safe). */
+  const getEngine = useCallback(() => engineRef.current, []);
 
   useEffect(() => {
     return () => {
