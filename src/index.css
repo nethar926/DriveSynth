@@ -178,6 +178,17 @@ textarea {
   box-shadow: inset 0 0 0 1px var(--accent-dim), 0 0 20px var(--accent-dim);
 }
 
+.tab-warn {
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--border));
+  background: color-mix(in srgb, var(--accent) 14%, var(--panel));
+  color: var(--text);
+  font-size: 0.9rem;
+  font-weight: 600;
+  min-height: 48px;
+}
+
 .keepalive-tip {
   font-size: 0.78rem;
   color: var(--text-dim);

@@ -18,8 +18,18 @@ export function DrivePage({ audio, gps, prefs, onEnableGps }: Props) {
   const [rev, setRev] = useState(0);
   const [useManual, setUseManual] = useState(false);
   const [hud, setHud] = useState({ rpmNorm: 0, loadFeel: 0, fundamentalHz: 55 });
+  const [tabBackgrounded, setTabBackgrounded] = useState(false);
   const prevMph = useRef(0);
   const throttleProxy = useRef(0);
+
+  useEffect(() => {
+    const onVis = () => {
+      if (document.visibilityState === 'hidden') setTabBackgrounded(true);
+      else setTabBackgrounded(false);
+    };
+    document.addEventListener('visibilitychange', onVis);
+    return () => document.removeEventListener('visibilitychange', onVis);
+  }, []);
 
   const gpsActive = gps.status === 'live' && !useManual;
   const displayMph = gpsActive ? gps.mph : manualSpeed * 120;
@@ -101,6 +111,12 @@ export function DrivePage({ audio, gps, prefs, onEnableGps }: Props) {
           <span>Manual speed</span>
         </label>
       </div>
+
+      {tabBackgrounded && (
+        <div className="tab-warn" role="status">
+          Tab was backgrounded — audio/GPS may have paused. Keep DriveSynth in the foreground.
+        </div>
+      )}
 
       <div className="hud-grid">
         <div className="hud-primary">
