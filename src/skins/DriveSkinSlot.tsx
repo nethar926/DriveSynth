@@ -1,5 +1,6 @@
 import type { CSSProperties } from 'react';
 import type { EngineId } from '../audio';
+import { AerospaceF14Overlay } from './aerospace-f14/AerospaceF14Overlay';
 import { IonTwinOverlay } from './ion-twin/IonTwinOverlay';
 
 /**
@@ -31,7 +32,7 @@ export function skinIdForEngine(engineId: string): string {
   }
 }
 
-/** Per-engine Drive plate — Ion Twin mounts full overlay; others use CSS tokens. */
+/** Per-engine Drive plate — Ion Twin / Aerospace F14 mount full overlays; others use CSS tokens. */
 export function DriveSkinSlot({
   engineId,
   rpmNorm,
@@ -56,6 +57,14 @@ export function DriveSkinSlot({
       <div className="drive-skin-plate" />
       {skinId === 'ion-twin' && (
         <IonTwinOverlay
+          rpmNorm={rpmNorm}
+          speedNorm={speedNorm}
+          throttle={throttle}
+          loadFeel={loadFeel}
+        />
+      )}
+      {skinId === 'aerospace-f14' && (
+        <AerospaceF14Overlay
           rpmNorm={rpmNorm}
           speedNorm={speedNorm}
           throttle={throttle}
