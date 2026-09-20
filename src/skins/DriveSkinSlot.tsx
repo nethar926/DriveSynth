@@ -55,7 +55,7 @@ export function DriveSkinSlot({
   throttle,
   lockStage,
   lockSfxEnabled,
-  gaugeCluster,
+  gaugeCluster = 'classic',
 }: DriveSkinProps) {
   const skinId = skinIdForEngine(engineId);
   return (
@@ -63,7 +63,7 @@ export function DriveSkinSlot({
       className={`drive-skin drive-skin-${skinId}`}
       data-skin={skinId}
       data-engine={engineId}
-      data-gauge-cluster={gaugeCluster ?? 'classic'}
+      data-gauge-cluster={gaugeCluster}
       aria-hidden
       style={
         {
