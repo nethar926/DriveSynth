@@ -5,9 +5,11 @@ import type {
   EngineParams,
   EnginePatch,
   EngineSynth,
+  SynthNodeDesc,
   TopologyId,
 } from './types';
 import { clamp, createNoiseBuffer, lerp, makeShaper, rpmCurve, smooth } from './utils';
+import pulseWorkletUrl from './worklets/pulse-engine-processor.js?url';
 
 type Kind = EnginePatch['kind'];
 
@@ -17,7 +19,7 @@ interface GraphHandles {
   // shared
   noiseSrc?: AudioBufferSourceNode;
   pinkSrc?: AudioBufferSourceNode;
-  // ICE
+  // ICE oscillator path
   fund?: OscillatorNode;
   fund2?: OscillatorNode;
   fund3?: OscillatorNode;
@@ -37,6 +39,11 @@ interface GraphHandles {
   exhaustGain?: GainNode;
   ignGain?: GainNode;
   shaper?: WaveShaperNode;
+  iceBus?: GainNode;
+  // ICE worklet path
+  pulseNode?: AudioWorkletNode;
+  pulseGainOut?: GainNode;
+  iceMode?: 'worklet' | 'osc';
   // EV
   whine1?: OscillatorNode;
   whine2?: OscillatorNode;
@@ -52,18 +59,30 @@ interface GraphHandles {
   pulseMod?: OscillatorNode;
   pulseDepth?: GainNode;
   howlOsc?: OscillatorNode;
+  howlOsc2?: OscillatorNode;
   howlFilt?: BiquadFilterNode;
+  howlFilt2?: BiquadFilterNode;
+  howlFilt3?: BiquadFilterNode;
   howlGain?: GainNode;
+  formantGain?: GainNode;
   bodyGain?: GainNode;
   bodyFilt?: BiquadFilterNode;
   humOsc?: OscillatorNode;
   humGain?: GainNode;
   afterGain?: GainNode;
+  wetHissGain?: GainNode;
+  wetHissFilt?: BiquadFilterNode;
+  wetHissFilt2?: BiquadFilterNode;
+  wetAmLfo?: OscillatorNode;
+  wetAmDepth?: GainNode;
+  wetPan?: StereoPannerNode;
   delay?: DelayNode;
   delayGain?: GainNode;
   panL?: StereoPannerNode;
   panR?: StereoPannerNode;
 }
+
+const workletContexts = new WeakSet<BaseAudioContext>();
 
 export class EngineSynthImpl implements EngineSynth {
   readonly context: AudioContext;
@@ -78,6 +97,8 @@ export class EngineSynthImpl implements EngineSynth {
   private hud = { rpmNorm: 0, loadFeel: 0, fundamentalHz: 55 };
   private whiteBuf: AudioBuffer;
   private pinkBuf: AudioBuffer;
+  private workletPromise: Promise<boolean> | null = null;
+  private customGraph: SynthNodeDesc[] | undefined;
 
   constructor(ctx: AudioContext, patch?: EnginePatch) {
     this.context = ctx;
@@ -92,10 +113,14 @@ export class EngineSynthImpl implements EngineSynth {
     const initial = patch ?? getBuiltin('v8-rumble')!;
     this.patchMeta = { ...initial, params: { ...initial.params } };
     this._id = initial.id;
+    this.customGraph = initial.graph ? [...initial.graph] : undefined;
     this.params = {
       ...defaultsForTopology(initial.topology),
       ...(initial.params as EngineParams),
     };
+    if (this.customGraph?.length) {
+      this.applyGraphToParams(this.customGraph);
+    }
 
     this.g = this.buildGraph(initial.kind, initial.topology);
     this.applyAllParams();
@@ -121,6 +146,11 @@ export class EngineSynthImpl implements EngineSynth {
     } catch {
       /* ignore unlock helper failures */
     }
+
+    if (this.patchMeta.kind === 'ice') {
+      await this.ensurePulseWorklet();
+    }
+
     smooth(this.output.gain, 1, 0.08, this.context);
   }
 
@@ -167,6 +197,7 @@ export class EngineSynthImpl implements EngineSynth {
       kind: this.patchMeta.kind,
       topology: this.patchMeta.topology,
       params: { ...this.params } as Record<string, number | string>,
+      graph: this.customGraph ? [...this.customGraph] : undefined,
       meta: {
         ...this.patchMeta.meta,
         createdAt: new Date().toISOString(),
@@ -179,20 +210,131 @@ export class EngineSynthImpl implements EngineSynth {
       patch.kind !== this.patchMeta.kind || patch.topology !== this.patchMeta.topology;
     this.patchMeta = { ...patch, params: { ...patch.params } };
     this._id = patch.id;
+    this.customGraph = patch.graph ? [...patch.graph] : undefined;
     this.params = {
       ...defaultsForTopology(patch.topology),
       ...(patch.params as EngineParams),
     };
+    if (this.customGraph?.length) {
+      this.applyGraphToParams(this.customGraph);
+    }
     if (kindChanged) {
       this.teardownGraph();
       this.g = this.buildGraph(patch.kind, patch.topology);
     }
     this.applyAllParams();
     this.applyDriving(true);
+    if (patch.kind === 'ice' && this.context.state === 'running') {
+      void this.ensurePulseWorklet();
+    }
   }
 
   getHud() {
     return { ...this.hud };
+  }
+
+  /** Map builder graph node params onto live EngineParams (v1 interpreter). */
+  applyGraphToParams(graph: SynthNodeDesc[]): void {
+    this.customGraph = [...graph];
+    const mapped: Partial<EngineParams> = {};
+    for (const node of graph) {
+      const p = node.params;
+      switch (node.type) {
+        case 'PulseTrain':
+          if (p.cylinders !== undefined) mapped.cylinders = Number(p.cylinders) as EngineParams['cylinders'];
+          if (p.pulseWidth !== undefined) mapped.pulseWidth = Number(p.pulseWidth);
+          if (p.pulseJitter !== undefined) mapped.pulseJitter = Number(p.pulseJitter);
+          if (p.roughness !== undefined) mapped.roughness = Number(p.roughness);
+          break;
+        case 'ExhaustWaveguide':
+          if (p.exhaustLength !== undefined) mapped.exhaustLength = Number(p.exhaustLength);
+          if (p.exhaustFeedback !== undefined) mapped.exhaustFeedback = Number(p.exhaustFeedback);
+          if (p.muffling !== undefined) mapped.muffling = Number(p.muffling);
+          if (p.growl !== undefined) mapped.growl = Number(p.growl);
+          break;
+        case 'IntakeNoise':
+          if (p.intake !== undefined) mapped.intake = Number(p.intake);
+          break;
+        case 'Mechanical':
+          if (p.roughness !== undefined) mapped.roughness = Number(p.roughness);
+          break;
+        case 'FormantHowl':
+          if (p.formantHowl !== undefined) mapped.formantHowl = Number(p.formantHowl);
+          if (p.formantSpread !== undefined) mapped.formantSpread = Number(p.formantSpread);
+          if (p.resonance !== undefined) mapped.resonance = Number(p.resonance);
+          break;
+        case 'WetRoadNoise':
+          if (p.wetHiss !== undefined) mapped.wetHiss = Number(p.wetHiss);
+          if (p.doppler !== undefined) mapped.doppler = Number(p.doppler);
+          break;
+        case 'Gain':
+        case 'gain':
+          if (p.gain !== undefined) mapped.masterGain = clamp(Number(p.gain));
+          break;
+        default:
+          break;
+      }
+    }
+    this.params = { ...this.params, ...mapped };
+    this.applyAllParams();
+    this.applyDriving(false);
+  }
+
+  /* ---------- worklet ---------- */
+
+  private async ensurePulseWorklet(): Promise<boolean> {
+    if (this.disposed || this.patchMeta.kind !== 'ice') return false;
+    if (this.g.iceMode === 'worklet' && this.g.pulseNode) return true;
+    if (this.workletPromise) return this.workletPromise;
+
+    this.workletPromise = (async () => {
+      try {
+        if (!workletContexts.has(this.context)) {
+          const url = pulseWorkletUrl.startsWith('http')
+            ? pulseWorkletUrl
+            : new URL(pulseWorkletUrl, window.location.href).href;
+          // Prefer public path fallback for Tesla / file:// quirks
+          try {
+            await this.context.audioWorklet.addModule(url);
+          } catch {
+            const base = import.meta.env.BASE_URL || './';
+            await this.context.audioWorklet.addModule(`${base}worklets/pulse-engine-processor.js`);
+          }
+          workletContexts.add(this.context);
+        }
+
+        const node = new AudioWorkletNode(this.context, 'pulse-engine-processor', {
+          numberOfInputs: 0,
+          numberOfOutputs: 1,
+          outputChannelCount: [2],
+        });
+
+        const pulseGainOut = this.context.createGain();
+        pulseGainOut.gain.value = 1;
+        node.connect(pulseGainOut);
+        pulseGainOut.connect(this.g.master);
+
+        // Mute oscillator ICE bus if present
+        if (this.g.iceBus) {
+          smooth(this.g.iceBus.gain, 0, 0.05, this.context);
+        }
+
+        this.g.pulseNode = node;
+        this.g.pulseGainOut = pulseGainOut;
+        this.g.iceMode = 'worklet';
+        this.applyAllParams();
+        this.applyDriving(true);
+        return true;
+      } catch (err) {
+        console.warn('[DriveSynth] pulse worklet unavailable, using oscillator ICE', err);
+        this.g.iceMode = 'osc';
+        return false;
+      } finally {
+        this.workletPromise = null;
+      }
+    })();
+
+    return this.workletPromise;
   }
 
   /* ---------- graph build ---------- */
@@ -212,9 +354,8 @@ export class EngineSynthImpl implements EngineSynth {
     master.connect(limiter);
     limiter.connect(this.output);
 
-    const g: GraphHandles = { master, limiter };
+    const g: GraphHandles = { master, limiter, iceMode: 'osc' };
 
-    // shared noise loops
     const noiseSrc = ctx.createBufferSource();
     noiseSrc.buffer = this.whiteBuf;
     noiseSrc.loop = true;
@@ -241,6 +382,10 @@ export class EngineSynthImpl implements EngineSynth {
   private buildIce(g: GraphHandles): void {
     const ctx = this.context;
 
+    const iceBus = ctx.createGain();
+    iceBus.gain.value = 1;
+    g.iceBus = iceBus;
+
     const fundGain = ctx.createGain();
     fundGain.gain.value = 0.35;
     g.fundGain = fundGain;
@@ -258,7 +403,6 @@ export class EngineSynthImpl implements EngineSynth {
     fund2.start();
     g.fund2 = fund2;
 
-    // Odd partial for cross-plane bite (not a sample — pure osc)
     const fund3 = ctx.createOscillator();
     fund3.type = 'sawtooth';
     fund3.frequency.value = 82.5;
@@ -278,7 +422,6 @@ export class EngineSynthImpl implements EngineSynth {
     pulseLfo.connect(pulseGain);
     pulseGain.connect(fundGain.gain);
 
-    // Slower unevenness for V8 cross-plane lope (half firing feel)
     const unevenLfo = ctx.createOscillator();
     unevenLfo.type = 'sine';
     unevenLfo.frequency.value = 4;
@@ -329,7 +472,6 @@ export class EngineSynthImpl implements EngineSynth {
     sub.connect(subGain);
     subGain.connect(muffler);
 
-    // intake noise
     const intakeFilt = ctx.createBiquadFilter();
     intakeFilt.type = 'bandpass';
     intakeFilt.frequency.value = 1800;
@@ -344,7 +486,6 @@ export class EngineSynthImpl implements EngineSynth {
     intakeFilt.connect(intakeGain);
     intakeGain.connect(muffler);
 
-    // exhaust rumble from pink
     const exhaustFilt = ctx.createBiquadFilter();
     exhaustFilt.type = 'lowpass';
     exhaustFilt.frequency.value = 180;
@@ -358,7 +499,6 @@ export class EngineSynthImpl implements EngineSynth {
     exhaustFilt.connect(exhaustGain);
     exhaustGain.connect(muffler);
 
-    // ignition chatter
     const ignFilt = ctx.createBiquadFilter();
     ignFilt.type = 'highpass';
     ignFilt.frequency.value = 2500;
@@ -371,7 +511,6 @@ export class EngineSynthImpl implements EngineSynth {
     ignFilt.connect(ignGain);
     ignGain.connect(muffler);
 
-    // Light mechanical clatter (band-limited noise), scales with roughness later
     const mechFilt = ctx.createBiquadFilter();
     mechFilt.type = 'bandpass';
     mechFilt.frequency.value = 900;
@@ -391,7 +530,8 @@ export class EngineSynthImpl implements EngineSynth {
     g.panL = pan;
 
     muffler.connect(pan);
-    pan.connect(g.master);
+    pan.connect(iceBus);
+    iceBus.connect(g.master);
   }
 
   private buildEv(g: GraphHandles): void {
@@ -516,25 +656,91 @@ export class EngineSynthImpl implements EngineSynth {
     pulseMod.connect(pulseDepth);
     pulseDepth.connect(carrierGain.gain);
 
-    // howl
+    // Multi-formant howl — “elephant slowed” via moving formants (no samples)
     const howlOsc = ctx.createOscillator();
     howlOsc.type = 'sawtooth';
-    howlOsc.frequency.value = 880;
+    howlOsc.frequency.value = 220;
     howlOsc.start();
     g.howlOsc = howlOsc;
 
+    const howlOsc2 = ctx.createOscillator();
+    howlOsc2.type = 'sawtooth';
+    howlOsc2.frequency.value = 330;
+    howlOsc2.detune.value = -18;
+    howlOsc2.start();
+    g.howlOsc2 = howlOsc2;
+
     const howlFilt = ctx.createBiquadFilter();
     howlFilt.type = 'bandpass';
-    howlFilt.frequency.value = 1400;
-    howlFilt.Q.value = 8;
+    howlFilt.frequency.value = 480;
+    howlFilt.Q.value = 10;
     g.howlFilt = howlFilt;
+
+    const howlFilt2 = ctx.createBiquadFilter();
+    howlFilt2.type = 'peaking';
+    howlFilt2.frequency.value = 920;
+    howlFilt2.Q.value = 6;
+    howlFilt2.gain.value = 10;
+    g.howlFilt2 = howlFilt2;
+
+    const howlFilt3 = ctx.createBiquadFilter();
+    howlFilt3.type = 'bandpass';
+    howlFilt3.frequency.value = 1600;
+    howlFilt3.Q.value = 8;
+    g.howlFilt3 = howlFilt3;
+
+    const formantGain = ctx.createGain();
+    formantGain.gain.value = 0;
+    g.formantGain = formantGain;
 
     const howlGain = ctx.createGain();
     howlGain.gain.value = 0;
     g.howlGain = howlGain;
 
     howlOsc.connect(howlFilt);
-    howlFilt.connect(howlGain);
+    howlOsc2.connect(howlFilt);
+    howlFilt.connect(howlFilt2);
+    howlFilt2.connect(howlFilt3);
+    howlFilt3.connect(formantGain);
+    formantGain.connect(howlGain);
+
+    // Wet-road hiss: highpass/bandpass noise + AM + stereo smear
+    const wetHissFilt = ctx.createBiquadFilter();
+    wetHissFilt.type = 'highpass';
+    wetHissFilt.frequency.value = 1800;
+    wetHissFilt.Q.value = 0.7;
+    g.wetHissFilt = wetHissFilt;
+
+    const wetHissFilt2 = ctx.createBiquadFilter();
+    wetHissFilt2.type = 'bandpass';
+    wetHissFilt2.frequency.value = 4200;
+    wetHissFilt2.Q.value = 1.4;
+    g.wetHissFilt2 = wetHissFilt2;
+
+    const wetHissGain = ctx.createGain();
+    wetHissGain.gain.value = 0;
+    g.wetHissGain = wetHissGain;
+
+    const wetAmLfo = ctx.createOscillator();
+    wetAmLfo.type = 'sine';
+    wetAmLfo.frequency.value = 3.2;
+    wetAmLfo.start();
+    g.wetAmLfo = wetAmLfo;
+
+    const wetAmDepth = ctx.createGain();
+    wetAmDepth.gain.value = 0.12;
+    g.wetAmDepth = wetAmDepth;
+    wetAmLfo.connect(wetAmDepth);
+    wetAmDepth.connect(wetHissGain.gain);
+
+    const wetPan = ctx.createStereoPanner();
+    wetPan.pan.value = 0;
+    g.wetPan = wetPan;
+
+    g.noiseSrc!.connect(wetHissFilt);
+    wetHissFilt.connect(wetHissFilt2);
+    wetHissFilt2.connect(wetHissGain);
+    wetHissGain.connect(wetPan);
 
     // afterburn noise
     const afterFilt = ctx.createBiquadFilter();
@@ -561,8 +767,8 @@ export class EngineSynthImpl implements EngineSynth {
     humOsc.connect(humGain);
 
     // mild delay smear
-    const delay = ctx.createDelay(0.08);
-    delay.delayTime.value = 0.02;
+    const delay = ctx.createDelay(0.12);
+    delay.delayTime.value = 0.025;
     g.delay = delay;
 
     const delayGain = ctx.createGain();
@@ -576,6 +782,7 @@ export class EngineSynthImpl implements EngineSynth {
     howlGain.connect(sum);
     afterGain.connect(sum);
     humGain.connect(sum);
+    wetPan.connect(sum);
 
     sum.connect(delay);
     delay.connect(delayGain);
@@ -614,7 +821,15 @@ export class EngineSynthImpl implements EngineSynth {
     stopOsc(g.carrier3);
     stopOsc(g.pulseMod);
     stopOsc(g.howlOsc);
+    stopOsc(g.howlOsc2);
     stopOsc(g.humOsc);
+    stopOsc(g.wetAmLfo);
+    try {
+      g.pulseNode?.disconnect();
+      g.pulseGainOut?.disconnect();
+    } catch {
+      /* ignore */
+    }
     try {
       g.master.disconnect();
       g.limiter.disconnect();
@@ -624,6 +839,14 @@ export class EngineSynthImpl implements EngineSynth {
   }
 
   /* ---------- param / driving apply ---------- */
+
+  private setWorkletParam(name: string, value: number, tc: number): void {
+    const node = this.g.pulseNode;
+    if (!node) return;
+    const param = node.parameters.get(name);
+    if (!param) return;
+    smooth(param, value, tc, this.context);
+  }
 
   private applyAllParams(): void {
     const p = this.params;
@@ -635,12 +858,22 @@ export class EngineSynthImpl implements EngineSynth {
     const ceiling = clamp(Number(p.limiterCeiling ?? 0.95));
     g.limiter.threshold.value = lerp(-18, -3, ceiling);
 
-    if (g.panL) {
-      // stereoWidth used lightly via pan modulation from load later
-    }
-
     if (this.patchMeta.kind === 'ice' && g.shaper) {
       g.shaper.curve = makeShaper(0.25 + Number(p.roughness ?? 0.35) * 0.7) as Float32Array<ArrayBuffer>;
+    }
+
+    if (g.iceMode === 'worklet') {
+      this.setWorkletParam('pulseWidth', Number(p.pulseWidth ?? 0.35), 0.05);
+      this.setWorkletParam('pulseJitter', Number(p.pulseJitter ?? 0.08), 0.05);
+      this.setWorkletParam('roughness', Number(p.roughness ?? 0.4), 0.05);
+      this.setWorkletParam('growl', Number(p.growl ?? 0.6), 0.05);
+      this.setWorkletParam('exhaustLength', Number(p.exhaustLength ?? 0.45), 0.05);
+      this.setWorkletParam('exhaustFeedback', Number(p.exhaustFeedback ?? 0.72), 0.05);
+      this.setWorkletParam('mufflerMix', Number(p.muffling ?? 0.3), 0.05);
+      this.setWorkletParam('intake', Number(p.intake ?? 0.45), 0.05);
+      this.setWorkletParam('crackle', Number(p.crackle ?? 0.35), 0.05);
+      this.setWorkletParam('cylinders', Number(p.cylinders ?? 8), 0.05);
+      this.setWorkletParam('masterGain', clamp(Number(p.masterGain ?? 0.7)), 0.05);
     }
   }
 
@@ -654,7 +887,6 @@ export class EngineSynthImpl implements EngineSynth {
 
     const curve = Number(p.rpmCurve ?? 0.55);
     let rpmNorm = rpmCurve(d.speed, curve);
-    // parked rev: throttle raises perceived revs even at 0 speed
     if (d.speed < 0.04) {
       rpmNorm = Math.max(rpmNorm, d.throttle * 0.55);
     } else {
@@ -677,6 +909,7 @@ export class EngineSynthImpl implements EngineSynth {
     } else {
       this.applyScifiDriving(rpmNorm, d, tc);
     }
+
   }
 
   private applyIceDriving(rpmNorm: number, d: DrivingInput, tc: number): void {
@@ -691,12 +924,37 @@ export class EngineSynthImpl implements EngineSynth {
     this.hud.fundamentalHz = fund;
 
     const cyl = Number(p.cylinders ?? 8);
-    const firing = (fund / 60) * (cyl / 2); // rough firing rate feel
+    // fund ≈ aggregate firing Hz ≈ N*rpm/120 → rpm = fund*120/N
+    const rpm = clamp(fund * (120 / Math.max(4, cyl)), 200, 9000);
+
+    if (g.iceMode === 'worklet' && g.pulseNode) {
+      this.setWorkletParam('rpm', rpm, tc);
+      this.setWorkletParam('throttle', d.throttle, tc);
+      this.setWorkletParam('load', d.load ?? 0, tc);
+      this.setWorkletParam('cylinders', cyl, tc);
+      this.setWorkletParam('pulseWidth', Number(p.pulseWidth ?? 0.35), tc);
+      this.setWorkletParam('pulseJitter', Number(p.pulseJitter ?? 0.08), tc);
+      this.setWorkletParam('roughness', Number(p.roughness ?? 0.4), tc);
+      this.setWorkletParam('growl', Number(p.growl ?? 0.6) * (0.7 + Number(p.exhaust ?? 0.5) * 0.4), tc);
+      this.setWorkletParam('exhaustLength', Number(p.exhaustLength ?? 0.45), tc);
+      this.setWorkletParam(
+        'exhaustFeedback',
+        Number(p.exhaustFeedback ?? 0.72) * (0.85 + (1 - Number(p.muffling ?? 0.3)) * 0.15),
+        tc,
+      );
+      this.setWorkletParam('mufflerMix', Number(p.muffling ?? 0.3), tc);
+      this.setWorkletParam('intake', Number(p.intake ?? 0.45), tc);
+      this.setWorkletParam('crackle', Number(p.crackle ?? 0.35), tc);
+      const presenceBoost = 0.75 + Number(p.presence ?? 0.45) * 0.4;
+      this.setWorkletParam('masterGain', clamp(Number(p.masterGain ?? 0.7) * presenceBoost), tc);
+      return;
+    }
+
+    // Oscillator fallback path
+    const firing = (fund / 60) * (cyl / 2);
 
     if (g.fund) smooth(g.fund.frequency, fund, tc, ctx);
-    // Square an octave up + slight detune for body
     if (g.fund2) smooth(g.fund2.frequency, fund * 2.005, tc, ctx);
-    // Odd partial (~1.5×) for cross-plane V8 color
     if (g.fund3) smooth(g.fund3.frequency, fund * 1.5, tc, ctx);
     if (g.sub) smooth(g.sub.frequency, fund * 0.5, tc, ctx);
     if (g.pulseLfo) smooth(g.pulseLfo.frequency, clamp(firing, 2, 48), tc, ctx);
@@ -720,7 +978,6 @@ export class EngineSynthImpl implements EngineSynth {
       smooth(g.pulseGain.gain, 0.1 + rough * 0.4 + d.throttle * 0.12, tc, ctx);
     }
     if (g.unevenGain) {
-      // Stronger lope on V8 (8 cyl) and at low rpm / parked rev
       const lope = (cyl >= 8 ? 1 : 0.55) * (0.06 + rough * 0.2) * (1.1 - rpmNorm * 0.5);
       smooth(g.unevenGain.gain, lope + (parked ? d.throttle * 0.08 : 0), tc, ctx);
     }
@@ -736,7 +993,6 @@ export class EngineSynthImpl implements EngineSynth {
       smooth(g.muffler.frequency, open + d.throttle * 900 + rpmNorm * 400, tc, ctx);
     }
     if (g.intakeGain) {
-      // Parked Rev still opens intake whoosh
       const throttleFeel = parked ? Math.max(d.throttle, d.throttle * d.throttle) : d.throttle;
       smooth(g.intakeGain.gain, intake * throttleFeel * (0.4 + rpmNorm * 0.55), tc, ctx);
     }
@@ -755,12 +1011,7 @@ export class EngineSynthImpl implements EngineSynth {
       smooth(g.ignGain.gain, ign * (0.02 + d.throttle * 0.14 + rpmNorm * 0.05), tc, ctx);
     }
     if (g.mechGain) {
-      smooth(
-        g.mechGain.gain,
-        rough * (0.025 + rpmNorm * 0.06 + d.throttle * 0.05),
-        tc,
-        ctx,
-      );
+      smooth(g.mechGain.gain, rough * (0.025 + rpmNorm * 0.06 + d.throttle * 0.05), tc, ctx);
     }
     if (g.mechFilt) {
       smooth(g.mechFilt.frequency, 700 + rpmNorm * 900 + d.throttle * 400, tc, ctx);
@@ -850,16 +1101,71 @@ export class EngineSynthImpl implements EngineSynth {
       g.bodyFilt.Q.value = 1 + res * 6;
     }
 
+    // Multi-formant scream
     const howl = Number(p.engineHowl ?? 0.55);
+    const formantHowl = Number(p.formantHowl ?? howl);
+    const spread = Number(p.formantSpread ?? 0.55);
+    const howlAmt = formantHowl * (0.05 + d.throttle * 0.55 + rpmNorm * 0.35);
+
     if (g.howlGain) {
-      smooth(g.howlGain.gain, howl * d.throttle * (0.08 + rpmNorm * 0.2), tc, ctx);
+      smooth(g.howlGain.gain, howlAmt * 0.55, tc, ctx);
     }
+    if (g.formantGain) {
+      smooth(g.formantGain.gain, 0.7 + formantHowl * 0.5, tc, ctx);
+    }
+
+    const f1 = 320 + rpmNorm * 420 + d.throttle * 280 + spread * 180;
+    const f2 = 720 + rpmNorm * 780 + d.throttle * 520 + spread * 320;
+    const f3 = 1280 + rpmNorm * 1400 + d.throttle * 900 + spread * 500;
+
     if (g.howlOsc) {
-      smooth(g.howlOsc.frequency, 600 + rpmNorm * 1400 + d.throttle * 600, tc, ctx);
+      smooth(g.howlOsc.frequency, f1 * 0.45, tc, ctx);
+    }
+    if (g.howlOsc2) {
+      smooth(g.howlOsc2.frequency, f1 * 0.68, tc, ctx);
     }
     if (g.howlFilt) {
-      smooth(g.howlFilt.frequency, 900 + rpmNorm * 1800 + d.throttle * 700, tc, ctx);
-      g.howlFilt.Q.value = 4 + res * 8;
+      smooth(g.howlFilt.frequency, f1, tc, ctx);
+      g.howlFilt.Q.value = 6 + res * 10;
+    }
+    if (g.howlFilt2) {
+      smooth(g.howlFilt2.frequency, f2, tc, ctx);
+      g.howlFilt2.Q.value = 4 + res * 8;
+      g.howlFilt2.gain.value = 6 + formantHowl * 10;
+    }
+    if (g.howlFilt3) {
+      smooth(g.howlFilt3.frequency, f3, tc, ctx);
+      g.howlFilt3.Q.value = 5 + res * 9;
+    }
+
+    // Wet-road hiss
+    const wet = Number(p.wetHiss ?? 0.5);
+    const wetAmt = wet * (0.04 + rpmNorm * 0.22 + d.throttle * 0.35 + Math.abs(d.load ?? 0) * 0.12);
+    if (g.wetHissGain) {
+      // Base gain; AM LFO adds on top via AudioParam connection
+      const baseGain = wetAmt * 0.45;
+      try {
+        g.wetHissGain.gain.cancelScheduledValues(ctx.currentTime);
+        g.wetHissGain.gain.setTargetAtTime(baseGain, ctx.currentTime, tc);
+      } catch {
+        g.wetHissGain.gain.value = baseGain;
+      }
+    }
+    if (g.wetAmDepth) {
+      smooth(g.wetAmDepth.gain, wetAmt * 0.2, tc, ctx);
+    }
+    if (g.wetAmLfo) {
+      smooth(g.wetAmLfo.frequency, 2.2 + rpmNorm * 4 + d.throttle * 3, tc, ctx);
+    }
+    if (g.wetHissFilt) {
+      smooth(g.wetHissFilt.frequency, 1400 + rpmNorm * 1800 + d.throttle * 900, tc, ctx);
+    }
+    if (g.wetHissFilt2) {
+      smooth(g.wetHissFilt2.frequency, 3200 + rpmNorm * 2800 + d.throttle * 1200, tc, ctx);
+    }
+    if (g.wetPan) {
+      const width = Number(p.stereoWidth ?? 0.55);
+      smooth(g.wetPan.pan, (d.load ?? 0) * width * 0.85, tc, ctx);
     }
 
     const after = Number(p.afterburn ?? 0.5);
@@ -878,10 +1184,10 @@ export class EngineSynthImpl implements EngineSynth {
 
     const doppler = Number(p.doppler ?? 0.35);
     if (g.delay) {
-      smooth(g.delay.delayTime, 0.01 + doppler * 0.04 + Math.abs(d.load ?? 0) * 0.015, tc, ctx);
+      smooth(g.delay.delayTime, 0.012 + doppler * 0.05 + Math.abs(d.load ?? 0) * 0.02, tc, ctx);
     }
     if (g.delayGain) {
-      smooth(g.delayGain.gain, doppler * 0.25, tc, ctx);
+      smooth(g.delayGain.gain, doppler * 0.28 + wet * 0.08, tc, ctx);
     }
   }
 }

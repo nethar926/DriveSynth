@@ -30,6 +30,16 @@ export interface EngineParams {
   ignitionNoise?: number;
   muffling?: number;
   rpmCurve?: number;
+  /** Pulse width 0..1 (worklet ICE) */
+  pulseWidth?: number;
+  /** Combustion timing jitter 0..1 */
+  pulseJitter?: number;
+  /** Exhaust waveguide length 0..1 */
+  exhaustLength?: number;
+  /** Waveguide feedback 0..1 */
+  exhaustFeedback?: number;
+  /** Overrun crackle amount 0..1 */
+  crackle?: number;
   // Sci-fi
   corePitch?: number;
   pulseRate?: number;
@@ -40,6 +50,12 @@ export interface EngineParams {
   engineHowl?: number;
   afterburn?: number;
   hum?: number;
+  /** Multi-formant howl intensity 0..1 */
+  formantHowl?: number;
+  /** Wet-road hiss layer 0..1 */
+  wetHiss?: number;
+  /** Formant sweep rate / spread 0..1 */
+  formantSpread?: number;
   // EV
   whinePitch?: number;
   gearSteps?: number;
@@ -47,21 +63,37 @@ export interface EngineParams {
   [paramId: string]: number | string | undefined;
 }
 
+export type SynthNodeType =
+  | 'osc'
+  | 'noise'
+  | 'gain'
+  | 'biquad'
+  | 'waveshaper'
+  | 'delay'
+  | 'panner'
+  | 'merge'
+  | 'split'
+  | 'constant'
+  | 'PulseTrain'
+  | 'ExhaustWaveguide'
+  | 'IntakeNoise'
+  | 'Mechanical'
+  | 'FormantHowl'
+  | 'WetRoadNoise'
+  | 'Filter'
+  | 'Gain'
+  | 'Mix'
+  | 'Osc'
+  | 'Noise';
+
 export interface SynthNodeDesc {
   id: string;
-  type:
-    | 'osc'
-    | 'noise'
-    | 'gain'
-    | 'biquad'
-    | 'waveshaper'
-    | 'delay'
-    | 'panner'
-    | 'merge'
-    | 'split'
-    | 'constant';
+  type: SynthNodeType;
   params: Record<string, number | string>;
   outs: Array<{ to: string; input?: number | string }>;
+  /** Builder canvas position */
+  x?: number;
+  y?: number;
 }
 
 export interface EnginePatch {
@@ -90,6 +122,9 @@ export interface EngineSynth {
 
   toPatch(): EnginePatch;
   fromPatch(patch: EnginePatch): void;
+
+  /** Map builder node graph onto live params (v1). */
+  applyGraphToParams?(graph: SynthNodeDesc[]): void;
 
   /** Derived HUD values for gauges */
   getHud(): { rpmNorm: number; loadFeel: number; fundamentalHz: number };

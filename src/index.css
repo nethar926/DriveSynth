@@ -842,3 +842,105 @@ textarea {
   word-break: break-word;
   line-height: 1.35;
 }
+
+/* Builder node graph */
+.graph-panel {
+  overflow: hidden;
+}
+.palette-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.palette-btn {
+  min-height: 44px;
+  min-width: 44px;
+  padding: 0 14px;
+  border-radius: 12px;
+  border: 1.5px solid var(--border);
+  background: var(--bg-elev);
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 0.85rem;
+}
+.graph-canvas {
+  position: relative;
+  height: min(420px, 55vh);
+  min-height: 280px;
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  background:
+    radial-gradient(circle at 1px 1px, color-mix(in srgb, var(--border) 70%, transparent) 1px, transparent 0) 0 0 / 20px 20px,
+    var(--bg);
+  overflow: auto;
+  touch-action: none;
+  margin-bottom: 10px;
+}
+.graph-wires {
+  position: absolute;
+  inset: 0;
+  width: 900px;
+  height: 360px;
+  pointer-events: none;
+  overflow: visible;
+}
+.wire-path {
+  fill: none;
+  stroke: color-mix(in srgb, var(--accent) 70%, #fff);
+  stroke-width: 2.5;
+  opacity: 0.85;
+}
+.wire-path.preview {
+  stroke-dasharray: 6 4;
+  opacity: 0.6;
+}
+.graph-node {
+  position: absolute;
+  height: 64px;
+  border-radius: 14px;
+  border: 2px solid var(--border);
+  background: var(--bg-card);
+  box-shadow: var(--shadow);
+  padding: 10px 12px;
+  cursor: grab;
+  user-select: none;
+  z-index: 2;
+}
+.graph-node.selected {
+  box-shadow: 0 0 0 2px var(--accent-dim), var(--shadow);
+}
+.graph-node-title {
+  font-weight: 700;
+  font-size: 0.88rem;
+}
+.graph-node-sub {
+  color: var(--text-dim);
+  font-size: 0.72rem;
+  font-family: var(--mono);
+}
+.port {
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  min-width: 18px;
+  min-height: 18px;
+  border-radius: 50%;
+  border: 2px solid var(--accent);
+  background: var(--bg);
+  padding: 0;
+  cursor: crosshair;
+  top: 50%;
+  transform: translateY(-50%);
+}
+.port-in {
+  left: -9px;
+}
+.port-out {
+  right: -9px;
+}
+.node-param-rail {
+  margin-top: 12px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+}

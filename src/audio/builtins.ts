@@ -1,20 +1,25 @@
 import type { EnginePatch, EngineParams, ParamMeta } from './types';
 
 export const V8_DEFAULTS: EngineParams = {
-  masterGain: 0.74,
-  stereoWidth: 0.38,
+  masterGain: 0.72,
+  stereoWidth: 0.4,
   limiterCeiling: 0.95,
   rpmIdle: 52,
   rpmRedline: 255,
   cylinders: 8,
-  roughness: 0.44,
-  growl: 0.68,
-  presence: 0.5,
-  intake: 0.48,
-  exhaust: 0.58,
-  ignitionNoise: 0.32,
-  muffling: 0.26,
+  roughness: 0.48,
+  growl: 0.72,
+  presence: 0.48,
+  intake: 0.52,
+  exhaust: 0.62,
+  ignitionNoise: 0.28,
+  muffling: 0.32,
   rpmCurve: 0.62,
+  pulseWidth: 0.38,
+  pulseJitter: 0.12,
+  exhaustLength: 0.52,
+  exhaustFeedback: 0.78,
+  crackle: 0.4,
 };
 
 export const I4_DEFAULTS: EngineParams = {
@@ -32,6 +37,11 @@ export const I4_DEFAULTS: EngineParams = {
   ignitionNoise: 0.2,
   muffling: 0.22,
   rpmCurve: 0.48,
+  pulseWidth: 0.28,
+  pulseJitter: 0.06,
+  exhaustLength: 0.32,
+  exhaustFeedback: 0.68,
+  crackle: 0.22,
 };
 
 export const EV_DEFAULTS: EngineParams = {
@@ -48,17 +58,20 @@ export const EV_DEFAULTS: EngineParams = {
 
 export const TIE_DEFAULTS: EngineParams = {
   masterGain: 0.7,
-  stereoWidth: 0.55,
+  stereoWidth: 0.58,
   limiterCeiling: 0.95,
   corePitch: 110,
   pulseRate: 0.48,
-  resonance: 0.62,
-  noiseBody: 0.55,
+  resonance: 0.68,
+  noiseBody: 0.48,
   carrierBite: 0.42,
-  doppler: 0.38,
-  engineHowl: 0.58,
+  doppler: 0.4,
+  engineHowl: 0.62,
   afterburn: 0.52,
-  hum: 0.42,
+  hum: 0.4,
+  formantHowl: 0.72,
+  wetHiss: 0.55,
+  formantSpread: 0.58,
 };
 
 export const BUILTIN_PATCHES: EnginePatch[] = [
@@ -70,8 +83,9 @@ export const BUILTIN_PATCHES: EnginePatch[] = [
     topology: 'v8-rumble',
     params: { ...V8_DEFAULTS } as Record<string, number | string>,
     meta: {
-      blurb: 'Deep cross-plane V8: odd-partial bite, uneven lope, intake whoosh, exhaust boom — all procedural.',
-      tags: ['ice', 'v8', 'free'],
+      blurb:
+        'Pulse-train V8: discrete combustion fires → Karplus–Strong exhaust waveguide, cross-plane lope, intake whoosh, overrun crackle.',
+      tags: ['ice', 'v8', 'pulse', 'free'],
       author: 'DriveSynth',
     },
   },
@@ -83,8 +97,8 @@ export const BUILTIN_PATCHES: EnginePatch[] = [
     topology: 'i4-zip',
     params: { ...I4_DEFAULTS } as Record<string, number | string>,
     meta: {
-      blurb: 'Lighter four-cylinder zip — higher idle, more presence.',
-      tags: ['ice', 'i4', 'free'],
+      blurb: 'Even-fire four: tighter pulses, higher idle, snappier waveguide — all procedural.',
+      tags: ['ice', 'i4', 'pulse', 'free'],
       author: 'DriveSynth',
     },
   },
@@ -109,8 +123,9 @@ export const BUILTIN_PATCHES: EnginePatch[] = [
     topology: 'tie-fighter',
     params: { ...TIE_DEFAULTS } as Record<string, number | string>,
     meta: {
-      blurb: 'Procedural twin-ion roar + scream. Original synthesis only — no samples.',
-      tags: ['scifi', 'ion', 'free'],
+      blurb:
+        'Twin-ion pulsed carriers + multi-formant scream + wet-road hiss. Original synthesis only — no samples.',
+      tags: ['scifi', 'ion', 'formant', 'free'],
       author: 'DriveSynth',
     },
   },
@@ -156,6 +171,11 @@ export function paramMetaForKind(kind: EnginePatch['kind']): ParamMeta[] {
       { id: 'exhaust', label: 'Exhaust', min: 0, max: 1, step: 0.01 },
       { id: 'ignitionNoise', label: 'Ignition', min: 0, max: 1, step: 0.01 },
       { id: 'muffling', label: 'Muffling', min: 0, max: 1, step: 0.01 },
+      { id: 'pulseWidth', label: 'Pulse Width', min: 0.05, max: 1, step: 0.01 },
+      { id: 'pulseJitter', label: 'Pulse Jitter', min: 0, max: 0.5, step: 0.01 },
+      { id: 'exhaustLength', label: 'Pipe Length', min: 0.05, max: 1, step: 0.01 },
+      { id: 'exhaustFeedback', label: 'Pipe Feedback', min: 0.1, max: 0.97, step: 0.01 },
+      { id: 'crackle', label: 'Crackle', min: 0, max: 1, step: 0.01 },
       { id: 'rpmCurve', label: 'RPM Curve', min: 0, max: 1, step: 0.01 },
     ];
   }
@@ -181,6 +201,9 @@ export function paramMetaForKind(kind: EnginePatch['kind']): ParamMeta[] {
     { id: 'carrierBite', label: 'Carrier Bite', min: 0, max: 1, step: 0.01 },
     { id: 'doppler', label: 'Doppler', min: 0, max: 1, step: 0.01 },
     { id: 'engineHowl', label: 'Howl', min: 0, max: 1, step: 0.01 },
+    { id: 'formantHowl', label: 'Formant Howl', min: 0, max: 1, step: 0.01 },
+    { id: 'formantSpread', label: 'Formant Spread', min: 0, max: 1, step: 0.01 },
+    { id: 'wetHiss', label: 'Wet Hiss', min: 0, max: 1, step: 0.01 },
     { id: 'afterburn', label: 'Afterburn', min: 0, max: 1, step: 0.01 },
     { id: 'hum', label: 'Idle Hum', min: 0, max: 1, step: 0.01 },
   ];
@@ -188,4 +211,63 @@ export function paramMetaForKind(kind: EnginePatch['kind']): ParamMeta[] {
 
 export function getBuiltin(id: string): EnginePatch | undefined {
   return BUILTIN_PATCHES.find((p) => p.id === id);
+}
+
+/** Param metas for builder graph node types */
+export function paramMetaForNodeType(type: string): ParamMeta[] {
+  switch (type) {
+    case 'PulseTrain':
+      return [
+        { id: 'cylinders', label: 'Cylinders', min: 4, max: 12, kind: 'segmented', options: [4, 6, 8, 10, 12] },
+        { id: 'pulseWidth', label: 'Width', min: 0.05, max: 1, step: 0.01 },
+        { id: 'pulseJitter', label: 'Jitter', min: 0, max: 0.5, step: 0.01 },
+        { id: 'roughness', label: 'Roughness', min: 0, max: 1, step: 0.01 },
+      ];
+    case 'ExhaustWaveguide':
+      return [
+        { id: 'exhaustLength', label: 'Length', min: 0.05, max: 1, step: 0.01 },
+        { id: 'exhaustFeedback', label: 'Feedback', min: 0.1, max: 0.97, step: 0.01 },
+        { id: 'muffling', label: 'Muffler', min: 0, max: 1, step: 0.01 },
+        { id: 'growl', label: 'Growl', min: 0, max: 1, step: 0.01 },
+      ];
+    case 'IntakeNoise':
+      return [{ id: 'intake', label: 'Amount', min: 0, max: 1, step: 0.01 }];
+    case 'Mechanical':
+      return [{ id: 'roughness', label: 'Roughness', min: 0, max: 1, step: 0.01 }];
+    case 'FormantHowl':
+      return [
+        { id: 'formantHowl', label: 'Amount', min: 0, max: 1, step: 0.01 },
+        { id: 'formantSpread', label: 'Spread', min: 0, max: 1, step: 0.01 },
+        { id: 'resonance', label: 'Q', min: 0, max: 1, step: 0.01 },
+      ];
+    case 'WetRoadNoise':
+      return [
+        { id: 'wetHiss', label: 'Amount', min: 0, max: 1, step: 0.01 },
+        { id: 'doppler', label: 'Smear', min: 0, max: 1, step: 0.01 },
+      ];
+    case 'Filter':
+    case 'biquad':
+      return [
+        { id: 'frequency', label: 'Freq', min: 80, max: 8000, step: 1, unit: 'Hz' },
+        { id: 'Q', label: 'Q', min: 0.1, max: 18, step: 0.1 },
+        { id: 'gain', label: 'Gain dB', min: -24, max: 24, step: 0.5 },
+      ];
+    case 'Gain':
+    case 'gain':
+      return [{ id: 'gain', label: 'Gain', min: 0, max: 2, step: 0.01 }];
+    case 'Mix':
+    case 'merge':
+      return [{ id: 'gain', label: 'Mix', min: 0, max: 1, step: 0.01 }];
+    case 'Osc':
+    case 'osc':
+      return [
+        { id: 'frequency', label: 'Freq', min: 20, max: 2000, step: 1, unit: 'Hz' },
+        { id: 'detune', label: 'Detune', min: -100, max: 100, step: 1 },
+      ];
+    case 'Noise':
+    case 'noise':
+      return [{ id: 'gain', label: 'Level', min: 0, max: 1, step: 0.01 }];
+    default:
+      return [{ id: 'gain', label: 'Gain', min: 0, max: 1, step: 0.01 }];
+  }
 }

@@ -33,16 +33,16 @@ Open on a phone or laptop first, then bookmark the HTTPS URL in **Tesla Browser*
 | `/` or `/drive` | Driving HUD (default) |
 | `/engines` | Free pack picker (all unlocked) |
 | `/customize` | Themes, density, gauges, mapping (`localStorage` `drivesynth.ui.v1`) |
-| `/builder` | Param rails, mock driving, save/export/import (`drivesynth.patches.v1`) |
+| `/builder` | Node graph editor, param rails, mock driving, save/export/import (`drivesynth.patches.v1`) |
 
 Hash routing (`#/drive`) is used so static hosts work without rewrite rules.
 
 ## Built-in engines (procedural)
 
-- **V8 Rumble** (`v8-rumble`) — ICE harmonic stack + intake/exhaust noise
-- **I4 Zip** (`i4-zip`) — lighter four-cylinder defaults
+- **V8 Rumble** (`v8-rumble`) — AudioWorklet pulse-train ICE + Karplus–Strong exhaust (oscillator fallback)
+- **I4 Zip** (`i4-zip`) — even-fire four-cylinder pulse path
 - **EV Whine** (`ev-whine`) — inverter-style whine + buzz
-- **Ion Twin** (`tie-fighter`) — sci-fi twin-ion roar/scream — **procedural only, no Star Wars samples**
+- **Ion Twin** (`tie-fighter`) — twin-ion carriers + multi-formant howl + wet-road hiss — **procedural only, no samples**
 
 ## Audio API
 
@@ -64,7 +64,8 @@ Frontend maps mph → `speed` 0..1 via `mphToSpeed`. Audio owns RPM curves and s
 ## Key files
 
 ```
-src/audio/EngineSynthImpl.ts   # Web Audio graphs + driving mapping
+src/audio/EngineSynthImpl.ts   # Web Audio graphs + pulse worklet + driving mapping
+src/audio/worklets/             # AudioWorklet processors (also copied to public/worklets)
 src/audio/types.ts             # EngineSynth / EnginePatch contracts
 src/audio/builtins.ts          # Free built-in patches
 src/pages/DrivePage.tsx        # HUD, GPS, Rev pad
