@@ -42,3 +42,14 @@ The production build succeeds. Server-side rendering checks pass for the drive, 
 ## Before promoting to production
 
 Host this branch's `dist/` on an isolated HTTPS preview. Verify phone and Tesla landscape layouts, Start/Stop/Mute, all voice families, saved custom presets, background/resume, denied/stale GPS, touch cancellation and manual shifts. A/B the native voices against RevForge at matched loudness. This branch does not change the existing production deployment.
+
+
+## Flight Lab 03 update
+
+RevForge is now the visible app name and the default UI. Repository URLs and local storage identifiers stay stable to preserve saved presets. Forty independently selectable themes span Minimal, Gauge Cluster, Cockpit and all thirteen RoadView scenes. Builder stores complete skin/sound combinations. The F-14 theme imports the original DriveSynth jet HUD. FT Aurebesh numbers and Engli-Besh labels ship locally for Ion Interceptor and Red Squadron.
+
+Demo is a settings toggle with DEMO under the speedometer. Idle jitter adds bounded RPM wander with an independent toggle and intensity slider. Jet Simulation switches thrust and afterburner layers; onset is 300 RPM above idle and afterburner requires high throttle and RPM. Twin-Ion signature is enabled by default and has an independent per-sound switch. Both native RevForge and retained DriveSynth flight voices have controls. Sound options persist in saved custom voices and combinations.
+
+The user's Tesla field test found no media-button shifting and no background audio. Experimental Media Session routing is therefore off by default. Standard browser geolocation is implemented, but API availability does not prove Tesla speed delivery. Settings shows real reading age/accuracy and media events. Use touch shifts or Automatic and foreground audio; no verified background or scroll-wheel support is claimed.
+
+Thirty tests pass, including offline Web Audio rendering for whir, afterburner and signature on/off. Production TypeScript/Vite build passes.

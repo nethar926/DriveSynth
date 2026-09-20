@@ -50,6 +50,8 @@ export interface DrivingInput {
 }
 
 export interface EngineParams {
+  jetSimulation?: number;
+  tieSignature?: number;
   masterGain: number;
   stereoWidth: number;
   limiterCeiling: number;

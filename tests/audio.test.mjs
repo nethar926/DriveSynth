@@ -92,3 +92,22 @@ test("changing voice architecture cleans the previous graph and lo-fi scheduler"
   voice.dispose();
   assert.equal(voice.nodes.length, 0);
 });
+for(const mode of ['turbine-whir','turbine-afterburner','starfighter-on','starfighter-off'])
+ test(`flight character ${mode}: renders and gates signature`,async()=>{
+  const offline=new OfflineAudioContext(2,22050,44100);
+  const ctx=new Proxy(offline,{get(t,k){if(k==='state')return 'running';const v=Reflect.get(t,k,t);return typeof v==='function'?v.bind(t):v;}});
+  const voice=new RevForgeVoice(ctx,offline.destination);
+  const jet=mode.startsWith('turbine');
+  const engine={...packs[0].engine,voice:jet?'turbine':'starfighter'};
+  try{
+   await voice.start(engine,{masterVolume:.8,engineVolume:1,musicVolume:0});
+   voice.update({rpm:engine.redline*.95,load:1,accel:2,shifting:false,overrun:false,tieSignature:mode!=='starfighter-off',flight:{spool:.95,thrust:mode==='turbine-afterburner'?1:0,afterburner:mode==='turbine-afterburner'?1:0}});
+   const rendered=await offline.startRendering();const data=rendered.getChannelData(0);
+   assert.ok(data.every(Number.isFinite));assert.ok(data.some(x=>Math.abs(x)>.001));
+   assert.ok(Math.max(...data.map(Math.abs))<1.5);
+   if(mode==='starfighter-off')assert.ok(voice.screamGain.gain.value<.00011);
+   if(mode==='starfighter-on')assert.ok(voice.screamGain.gain.value>.1);
+   if(mode==='turbine-afterburner')assert.ok(voice.raspGain.gain.value>.2);
+   if(mode==='turbine-whir')assert.ok(voice.raspGain.gain.value<.009);
+  }finally{voice.dispose();}
+ });

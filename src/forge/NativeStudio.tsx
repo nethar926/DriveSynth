@@ -1,3 +1,4 @@
+import {SoundCharacter} from './SoundCharacter';
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import type { EnginePatch } from "../audio";
@@ -38,12 +39,12 @@ export function NativeStudio({
   const [message, setMessage] = useState("");
   if (!patch.revforge)
     return (
-      <div className="forge-tune">
+      <div className="forge-tune"><SoundCharacter patch={patch} onChange={onChange}/><button onClick={()=>onSave({...patch,id:`user-${crypto.randomUUID()}`,name:`${patch.name} custom`})}>Save custom voice</button>
         <p>
           This is a DriveSynth voice. Its full node editor is available in the
           signal builder.
         </p>
-        <Link className="forge-studio-link" to="/builder">
+        <Link className="forge-studio-link" to="/sound-builder">
           Open signal builder →
         </Link>
       </div>
@@ -57,7 +58,7 @@ export function NativeStudio({
       ...patch,
       kind: converted.kind,
       topology: converted.topology,
-      params: converted.params,
+      params: {...converted.params,jetSimulation:patch.params.jetSimulation,tieSignature:patch.params.tieSignature},
       revforge: engine,
     });
     setMessage("");
@@ -96,7 +97,7 @@ export function NativeStudio({
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   };
   return (
-    <div className="forge-native-studio">
+    <div className="forge-native-studio"><SoundCharacter patch={patch} onChange={onChange}/>
       <p className="forge-studio-description">
         RevForge synthesis. Shape the voice live, then save a personal preset.
       </p>
@@ -161,7 +162,7 @@ export function NativeStudio({
           {message}
         </p>
       )}
-      <Link to="/builder" className="forge-builder-link">
+      <Link to="/sound-builder" className="forge-builder-link">
         Advanced signal builder ↗
       </Link>
     </div>

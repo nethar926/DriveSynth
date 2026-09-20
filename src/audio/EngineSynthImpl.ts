@@ -1,3 +1,4 @@
+import {flightProfile} from '../forge/flightProfile';
 import { defaultsForTopology, getBuiltin } from './builtins';
 import type {
   DrivingInput,
@@ -2101,6 +2102,7 @@ export class EngineSynthImpl implements EngineSynth {
 
     const spoolBase = Number(p.spoolPitch ?? 95);
     const idleAmt = Number(p.idleSpool ?? 0.55);
+    const flight = flightProfile(d.rpm ?? rpmNorm*10000+650,650,10000,d.throttle,!!d.overrun,p.jetSimulation !== 0);
     const roar = Number(p.jetRoar ?? 0.68);
     const intake = Number(p.intakeWhine ?? 0.5);
     const comp = Number(p.compressor ?? 0.65);
@@ -2130,7 +2132,7 @@ export class EngineSynthImpl implements EngineSynth {
     const spool = clamp(this.spoolLag);
 
     // Soft AB onset hysteresis (lags open more than close a bit)
-    const abWant = Math.max(0, thrRaw - 0.42) / 0.58;
+    const abWant = Math.sqrt(flight.afterburner);
     const abTc = abWant > this.abLag ? 0.22 : 0.12;
     if (tc <= 0.015) this.abLag = abWant * abWant;
     else {
@@ -2211,7 +2213,7 @@ export class EngineSynthImpl implements EngineSynth {
     }
     if (g.jetRoarGain) {
       const exhaust =
-        roar * (0.08 + rpmNorm * 0.16 + thr * thr * 0.28 + (parked ? idleAmt * 0.05 : 0));
+        roar * flight.thrust * (0.12 + rpmNorm * 0.2 + thr * thr * 0.32) * (1 - abWet * 0.45);
       smooth(g.jetRoarGain.gain, exhaust, abSmooth, ctx);
     }
 
@@ -2305,8 +2307,9 @@ export class EngineSynthImpl implements EngineSynth {
 
     // Ion Twin scream — idle near silent, DOMINATES mix in LOCK/KILL band.
     // Knobs multiply the rpmNorm open curve (never replace it).
-    const howl = Number(p.engineHowl ?? 0.55);
-    const formantHowl = Number(p.formantHowl ?? howl);
+    const signature = p.tieSignature !== 0 ? 1 : 0;
+    const howl = Number(p.engineHowl ?? 0.55) * signature;
+    const formantHowl = Number(p.formantHowl ?? howl) * signature;
     const spread = Number(p.formantSpread ?? 0.55);
     const open = smoothstep(rpmNorm, 0.15, 0.85); // ~0 at idle → 1 by lock/kill
     const thr = d.throttle;
@@ -2332,11 +2335,11 @@ export class EngineSynthImpl implements EngineSynth {
     }
     if (g.howlOscGain) {
       // Grit under scream — still secondary to noise formants
-      smooth(g.howlOscGain.gain, 0.1 + howlAmt * 0.28 + thr * 0.06, tc, ctx);
+      smooth(g.howlOscGain.gain, signature * (0.1 + howlAmt * 0.28 + thr * 0.06), tc, ctx);
     }
     if (g.howlPhraseDepth) {
       // Loud phrase AM so it bellows, not drones
-      smooth(g.howlPhraseDepth.gain, howlAmt * (0.38 + thr * 0.32) + flyby * 0.18, tc, ctx);
+      smooth(g.howlPhraseDepth.gain, signature * (howlAmt * (0.38 + thr * 0.32) + flyby * 0.18), tc, ctx);
     }
     if (g.howlPhraseLfo) {
       smooth(g.howlPhraseLfo.frequency, 1.35 + open * 4.2 + thr * 2.6 + flyby * 3, tc, ctx);
@@ -2367,7 +2370,7 @@ export class EngineSynthImpl implements EngineSynth {
     }
 
     // Wet-road swoosh — LOUD half of identity; opens with rpm + brightness + pan smear
-    const wet = Number(p.wetHiss ?? 0.5);
+    const wet = Number(p.wetHiss ?? 0.5) * signature;
     const loadAbs = Math.abs(d.load ?? 0);
     const wetAmt =
       wet * open * (0.55 + rpmNorm * 0.65 + thr * 0.55 + loadAbs * 0.18) + wet * flyby * 0.85;
@@ -2392,7 +2395,7 @@ export class EngineSynthImpl implements EngineSynth {
       smooth(g.wetFlybyGain.gain, flyby * wet * 0.9 + open * wet * 0.08, Math.min(tc, 0.04), ctx);
     }
     if (g.wetAmDepth) {
-      smooth(g.wetAmDepth.gain, wetAmt * 0.42 + flyby * 0.2, tc, ctx);
+      smooth(g.wetAmDepth.gain, signature * (wetAmt * 0.42 + flyby * 0.2), tc, ctx);
     }
     if (g.wetAmLfo) {
       smooth(g.wetAmLfo.frequency, 1.8 + rpmNorm * 5 + thr * 3.5 + flyby * 6, tc, ctx);
@@ -2412,7 +2415,7 @@ export class EngineSynthImpl implements EngineSynth {
       smooth(g.wetPan.pan, clamp(smear, -1, 1), tc, ctx);
     }
 
-    const after = Number(p.afterburn ?? 0.5);
+    const after = Number(p.afterburn ?? 0.5) * signature;
     if (g.afterGain) {
       smooth(g.afterGain.gain, after * open * thr * thr * 0.7 + flyby * after * 0.25, tc, ctx);
     }

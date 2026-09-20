@@ -69,7 +69,7 @@ export function scenePatch(scene: ScenePack): EnginePatch {
 export const REVFORGE_PATCHES = SCENES.map(scenePatch);
 export function drivetrainFor(
   patch: EnginePatch | undefined,
-  scene: ScenePack,
+  _scene: ScenePack,
 ): Drivetrain {
   if (patch?.revforge) {
     const original = patch.revforge;
@@ -85,7 +85,7 @@ export function drivetrainFor(
   const ice = patch?.kind === "ice";
   const idleRpm = ice
     ? (Number(patch.params.rpmIdle ?? 55) * 120) / cylinders
-    : scene.engine.idleRpm;
+    : 650;
   const redline = ice
     ? Math.max(
         idleRpm + 1000,

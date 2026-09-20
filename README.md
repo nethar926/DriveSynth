@@ -1,10 +1,16 @@
-# DriveSynth × RevForge
+# RevForge
 
 The default drive dashboard now combines **RevForge’s native synthesis and 13 animated scenes** with DriveSynth’s engine library, builder and cockpit themes. RevForge voices retain their original sound algorithms; nine DriveSynth voices remain available in the Garage.
 
-Start in **Demo**, tap **Start engine**, and raise Throttle. Choose **Manual** to shift (↑ / ↓), **N** to free-rev, hold **Space** to accelerate, or hold **B** to brake. Choose **Live GPS** only when you want to grant location access. The native **Synth studio** edits and saves RevForge voices, including turbo, crackle, blow-off and the lo-fi layer.
+Start in **Demo**, tap **Start engine**, and raise Throttle. Choose **Manual** to shift (↑ / ↓), **N** to free-rev, hold **Space** to accelerate, or hold **B** to brake. Open settings and turn **Demo mode** off to grant browser location access. DEMO appears beneath the speedometer whenever simulation is selected. The native **Synth studio** edits and saves RevForge voices, including turbo, crackle, blow-off and the lo-fi layer.
 
-Use Node 24. Run `npm ci`, `npm test`, `npm run dev`, and `npm run build`. The combined production build and 21 audio/drivetrain tests pass. **Hosted browser and Tesla hardware validation are still pending.** See [merge notes](docs/revforge-merge.md) for provenance, behavior and review details. The original cockpit is retained at `#/cockpit`; its manual gear display is legacy behavior. New physical gearing is on `#/drive`.
+Use Node 24. Run `npm ci`, `npm test`, `npm run dev`, and `npm run build`. The production build and 30 audio/drivetrain/media-action/flight-envelope tests pass. **Tesla hardware validation is still pending.** See [merge notes](docs/revforge-merge.md) for provenance, behavior and review details. The original cockpit is retained at `#/cockpit`; its manual gear display is legacy behavior. New physical gearing is on `#/drive`.
+
+Theme Lab adds Minimal, Gauge Cluster, Cockpit and RoadView families. TIE-inspired Ion Interceptor and X-wing-inspired Red Squadron use FT Aurebesh numbers and Engli-Besh descriptors.
+
+Experimental media controls are off by default in settings: pause upshifts in Manual when enabled, next/previous shift up/down, and pause stops in Automatic. Touch Stop always stops. Settings includes GPS and received-media-action diagnostics. The user’s Tesla field test found no media-button shifting and no background audio. These are unsupported in the tested build; use touch shifting or Automatic and keep the browser visible. GPS still needs a live speed/accuracy reading; API availability is not hardware verification.
+
+Idle jitter has a persistent toggle and intensity slider in settings. Jet Simulation and Twin-Ion signature are per-sound options in Builder and Synth studio, stored in custom voices and combinations. Thrust starts 300 RPM above idle, and afterburner requires high RPM and throttle; lifting off removes thrust/afterburner. The F-14 theme reuses the original DriveSynth AerospaceF14Overlay. Existing storage keys and repository URL remain stable.
 
 The original project notes below describe the retained DriveSynth engine and editor.
 
@@ -39,7 +45,8 @@ Open on a phone or laptop first, then bookmark the HTTPS URL in **Tesla Browser*
 | `/` or `/drive` | Driving HUD (default) |
 | `/engines` | Free pack picker (all unlocked) |
 | `/customize` | Themes, density, gauges, mapping (`localStorage` `drivesynth.ui.v1`) |
-| `/builder` | Node graph editor, param rails, mock driving, save/export/import (`drivesynth.patches.v1`) |
+| `/builder` | Independent skin + sound combinations, 40 dynamic themes and audition preview |
+| `/sound-builder` | Advanced node graph editor and sound patch import/export |
 
 Hash routing (`#/drive`) is used so static hosts work without rewrite rules.
 

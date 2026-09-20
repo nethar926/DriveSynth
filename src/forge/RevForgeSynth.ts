@@ -1,3 +1,4 @@
+import {flightProfile} from './flightProfile';
 import type {
   DrivingInput,
   EngineDiag,
@@ -88,6 +89,8 @@ export class RevForgeSynth implements EngineSynth {
     if (this.running)
       this.voice.update({
         rpm,
+        tieSignature: this.patch.params.tieSignature !== 0,
+        flight: flightProfile(rpm,p.idleRpm,p.redline,d.throttle,!!d.overrun,this.patch.params.jetSimulation !== 0),
         load: clamp(d.load ?? d.throttle, 0, 1),
         accel: d.acceleration ?? 0,
         shifting: !!d.shifting,

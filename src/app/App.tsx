@@ -8,6 +8,8 @@ import { useUiPrefs } from "../hooks/useUiPrefs";
 import { BuilderPage } from "../pages/BuilderPage";
 import { CustomizePage } from "../pages/CustomizePage";
 import { DiagPage } from "../pages/DiagPage";
+import { useThemes } from "../themes/useThemes";
+import { ExperienceBuilder } from "../themes/ExperienceBuilder";
 import { ForgePage } from "../forge/ForgePage";
 import { DrivePage } from "../pages/DrivePage";
 import { EnginesPage } from "../pages/EnginesPage";
@@ -17,6 +19,7 @@ import { skinIdForEngine } from "../skins/DriveSkinSlot";
 
 export default function App() {
   const { prefs, update, reset } = useUiPrefs();
+  const themes = useThemes();
   const { userPatches, savePatch, deletePatch } = usePatches();
   const audio = useAudioEngine(prefs.selectedEngineId, userPatches);
   const [gpsEnabled, setGpsEnabled] = useState(false);
@@ -82,6 +85,7 @@ export default function App() {
           path={path}
           element={
             <ForgePage
+              themes={themes}
               audio={audio}
               gps={gps}
               prefs={prefs}
@@ -94,6 +98,7 @@ export default function App() {
           }
         />
       ))}
+      <Route path="/builder" element={<ExperienceBuilder themes={themes} audio={audio} userPatches={userPatches} onSelect={onSelectEngine} onLoadCombination={(skinId,patch)=>{themes.selectSkin(skinId);onSavePatch(patch);}}/>}/>
       <Route
         element={
           <AppShell
@@ -140,7 +145,7 @@ export default function App() {
           }
         />
         <Route
-          path="/builder"
+          path="/sound-builder"
           element={
             <BuilderPage
               audio={audio}

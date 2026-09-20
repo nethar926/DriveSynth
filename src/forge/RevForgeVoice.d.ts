@@ -12,6 +12,8 @@ export class RevForgeVoice {
     musicVolume: number;
   }): void;
   update(state: {
+    tieSignature?: boolean;
+    flight?: {spool:number;thrust:number;afterburner:number};
     rpm: number;
     load: number;
     accel: number;

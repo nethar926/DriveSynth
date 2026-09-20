@@ -470,16 +470,19 @@ export class RevForgeVoice {
           h = 0.008 * i;
         } else {
           if (t.voice === `turbine`) {
-            h = 0.05 + a * 0.08 + i * 0.04;
-            g = 0.03 + a * 0.06;
+            const thrust=e.flight?.thrust??i, ab=e.flight?.afterburner??0;
+            h = 0.012 + thrust * .14 * (1-ab*.4) + ab*.22;
+            // Broad hot exhaust replaces the dry thrust texture at full power.
+            this.raspFilter?.frequency.setTargetAtTime(900+thrust*2200+ab*3600,n,.12);
+            g = .008 + thrust*.065 + ab*.19;
             v = 0.04 + a * 0.09;
             _ = 0.03 + a * 0.07;
             p = 0.03 + a * 0.02;
             f = 0.02;
           } else {
             if (t.voice === `starfighter`) {
-              v = 0.07 + a * 0.16 + i * 0.05;
-              g = 0.05 + a * 0.1;
+              v = e.tieSignature===false ? 0 : 0.07 + a * 0.16 + i * 0.05;
+              g = e.tieSignature===false ? .004 : 0.05 + a * 0.1;
               h = 0.04 + a * 0.06;
               p = 0.06 + t.rumble * 0.05;
               f = 0.03 + a * 0.04;

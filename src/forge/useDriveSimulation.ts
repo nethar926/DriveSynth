@@ -1,3 +1,4 @@
+import {idleWander} from './flightProfile';
 import { useEffect, useRef, useState } from "react";
 import type { useAudioEngine } from "../hooks/useAudioEngine";
 import type { useGeolocation } from "../hooks/useGeolocation";
@@ -12,14 +13,15 @@ export function useDriveSimulation(
   mode: Controls["mode"],
   pedal: number,
   brake: boolean,
+  jitter: number,
 ) {
   const simulation = useRef(createSimulation(config));
   const queuedShift = useRef(0);
-  const latest = useRef({ audio, gps, config, source, mode, pedal, brake });
+  const latest = useRef({ audio, gps, config, source, mode, pedal, brake, jitter });
   const [hud, setHud] = useState(() => createSimulation(config));
   useEffect(() => {
-    latest.current = { audio, gps, config, source, mode, pedal, brake };
-  }, [audio, gps, config, source, mode, pedal, brake]);
+    latest.current = { audio, gps, config, source, mode, pedal, brake, jitter };
+  }, [audio, gps, config, source, mode, pedal, brake, jitter]);
   useEffect(() => {
     simulation.current.gear = Math.min(simulation.current.gear, config.gears);
     simulation.current.rpm = config.idleRpm;
@@ -33,7 +35,7 @@ export function useDriveSimulation(
       previous = performance.now(),
       published = 0;
     const frame = (now: number) => {
-      const { audio, gps, config, source, mode, pedal, brake } = latest.current;
+      const { audio, gps, config, source, mode, pedal, brake, jitter } = latest.current;
       const dt = Math.min(0.05, Math.max(0, (now - previous) / 1000));
       previous = now;
       if (audio.running && document.visibilityState === "visible") {
@@ -57,7 +59,7 @@ export function useDriveSimulation(
           speed: clamp(state.speedMps / 53.6448, 0, 1),
           throttle: state.shifting ? throttle * 0.3 : throttle,
           load: state.load,
-          rpm: state.rpm,
+          rpm: state.rpm + idleWander(now/1000,state.rpm,config.idleRpm,throttle,jitter),
           acceleration: state.accel,
           shifting: state.shifting,
           overrun: state.overrun,
@@ -71,7 +73,8 @@ export function useDriveSimulation(
       queuedShift.current = 0;
       if (now - published > 80) {
         published = now;
-        setHud({ ...simulation.current });
+        const s=simulation.current,o=latest.current;
+        setHud({ ...s,rpm:s.rpm+(o.audio.running?idleWander(now/1000,s.rpm,o.config.idleRpm,o.source==='demo'?o.pedal:s.load,o.jitter):0) });
       }
       handle = requestAnimationFrame(frame);
     };

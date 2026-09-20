@@ -5,19 +5,24 @@ import {
   type CSSProperties,
   type PointerEvent,
 } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { BUILTIN_PATCHES, getBuiltin } from "../audio";
 import type { EnginePatch } from "../audio";
 import type { useAudioEngine } from "../hooks/useAudioEngine";
 import type { useGeolocation } from "../hooks/useGeolocation";
 import type { UiPrefs } from "../hooks/useUiPrefs";
-import { SCENES, sceneForId, scenePatch, drivetrainFor } from "./catalog";
+import { sceneForId, drivetrainFor } from "./catalog";
+import { ThemeStage } from "../themes/ThemeStage";
+import { ThemePicker } from "../themes/ThemePicker";
+import { themeForId, THEMES } from "../themes/catalog";
+import type { useThemes } from "../themes/useThemes";
+import { useVehicleMedia } from "./useVehicleMedia";
 import { NativeStudio } from "./NativeStudio";
-import { SceneCanvas } from "./SceneCanvas";
 import { useDriveSimulation } from "./useDriveSimulation";
 import "./forge.css";
 
 interface Props {
+  themes: ReturnType<typeof useThemes>;
   audio: ReturnType<typeof useAudioEngine>;
   gps: ReturnType<typeof useGeolocation>;
   prefs: UiPrefs;
@@ -27,14 +32,7 @@ interface Props {
   onSavePatch: (patch: EnginePatch) => void;
   userPatches: EnginePatch[];
 }
-function storedScene(engineId: string) {
-  if (engineId.startsWith("revforge-")) return engineId.slice(9);
-  try {
-    return localStorage.getItem("drivesynth.forge.scene") ?? "road-66";
-  } catch {
-    return "road-66";
-  }
-}
+function storedFlag(key: string, fallback: boolean) { try { const value=localStorage.getItem(key); return value===null?fallback:value==='true'; } catch { return fallback; } }
 function Icon({
   name,
   size = 20,
@@ -90,6 +88,7 @@ function Icon({
   );
 }
 export function ForgePage({
+  themes,
   audio,
   gps,
   prefs,
@@ -99,18 +98,23 @@ export function ForgePage({
   onSavePatch,
   userPatches,
 }: Props) {
-  const [sceneId, setSceneId] = useState(() => storedScene(audio.engineId));
+  const [searchParams] = useSearchParams();
+  const theme = themeForId(themes.skinId);
   const [panel, setPanel] = useState<
     "scenes" | "garage" | "tune" | "studio" | null
-  >(null);
-  const [source, setSource] = useState<"demo" | "gps">("demo");
+  >(() => searchParams.get("studio") === "1" ? "studio" : null);
+  const [source, setSource] = useState<"demo" | "gps">(() => storedFlag("drivesynth.demo", true) ? "demo" : "gps");
+  const [jitterEnabled,setJitterEnabled]=useState(()=>storedFlag("revforge.idleJitter",true));
+  const [jitterAmount,setJitterAmount]=useState(()=>{try{return Math.max(0,Math.min(1,Number(localStorage.getItem("revforge.idleJitterAmount")??.25)));}catch{return .25;}});
+  useEffect(()=>{try{localStorage.setItem("revforge.idleJitter",String(jitterEnabled));localStorage.setItem("revforge.idleJitterAmount",String(jitterAmount));}catch{/* session only */}},[jitterEnabled,jitterAmount]);
   const [mode, setMode] = useState<"auto" | "manual">("auto");
   const [pedal, setPedal] = useState(0);
   const [brake, setBrake] = useState(false);
-  const [motion, setMotion] = useState(true);
+  const [motion, setMotion] = useState(() => storedFlag("drivesynth.motion", true));
+  const [mediaEnabled,setMediaEnabled] = useState(() => storedFlag("revforge.media.experimental", false));
+  const [pauseShifts,setPauseShifts] = useState(() => storedFlag("drivesynth.pauseShifts", true));
   const [mutedBeforeHide, setMutedBeforeHide] = useState(false);
   const [revision, setRevision] = useState(0);
-  const scene = sceneForId(sceneId);
   const patch = useMemo(
     () =>
       audio.getPatch() ??
@@ -118,7 +122,7 @@ export function ForgePage({
       getBuiltin(audio.engineId),
     [audio, userPatches, revision],
   );
-  const config = useMemo(() => drivetrainFor(patch, scene), [patch, scene]);
+  const config = useMemo(() => drivetrainFor(patch, sceneForId("road-66")), [patch]);
   const { simulation, hud, shift, neutral, reset } = useDriveSimulation(
     audio,
     gps,
@@ -127,18 +131,11 @@ export function ForgePage({
     mode,
     pedal,
     brake,
+    jitterEnabled?jitterAmount:0,
   );
-  const speed = hud.speedMps * (prefs.speedUnit === "kph" ? 3.6 : 2.236936);
-  const rpmPercent = Math.min(1, hud.rpm / config.redline);
   const revReady = audio.running && source === "demo";
   const [tone, setTone] = useState<number | null>(null);
-  useEffect(() => {
-    try {
-      localStorage.setItem("drivesynth.forge.scene", sceneId);
-    } catch {
-      /* private browsing */
-    }
-  }, [sceneId]);
+  useEffect(() => {try {localStorage.setItem("drivesynth.demo",String(source==='demo'));localStorage.setItem("drivesynth.motion",String(motion));localStorage.setItem("revforge.media.experimental",String(mediaEnabled));localStorage.setItem("drivesynth.pauseShifts",String(pauseShifts));}catch{/* preferences remain available this session */}},[source,motion,mediaEnabled,pauseShifts]);
   useEffect(() => {
     audio.setUpshiftSfxEnabled(prefs.upshiftSfx);
     audio.setLockSfxEnabled(prefs.ionTwinLockSfx);
@@ -213,15 +210,11 @@ export function ForgePage({
     [setDriving],
   );
   useEffect(() => () => onGpsEnabled(false), [onGpsEnabled]);
-  const selectScene = (id: string) => {
-    setSceneId(id);
-    onSelectEngine(scenePatch(sceneForId(id)));
-    setPedal(0);
-    setBrake(false);
-    setPanel(null);
-  };
+  const selectScene = (id: string) => { themes.selectSkin(`road-${id}`); setPanel(null); };
   const start = () => {
     setMutedBeforeHide(false);
+    media.arm();
+    if(source === "gps") onGpsEnabled(true);
     void audio.start();
   };
   const stop = () => {
@@ -230,6 +223,7 @@ export function ForgePage({
     audio.stop();
     reset();
   };
+  const media = useVehicleMedia({enabled:mediaEnabled,running:audio.running,manual:mode==='manual' && config.gears>1,pauseShifts,name:audio.patchName,start:()=>{void audio.start();if(source==='gps')onGpsEnabled(true);},stop,shift});
   const sourceChange = (next: "demo" | "gps") => {
     setSource(next);
     setPedal(0);
@@ -256,25 +250,25 @@ export function ForgePage({
   return (
     <div
       className="forge"
-      style={{ "--forge-accent": scene.palette.accent } as CSSProperties}
+      style={{ "--forge-accent": theme.accent } as CSSProperties}
     >
       <header className="forge-header">
-        <Link to="/drive" className="forge-brand" aria-label="DriveSynth home">
+        <Link to="/drive" className="forge-brand" aria-label="RevForge home">
           <span className="forge-logo">
             <Icon name="wave" size={25} />
           </span>
           <span>
-            DRIVESYNTH<small>REVFORGE EDITION</small>
+            REVFORGE<small>ENGINE SOUND LAB</small>
           </span>
         </Link>
         <nav className="forge-nav" aria-label="Main navigation">
           <span className="forge-nav-active">Drive</span>
           <button onClick={() => setPanel("garage")}>Garage</button>
           <button onClick={() => setPanel("studio")}>Synth studio</button>
-          <Link to="/cockpit">Cockpit</Link>
+          <Link to="/builder">Builder</Link>
         </nav>
         <div className="forge-header-tools">
-          <span className="forge-version">PROCEDURAL AUDIO / 01</span>
+          <span className="forge-version">FLIGHT LAB / 03</span>
           <button
             className="forge-icon"
             aria-label="Sound and display settings"
@@ -304,89 +298,8 @@ export function ForgePage({
             className="forge-world"
             aria-label="Driving scene and instruments"
           >
-            <SceneCanvas
-              scene={scene}
-              simulation={simulation}
-              motion={motion}
-            />
-            <div className="forge-world-shade" />
-            <div className="forge-scene-title">
-              <span className="forge-scene-index">
-                {String(SCENES.indexOf(scene) + 1).padStart(2, "0")} /{" "}
-                {SCENES.length}
-              </span>
-              <h2>{scene.name}</h2>
-              <p>{scene.tagline}</p>
-            </div>
-            <button
-              className="forge-scene-button"
-              onClick={() => setPanel("scenes")}
-            >
-              <Icon name="grid" size={16} />
-              Change scene
-            </button>
-            <div className="forge-speed">
-              <span className="forge-eyebrow">
-                {source === "demo" ? "SIMULATED SPEED" : gpsLabel.toUpperCase()}
-              </span>
-              <div>
-                <strong data-testid="speed">
-                  {Math.round(speed).toString().padStart(2, "0")}
-                </strong>
-                <span>{prefs.speedUnit === "kph" ? "KM/H" : "MPH"}</span>
-              </div>
-              <span className="forge-speed-note">
-                {source === "demo"
-                  ? "Demo drive · no vehicle connection"
-                  : "Browser GPS · estimated speed"}
-              </span>
-            </div>
-            <div className="forge-instruments">
-              <div className="forge-revs">
-                <div className="forge-instrument-top">
-                  <span>ENGINE SPEED</span>
-                  <span>
-                    <b data-testid="rpm">
-                      {audio.running
-                        ? Math.round(hud.rpm).toLocaleString()
-                        : "—"}
-                    </b>{" "}
-                    RPM
-                  </span>
-                </div>
-                <div
-                  className="forge-rpm-bars"
-                  aria-label={`${Math.round(hud.rpm)} RPM`}
-                >
-                  {Array.from({ length: 40 }, (_, i) => (
-                    <i
-                      key={i}
-                      className={`${i / 40 < rpmPercent && audio.running ? "lit" : ""} ${i > 32 ? "redline" : ""}`}
-                    />
-                  ))}
-                </div>
-                <div className="forge-rpm-scale">
-                  <span>0</span>
-                  <span>{Math.round(config.redline / 2000)}</span>
-                  <span>{(config.redline / 1000).toFixed(1)} × 1000</span>
-                </div>
-              </div>
-              <div className="forge-gear">
-                <span>GEAR</span>
-                <strong data-testid="gear">
-                  {hud.gear === 0 ? "N" : hud.gear}
-                </strong>
-                <small>
-                  {hud.shifting
-                    ? "SHIFTING"
-                    : config.gears === 1
-                      ? "DIRECT"
-                      : mode === "auto"
-                        ? "AUTOMATIC"
-                        : "MANUAL"}
-                </small>
-              </div>
-            </div>
+            <ThemeStage theme={theme} state={hud} simulation={simulation} redline={config.redline} unit={prefs.speedUnit} demo={source==='demo'} motion={motion} running={audio.running} gpsLabel={gpsLabel}/>
+            <button className="forge-scene-button skin-change-button" onClick={()=>setPanel("scenes")}><Icon name="grid" size={16}/>Change skin</button>
             {!audio.running && (
               <button
                 className="forge-ignition"
@@ -442,23 +355,6 @@ export function ForgePage({
               </div>
             </div>
             <div className="forge-control-group">
-              <span className="forge-label">INPUT SOURCE</span>
-              <div className="forge-segment">
-                <button
-                  aria-pressed={source === "demo"}
-                  onClick={() => sourceChange("demo")}
-                >
-                  Demo
-                </button>
-                <button
-                  aria-pressed={source === "gps"}
-                  onClick={() => sourceChange("gps")}
-                >
-                  Live GPS
-                </button>
-              </div>
-            </div>
-            <div className="forge-control-group">
               <span className="forge-label">TRANSMISSION</span>
               <div className="forge-segment">
                 <button
@@ -501,7 +397,7 @@ export function ForgePage({
                 </button>
               </div>
             )}
-            <label className="forge-throttle">
+            {source === "demo" && <><label className="forge-throttle">
               <span className="forge-label">
                 THROTTLE <b>{Math.round(pedal * 100)}%</b>
               </span>
@@ -516,9 +412,7 @@ export function ForgePage({
                 onChange={(e) => setPedal(Number(e.target.value))}
               />
               <span className="forge-control-hint">
-                {source === "gps"
-                  ? "Engine load follows measured acceleration."
-                  : hud.gear === 0
+                {hud.gear === 0
                     ? "Neutral · free rev without moving."
                     : "Raise the throttle to drive the simulation."}
               </span>
@@ -553,6 +447,7 @@ export function ForgePage({
                 Brake <span>B</span>
               </button>
             </div>
+            </>}
             <div className="forge-audio-row">
               <button
                 className="forge-icon"
@@ -619,7 +514,7 @@ export function ForgePage({
               className="forge-text-button"
               onClick={() => setPanel("scenes")}
             >
-              All {SCENES.length} scenes <Icon name="arrow" size={16} />
+              Browse {THEMES.length} skins <Icon name="arrow" size={16} />
             </button>
           </div>
           <div className="forge-scene-grid">
@@ -629,7 +524,7 @@ export function ForgePage({
                 return (
                   <button
                     key={id}
-                    className={`forge-scene-card ${sceneId === id ? "selected" : ""}`}
+                    className={`forge-scene-card ${theme.sceneId === id ? "selected" : ""}`}
                     onClick={() => selectScene(id)}
                     style={
                       {
@@ -675,7 +570,7 @@ export function ForgePage({
             aria-modal="true"
             aria-label={
               panel === "scenes"
-                ? "Choose a scene"
+                ? "Choose a skin"
                 : panel === "garage"
                   ? "Engine garage"
                   : panel === "studio"
@@ -688,7 +583,7 @@ export function ForgePage({
               if (e.key === "Tab") {
                 const targets = Array.from(
                   e.currentTarget.querySelectorAll<HTMLElement>(
-                    "button:not(:disabled),a[href],input:not(:disabled)",
+                    "button:not(:disabled),a[href],input:not(:disabled),select:not(:disabled),textarea:not(:disabled)",
                   ),
                 );
                 const first = targets[0],
@@ -705,10 +600,10 @@ export function ForgePage({
           >
             <div className="forge-modal-heading">
               <div>
-                <span className="forge-eyebrow">DRIVESYNTH × REVFORGE</span>
+                <span className="forge-eyebrow">REVFORGE</span>
                 <h2>
                   {panel === "scenes"
-                    ? "Find your atmosphere."
+                    ? "Choose your instruments."
                     : panel === "garage"
                       ? "Your engine collection."
                       : panel === "studio"
@@ -725,31 +620,7 @@ export function ForgePage({
                 <Icon name="close" />
               </button>
             </div>
-            {panel === "scenes" && (
-              <div className="forge-picker-grid">
-                {SCENES.map((p) => (
-                  <button
-                    key={p.id}
-                    aria-pressed={sceneId === p.id}
-                    onClick={() => selectScene(p.id)}
-                    style={
-                      {
-                        "--card-top": p.palette.skyTop,
-                        "--card-bottom": p.palette.haze,
-                        "--card-accent": p.palette.accent,
-                      } as CSSProperties
-                    }
-                  >
-                    <div className={`forge-mini-art art-${p.scene}`}>
-                      <span className="forge-mini-sun" />
-                      <span className="forge-mini-road" />
-                    </div>
-                    <strong>{p.name}</strong>
-                    <p>{p.tagline}</p>
-                  </button>
-                ))}
-              </div>
-            )}
+            {panel === "scenes" && <ThemePicker selected={themes.skinId} onSelect={(id)=>{themes.selectSkin(id);setPanel(null);}}/>}
             {panel === "garage" && (
               <div className="forge-garage-list">
                 {options.map((p) => (
@@ -758,8 +629,6 @@ export function ForgePage({
                     aria-pressed={audio.engineId === p.id}
                     onClick={() => {
                       onSelectEngine(p);
-                      if (p.id.startsWith("revforge-"))
-                        setSceneId(p.id.slice(9));
                       setPedal(0);
                       setPanel(null);
                     }}
@@ -797,6 +666,14 @@ export function ForgePage({
             )}
             {panel === "tune" && (
               <div className="forge-tune">
+                <label>Demo mode<input aria-label="Demo mode" type="checkbox" checked={source==='demo'} onChange={e=>sourceChange(e.target.checked?'demo':'gps')}/></label>
+                <p className="forge-control-hint">Turn Demo off to use browser GPS. Location permission is required.</p>
+                <label>Idle jitter<input aria-label="Idle jitter" type="checkbox" checked={jitterEnabled} onChange={e=>setJitterEnabled(e.target.checked)}/></label><label>Idle jitter intensity · {Math.round(jitterAmount*100)}%<input aria-label="Idle jitter intensity" type="range" min="0" max="1" step=".01" disabled={!jitterEnabled} value={jitterAmount} onChange={e=>setJitterAmount(Number(e.target.value))}/></label><p className="forge-control-hint">Adds subtle RPM wander at idle. Fades out as you accelerate.</p>
+                <p className="forge-control-hint">Tesla field test: media-button shifting and background audio did not work. Keep RevForge visible; use touch shifting or Automatic.</p><label>Experimental media-button controls<input type="checkbox" checked={mediaEnabled} onChange={e=>setMediaEnabled(e.target.checked)}/></label>
+                <label>Play/pause button upshifts in Manual<input type="checkbox" checked={pauseShifts} onChange={e=>setPauseShifts(e.target.checked)}/></label>
+                <p className="forge-control-hint">While playing in Manual: pause → upshift, next → upshift, previous → downshift. In Automatic, pause stops the engine. Touch Stop always stops.</p>
+                <div className="compatibility-box"><h3>Tesla input check</h3><dl><dt>Location API</dt><dd>{typeof navigator!=='undefined'&&'geolocation' in navigator?'Available':'Unavailable'}</dd><dt>GPS status</dt><dd>{gps.status}</dd><dt>Position accuracy</dt><dd>{gps.accuracy===null?'No reading':`±${Math.round(gps.accuracy)} m`}</dd><dt>Speed reading</dt><dd>{gps.timestamp===null?'Not received':`${gps.mph.toFixed(1)} mph`}</dd><dt>Media handlers</dt><dd>{media.accepted.length}/4 registered</dd><dt>Media session</dt><dd>{media.carrier}</dd></dl><p className="input-check-log" role="status">{media.lastEvent}</p><button className="forge-text-button" disabled={!mediaEnabled || !audio.running} onClick={media.arm}>Enable controls / recheck</button><p>While parked, start the engine and press your media buttons. An event appearing here confirms delivery to this browser. Button registration alone does not mean Tesla delivers the event. GPS speed requires an actual location reading.</p></div>
+
                 <label>
                   Speed units
                   <select
