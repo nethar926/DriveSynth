@@ -57,21 +57,21 @@ export const EV_DEFAULTS: EngineParams = {
 };
 
 export const TIE_DEFAULTS: EngineParams = {
-  masterGain: 0.7,
-  stereoWidth: 0.58,
+  masterGain: 0.74,
+  stereoWidth: 0.7,
   limiterCeiling: 0.95,
-  corePitch: 110,
-  pulseRate: 0.48,
-  resonance: 0.68,
-  noiseBody: 0.48,
-  carrierBite: 0.42,
-  doppler: 0.4,
-  engineHowl: 0.62,
-  afterburn: 0.52,
-  hum: 0.4,
-  formantHowl: 0.72,
-  wetHiss: 0.55,
-  formantSpread: 0.58,
+  corePitch: 105,
+  pulseRate: 0.42,
+  resonance: 0.72,
+  noiseBody: 0.36,
+  carrierBite: 0.26,
+  doppler: 0.58,
+  engineHowl: 0.82,
+  afterburn: 0.58,
+  hum: 0.32,
+  formantHowl: 0.9,
+  wetHiss: 0.88,
+  formantSpread: 0.68,
 };
 
 export const F14_DEFAULTS: EngineParams = {

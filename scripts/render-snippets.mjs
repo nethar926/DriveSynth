@@ -305,17 +305,17 @@ function buildScifi(ctx, master) {
   const pink = makeNoise(ctx, 2, true);
   const white = makeNoise(ctx, 2, false);
 
-  // Carrier body
+  // Quiet twin carriers (support)
   const c1 = ctx.createOscillator();
   c1.type = 'sawtooth';
-  c1.frequency.value = 110;
+  c1.frequency.value = 105;
   c1.start();
   const cG = ctx.createGain();
   cG.gain.value = 0;
   c1.connect(cG);
   cG.connect(master);
 
-  // Formant BP noise scream (lead)
+  // Formant BP noise scream (LOUD lead) + waveshape
   const f1 = ctx.createBiquadFilter();
   f1.type = 'bandpass';
   f1.Q.value = 7;
@@ -326,7 +326,17 @@ function buildScifi(ctx, master) {
   f3.type = 'bandpass';
   f3.Q.value = 5;
   const formantG = ctx.createGain();
-  formantG.gain.value = 1;
+  formantG.gain.value = 1.35;
+  const howlShaper = ctx.createWaveShaper();
+  // soft clip curve
+  const n = 256;
+  const curve = new Float32Array(n);
+  const k = 0.72 * 40;
+  for (let i = 0; i < n; i++) {
+    const x = (i * 2) / n - 1;
+    curve[i] = ((1 + k) * x) / (1 + k * Math.abs(x));
+  }
+  howlShaper.curve = curve;
   const howlG = ctx.createGain();
   howlG.gain.value = 0;
   pink.connect(f1);
@@ -335,26 +345,44 @@ function buildScifi(ctx, master) {
   f1.connect(formantG);
   f2.connect(formantG);
   f3.connect(formantG);
-  formantG.connect(howlG);
+  formantG.connect(howlShaper);
+  howlShaper.connect(howlG);
   howlG.connect(master);
 
   const phrase = ctx.createOscillator();
   phrase.type = 'sine';
-  phrase.frequency.value = 2.4;
+  phrase.frequency.value = 2.1;
   phrase.start();
   const phraseD = ctx.createGain();
   phraseD.gain.value = 0;
   phrase.connect(phraseD);
   phraseD.connect(howlG.gain);
 
+  // Wet-road swoosh = half identity (loud broadband + mid body)
   const wetF = ctx.createBiquadFilter();
   wetF.type = 'highpass';
-  wetF.frequency.value = 2000;
+  wetF.frequency.value = 1200;
+  wetF.Q.value = 0.55;
+  const wetBp = ctx.createBiquadFilter();
+  wetBp.type = 'bandpass';
+  wetBp.frequency.value = 3800;
+  wetBp.Q.value = 0.85;
   const wetG = ctx.createGain();
   wetG.gain.value = 0;
   white.connect(wetF);
-  wetF.connect(wetG);
+  wetF.connect(wetBp);
+  wetBp.connect(wetG);
   wetG.connect(master);
+
+  const wetBody = ctx.createBiquadFilter();
+  wetBody.type = 'bandpass';
+  wetBody.frequency.value = 1400;
+  wetBody.Q.value = 0.7;
+  const wetBodyG = ctx.createGain();
+  wetBodyG.gain.value = 0;
+  pink.connect(wetBody);
+  wetBody.connect(wetBodyG);
+  wetBodyG.connect(master);
 
   const afterF = ctx.createBiquadFilter();
   afterF.type = 'highpass';
@@ -371,18 +399,26 @@ function buildScifi(ctx, master) {
   automate(ctx, (t, d) => {
     const rpm = Math.max(d.speed * 0.65 + d.throttle * (d.speed < 0.05 ? 0.55 : 0.2), 0);
     const open = smoothstep(rpm, 0.15, 0.85);
-    const fund = 110 * (0.55 + rpm * 1.65);
+    const fund = 105 * (0.55 + rpm * 1.65);
     scheduleParam(c1.frequency, t, fund);
-    scheduleParam(cG.gain, t, 0.08 + rpm * 0.16 + d.throttle * 0.1);
-    scheduleParam(f1.frequency, t, 320 + rpm * 420 + d.throttle * 280);
-    scheduleParam(f2.frequency, t, 720 + rpm * 780 + d.throttle * 520);
-    scheduleParam(f3.frequency, t, 1280 + rpm * 1400 + d.throttle * 900);
-    const howlAmt = 0.72 * 0.62 * open; // formantHowl * engineHowl * open
-    scheduleParam(howlG.gain, t, howlAmt * (0.75 + d.throttle * 0.35));
-    scheduleParam(phraseD.gain, t, howlAmt * 0.25);
-    scheduleParam(phrase.frequency, t, 1.6 + open * 3.8 + d.throttle * 2);
-    scheduleParam(wetG.gain, t, 0.55 * open * (0.12 + rpm * 0.35 + d.throttle * 0.4) * 0.7);
-    scheduleParam(afterG.gain, t, 0.52 * open * d.throttle * d.throttle * 0.55);
+    // Quiet carriers
+    scheduleParam(cG.gain, t, (0.035 + rpm * 0.07 + d.throttle * 0.045) * 0.55);
+    scheduleParam(f1.frequency, t, 280 + rpm * 480 + d.throttle * 320 + open * 80);
+    scheduleParam(f2.frequency, t, 640 + rpm * 920 + d.throttle * 580 + open * 140);
+    scheduleParam(f3.frequency, t, 1180 + rpm * 1650 + d.throttle * 980 + open * 220);
+    // TIE_DEFAULTS: formantHowl 0.9 * engineHowl 0.82 * open
+    const howlAmt = 0.9 * 0.82 * open;
+    scheduleParam(howlG.gain, t, howlAmt * (1.55 + d.throttle * 0.55));
+    scheduleParam(formantG.gain, t, 1.15 + 0.9 * 0.55 + open * 0.25);
+    scheduleParam(phraseD.gain, t, howlAmt * (0.38 + d.throttle * 0.32));
+    scheduleParam(phrase.frequency, t, 1.35 + open * 4.2 + d.throttle * 2.6);
+    const wetAmt = 0.88 * open * (0.55 + rpm * 0.65 + d.throttle * 0.55);
+    scheduleParam(wetG.gain, t, wetAmt * 1.45);
+    scheduleParam(wetBodyG.gain, t, wetAmt * 0.95 + open * 0.88 * 0.35);
+    scheduleParam(wetF.frequency, t, 700 + open * 2400 + d.throttle * 1100 + rpm * 900);
+    scheduleParam(wetBp.frequency, t, 2400 + open * 3600 + d.throttle * 1600);
+    scheduleParam(wetBody.frequency, t, 900 + open * 1600 + d.throttle * 700);
+    scheduleParam(afterG.gain, t, 0.58 * open * d.throttle * d.throttle * 0.7);
   });
 }
 

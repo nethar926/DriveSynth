@@ -76,9 +76,9 @@ function defaultParams(type: SynthNodeType): Record<string, number | string> {
     case 'Mechanical':
       return { roughness: 0.4 };
     case 'FormantHowl':
-      return { formantHowl: 0.7, formantSpread: 0.55, resonance: 0.65 };
+      return { formantHowl: 0.9, formantSpread: 0.68, resonance: 0.72 };
     case 'WetRoadNoise':
-      return { wetHiss: 0.55, doppler: 0.4 };
+      return { wetHiss: 0.88, doppler: 0.58 };
     case 'TurbineSpool':
       return { spoolPitch: 95, turbine: 0.7, idleSpool: 0.55 };
     case 'IntakeWhine':
@@ -691,8 +691,8 @@ export function BuilderPage({ audio, onSave, userPatches, onDeleteUserPatch }: P
               checked={Number(params.formantHowl ?? 0) > 0.001}
               onChange={(e) => {
                 if (e.target.checked) {
-                  const restore = Number(params.formantHowl ?? 0) > 0.001 ? Number(params.formantHowl) : 0.72;
-                  onParam('formantHowl', restore > 0.001 ? restore : 0.72);
+                  const restore = Number(params.formantHowl ?? 0) > 0.001 ? Number(params.formantHowl) : 0.9;
+                  onParam('formantHowl', restore > 0.001 ? restore : 0.9);
                 } else {
                   onParam('formantHowl', 0);
                 }

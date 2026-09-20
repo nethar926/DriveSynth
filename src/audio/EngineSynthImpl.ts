@@ -69,6 +69,8 @@ interface GraphHandles {
   howlFilt3?: BiquadFilterNode;
   howlGain?: GainNode;
   formantGain?: GainNode;
+  /** Waveshape harshness on formant scream bus */
+  howlShaper?: WaveShaperNode;
   /** Quiet saw grit under noise howl */
   howlOscGain?: GainNode;
   /** Burtt-style phrase AM on the scream */
@@ -82,9 +84,14 @@ interface GraphHandles {
   wetHissGain?: GainNode;
   wetHissFilt?: BiquadFilterNode;
   wetHissFilt2?: BiquadFilterNode;
+  /** Mid broadband rush body (pink) under wet HP hiss */
+  wetBodyFilt?: BiquadFilterNode;
+  wetBodyGain?: GainNode;
   wetAmLfo?: OscillatorNode;
   wetAmDepth?: GainNode;
   wetPan?: StereoPannerNode;
+  /** Extra wet bus for short flyby attack */
+  wetFlybyGain?: GainNode;
   delay?: DelayNode;
   delayGain?: GainNode;
   panL?: StereoPannerNode;
@@ -162,6 +169,10 @@ export class EngineSynthImpl implements EngineSynth {
   /** Living drive: lagged throttle/load (hysteresis) */
   private throttleLag = 0;
   private loadLag = 0;
+  /** Ion Twin flyby attack envelope (rpm/throttle jump) */
+  private scifiFlyby = 0;
+  private scifiPrevRpm = 0;
+  private scifiPrevThr = 0;
   /** Aerospace spool inertia + wander */
   private spoolLag = 0;
   private spoolWander = 0;
@@ -1189,23 +1200,23 @@ export class EngineSynthImpl implements EngineSynth {
   private buildScifi(g: GraphHandles): void {
     const ctx = this.context;
 
-    // noise body
+    // Quiet noise body under roar (support, not lead)
     const bodyFilt = ctx.createBiquadFilter();
     bodyFilt.type = 'bandpass';
-    bodyFilt.frequency.value = 400;
-    bodyFilt.Q.value = 2.5;
+    bodyFilt.frequency.value = 380;
+    bodyFilt.Q.value = 2.2;
     g.bodyFilt = bodyFilt;
 
     const bodyGain = ctx.createGain();
-    bodyGain.gain.value = 0.35;
+    bodyGain.gain.value = 0.22;
     g.bodyGain = bodyGain;
 
     g.pinkSrc!.connect(bodyFilt);
     bodyFilt.connect(bodyGain);
 
-    // pulsed carriers
+    // Twin carriers = quiet support under the roar (Burtt: not the identity)
     const carrierGain = ctx.createGain();
-    carrierGain.gain.value = 0.22;
+    carrierGain.gain.value = 0.1;
     g.carrierGain = carrierGain;
 
     const c1 = ctx.createOscillator();
@@ -1229,7 +1240,7 @@ export class EngineSynthImpl implements EngineSynth {
     g.carrier3 = c3;
 
     const bite = ctx.createWaveShaper();
-    bite.curve = makeShaper(0.55) as Float32Array<ArrayBuffer>;
+    bite.curve = makeShaper(0.45) as Float32Array<ArrayBuffer>;
     c1.connect(bite);
     c2.connect(bite);
     c3.connect(bite);
@@ -1242,33 +1253,33 @@ export class EngineSynthImpl implements EngineSynth {
     g.pulseMod = pulseMod;
 
     const pulseDepth = ctx.createGain();
-    pulseDepth.gain.value = 0.18;
+    pulseDepth.gain.value = 0.1;
     g.pulseDepth = pulseDepth;
     pulseMod.connect(pulseDepth);
     pulseDepth.connect(carrierGain.gain);
 
-    // Ion Twin scream: formant BP *noise* lead + phrase AM (Burtt language).
-    // Saws are secondary grit only — not the primary voice.
+    // ── Ion Twin SCREAM lead: multi-formant BP on noise + waveshaped harsh source ──
+    // Elephant-slowed *feeling* via formant peaks + phrase AM (original procedural).
     const howlFilt = ctx.createBiquadFilter();
     howlFilt.type = 'bandpass';
-    howlFilt.frequency.value = 480;
-    howlFilt.Q.value = 8;
+    howlFilt.frequency.value = 420;
+    howlFilt.Q.value = 7.5;
     g.howlFilt = howlFilt;
 
     const howlFilt2 = ctx.createBiquadFilter();
     howlFilt2.type = 'bandpass';
-    howlFilt2.frequency.value = 920;
-    howlFilt2.Q.value = 7;
+    howlFilt2.frequency.value = 880;
+    howlFilt2.Q.value = 6.5;
     g.howlFilt2 = howlFilt2;
 
     const howlFilt3 = ctx.createBiquadFilter();
     howlFilt3.type = 'bandpass';
-    howlFilt3.frequency.value = 1600;
-    howlFilt3.Q.value = 6;
+    howlFilt3.frequency.value = 1550;
+    howlFilt3.Q.value = 5.5;
     g.howlFilt3 = howlFilt3;
 
     const formantGain = ctx.createGain();
-    formantGain.gain.value = 1;
+    formantGain.gain.value = 1.35;
     g.formantGain = formantGain;
 
     // Parallel formant noise (pink → F1/F2, white bite → F3)
@@ -1279,36 +1290,46 @@ export class EngineSynthImpl implements EngineSynth {
     howlFilt2.connect(formantGain);
     howlFilt3.connect(formantGain);
 
-    // Secondary saw grit under the noise scream
+    // Secondary saw grit under the noise scream (support only)
     const howlOsc = ctx.createOscillator();
     howlOsc.type = 'sawtooth';
-    howlOsc.frequency.value = 220;
+    howlOsc.frequency.value = 190;
     howlOsc.start();
     g.howlOsc = howlOsc;
 
     const howlOsc2 = ctx.createOscillator();
     howlOsc2.type = 'sawtooth';
-    howlOsc2.frequency.value = 330;
-    howlOsc2.detune.value = -18;
+    howlOsc2.frequency.value = 285;
+    howlOsc2.detune.value = -22;
     howlOsc2.start();
     g.howlOsc2 = howlOsc2;
 
     const howlOscGain = ctx.createGain();
-    howlOscGain.gain.value = 0.12;
+    howlOscGain.gain.value = 0.18;
     g.howlOscGain = howlOscGain;
-    howlOsc.connect(howlOscGain);
-    howlOsc2.connect(howlOscGain);
+
+    const gritShaper = ctx.createWaveShaper();
+    gritShaper.curve = makeShaper(0.85) as Float32Array<ArrayBuffer>;
+    howlOsc.connect(gritShaper);
+    howlOsc2.connect(gritShaper);
+    gritShaper.connect(howlOscGain);
     howlOscGain.connect(formantGain);
+
+    // Harsh waveshape on the scream bus (organic bellow, not clean BP)
+    const howlShaper = ctx.createWaveShaper();
+    howlShaper.curve = makeShaper(0.72) as Float32Array<ArrayBuffer>;
+    g.howlShaper = howlShaper;
 
     const howlGain = ctx.createGain();
     howlGain.gain.value = 0;
     g.howlGain = howlGain;
-    formantGain.connect(howlGain);
+    formantGain.connect(howlShaper);
+    howlShaper.connect(howlGain);
 
-    // Phrase AM — slow irregular envelope (not a steady tone)
+    // Phrase AM — loud irregular envelope (not a quiet osc)
     const howlPhraseLfo = ctx.createOscillator();
     howlPhraseLfo.type = 'sine';
-    howlPhraseLfo.frequency.value = 2.4;
+    howlPhraseLfo.frequency.value = 2.1;
     howlPhraseLfo.start();
     g.howlPhraseLfo = howlPhraseLfo;
 
@@ -1318,31 +1339,42 @@ export class EngineSynthImpl implements EngineSynth {
     howlPhraseLfo.connect(howlPhraseDepth);
     howlPhraseDepth.connect(howlGain.gain);
 
-    // Wet-road hiss: highpass/bandpass noise + AM + stereo smear
+    // ── Wet-road swoosh = HALF the identity (loud broadband hiss rush) ──
     const wetHissFilt = ctx.createBiquadFilter();
     wetHissFilt.type = 'highpass';
-    wetHissFilt.frequency.value = 1800;
-    wetHissFilt.Q.value = 0.7;
+    wetHissFilt.frequency.value = 1200;
+    wetHissFilt.Q.value = 0.55;
     g.wetHissFilt = wetHissFilt;
 
     const wetHissFilt2 = ctx.createBiquadFilter();
     wetHissFilt2.type = 'bandpass';
-    wetHissFilt2.frequency.value = 4200;
-    wetHissFilt2.Q.value = 1.4;
+    wetHissFilt2.frequency.value = 3800;
+    wetHissFilt2.Q.value = 0.85; // broad — not a thin whistle
     g.wetHissFilt2 = wetHissFilt2;
 
     const wetHissGain = ctx.createGain();
     wetHissGain.gain.value = 0;
     g.wetHissGain = wetHissGain;
 
+    // Mid rush body from pink (air displacement / pavement whoosh)
+    const wetBodyFilt = ctx.createBiquadFilter();
+    wetBodyFilt.type = 'bandpass';
+    wetBodyFilt.frequency.value = 1400;
+    wetBodyFilt.Q.value = 0.7;
+    g.wetBodyFilt = wetBodyFilt;
+
+    const wetBodyGain = ctx.createGain();
+    wetBodyGain.gain.value = 0;
+    g.wetBodyGain = wetBodyGain;
+
     const wetAmLfo = ctx.createOscillator();
     wetAmLfo.type = 'sine';
-    wetAmLfo.frequency.value = 3.2;
+    wetAmLfo.frequency.value = 2.8;
     wetAmLfo.start();
     g.wetAmLfo = wetAmLfo;
 
     const wetAmDepth = ctx.createGain();
-    wetAmDepth.gain.value = 0.12;
+    wetAmDepth.gain.value = 0.2;
     g.wetAmDepth = wetAmDepth;
     wetAmLfo.connect(wetAmDepth);
     wetAmDepth.connect(wetHissGain.gain);
@@ -1351,15 +1383,28 @@ export class EngineSynthImpl implements EngineSynth {
     wetPan.pan.value = 0;
     g.wetPan = wetPan;
 
+    // Short flyby attack bus (throttle/rpm jump)
+    const wetFlybyGain = ctx.createGain();
+    wetFlybyGain.gain.value = 0;
+    g.wetFlybyGain = wetFlybyGain;
+
     g.noiseSrc!.connect(wetHissFilt);
     wetHissFilt.connect(wetHissFilt2);
     wetHissFilt2.connect(wetHissGain);
     wetHissGain.connect(wetPan);
 
-    // afterburn noise
+    g.pinkSrc!.connect(wetBodyFilt);
+    wetBodyFilt.connect(wetBodyGain);
+    wetBodyGain.connect(wetPan);
+
+    // Parallel white into flyby (bright whoosh spike)
+    g.noiseSrc!.connect(wetFlybyGain);
+    wetFlybyGain.connect(wetPan);
+
+    // afterburn noise (secondary)
     const afterFilt = ctx.createBiquadFilter();
     afterFilt.type = 'highpass';
-    afterFilt.frequency.value = 2000;
+    afterFilt.frequency.value = 2200;
 
     const afterGain = ctx.createGain();
     afterGain.gain.value = 0;
@@ -1376,17 +1421,17 @@ export class EngineSynthImpl implements EngineSynth {
     g.humOsc = humOsc;
 
     const humGain = ctx.createGain();
-    humGain.gain.value = 0.2;
+    humGain.gain.value = 0.16;
     g.humGain = humGain;
     humOsc.connect(humGain);
 
     // mild delay smear
     const delay = ctx.createDelay(0.12);
-    delay.delayTime.value = 0.025;
+    delay.delayTime.value = 0.028;
     g.delay = delay;
 
     const delayGain = ctx.createGain();
-    delayGain.gain.value = 0.15;
+    delayGain.gain.value = 0.18;
     g.delayGain = delayGain;
 
     const sum = ctx.createGain();
@@ -1410,6 +1455,9 @@ export class EngineSynthImpl implements EngineSynth {
   }
 
   private teardownGraph(): void {
+    this.scifiFlyby = 0;
+    this.scifiPrevRpm = 0;
+    this.scifiPrevThr = 0;
     const stopOsc = (o?: OscillatorNode | AudioBufferSourceNode) => {
       try {
         o?.stop();
@@ -2228,14 +2276,15 @@ export class EngineSynthImpl implements EngineSynth {
       smooth(g.pulseMod.frequency, lerp(2, 18, pulse) * (0.6 + rpmNorm), tc, ctx);
     }
     if (g.pulseDepth) {
-      smooth(g.pulseDepth.gain, 0.08 + pulse * 0.22 + d.throttle * 0.06, tc, ctx);
+      smooth(g.pulseDepth.gain, 0.05 + pulse * 0.14 + d.throttle * 0.04, tc, ctx);
     }
 
+    // Twin carriers stay quiet under the roar
     const bite = Number(p.carrierBite ?? 0.4);
     if (g.carrierGain) {
       smooth(
         g.carrierGain.gain,
-        (0.1 + rpmNorm * 0.18 + d.throttle * 0.12) * (0.5 + bite),
+        (0.035 + rpmNorm * 0.07 + d.throttle * 0.045) * (0.35 + bite * 0.45),
         tc,
         ctx,
       );
@@ -2244,67 +2293,83 @@ export class EngineSynthImpl implements EngineSynth {
     const body = Number(p.noiseBody ?? 0.5);
     const res = Number(p.resonance ?? 0.6);
     if (g.bodyGain) {
-      smooth(g.bodyGain.gain, body * (0.18 + rpmNorm * 0.35 + d.throttle * 0.15), tc, ctx);
+      smooth(g.bodyGain.gain, body * (0.1 + rpmNorm * 0.22 + d.throttle * 0.1), tc, ctx);
     }
     if (g.bodyFilt) {
-      smooth(g.bodyFilt.frequency, 220 + rpmNorm * 900 + d.throttle * 400, tc, ctx);
-      g.bodyFilt.Q.value = 1 + res * 6;
+      smooth(g.bodyFilt.frequency, 200 + rpmNorm * 750 + d.throttle * 320, tc, ctx);
+      g.bodyFilt.Q.value = 1 + res * 5;
     }
 
-    // Ion Twin scream — idle near silent, full howl in LOCK/KILL band.
+    // Ion Twin scream — idle near silent, DOMINATES mix in LOCK/KILL band.
     // Knobs multiply the rpmNorm open curve (never replace it).
     const howl = Number(p.engineHowl ?? 0.55);
     const formantHowl = Number(p.formantHowl ?? howl);
     const spread = Number(p.formantSpread ?? 0.55);
     const open = smoothstep(rpmNorm, 0.15, 0.85); // ~0 at idle → 1 by lock/kill
     const thr = d.throttle;
+
+    // Flyby attack: short whoosh when throttle/rpm jumps
+    const rpmJump = Math.max(0, rpmNorm - this.scifiPrevRpm);
+    const thrJump = Math.max(0, thr - this.scifiPrevThr);
+    const jump = Math.min(1.2, rpmJump * 10 + thrJump * 5.5);
+    this.scifiFlyby = Math.max(this.scifiFlyby * Math.exp(-tc * 9), jump);
+    this.scifiPrevRpm = rpmNorm;
+    this.scifiPrevThr = thr;
+    const flyby = this.scifiFlyby;
+
     const howlAmt = formantHowl * howl * open;
+    const screamLead = howlAmt * (1.55 + thr * 0.55) + flyby * formantHowl * 0.55;
 
     if (g.howlGain) {
-      // Lead level: formant BP noise scream (phrase AM adds on AudioParam)
-      smooth(g.howlGain.gain, howlAmt * (0.75 + thr * 0.35), tc, ctx);
+      // LOUD lead: formant BP noise scream (phrase AM adds on AudioParam)
+      smooth(g.howlGain.gain, screamLead, tc, ctx);
     }
     if (g.formantGain) {
-      smooth(g.formantGain.gain, 0.85 + formantHowl * 0.45, tc, ctx);
+      smooth(g.formantGain.gain, 1.15 + formantHowl * 0.55 + open * 0.25, tc, ctx);
     }
     if (g.howlOscGain) {
-      smooth(g.howlOscGain.gain, 0.06 + howlAmt * 0.14, tc, ctx);
+      // Grit under scream — still secondary to noise formants
+      smooth(g.howlOscGain.gain, 0.1 + howlAmt * 0.28 + thr * 0.06, tc, ctx);
     }
     if (g.howlPhraseDepth) {
-      smooth(g.howlPhraseDepth.gain, howlAmt * (0.18 + thr * 0.16), tc, ctx);
+      // Loud phrase AM so it bellows, not drones
+      smooth(g.howlPhraseDepth.gain, howlAmt * (0.38 + thr * 0.32) + flyby * 0.18, tc, ctx);
     }
     if (g.howlPhraseLfo) {
-      smooth(g.howlPhraseLfo.frequency, 1.6 + open * 3.8 + thr * 2.2, tc, ctx);
+      smooth(g.howlPhraseLfo.frequency, 1.35 + open * 4.2 + thr * 2.6 + flyby * 3, tc, ctx);
     }
 
-    const f1 = 320 + rpmNorm * 420 + thr * 280 + spread * 180;
-    const f2 = 720 + rpmNorm * 780 + thr * 520 + spread * 320;
-    const f3 = 1280 + rpmNorm * 1400 + thr * 900 + spread * 500;
+    // Moving formant peaks (organic bellow trajectory)
+    const f1 = 280 + rpmNorm * 480 + thr * 320 + spread * 220 + open * 80;
+    const f2 = 640 + rpmNorm * 920 + thr * 580 + spread * 380 + open * 140;
+    const f3 = 1180 + rpmNorm * 1650 + thr * 980 + spread * 560 + open * 220;
 
     if (g.howlOsc) {
-      smooth(g.howlOsc.frequency, f1 * 0.45, tc, ctx);
+      smooth(g.howlOsc.frequency, f1 * 0.42, tc, ctx);
     }
     if (g.howlOsc2) {
-      smooth(g.howlOsc2.frequency, f1 * 0.68, tc, ctx);
+      smooth(g.howlOsc2.frequency, f1 * 0.64, tc, ctx);
     }
     if (g.howlFilt) {
       smooth(g.howlFilt.frequency, f1, tc, ctx);
-      g.howlFilt.Q.value = 5 + res * 8;
+      g.howlFilt.Q.value = 4.5 + res * 7;
     }
     if (g.howlFilt2) {
       smooth(g.howlFilt2.frequency, f2, tc, ctx);
-      g.howlFilt2.Q.value = 4 + res * 7;
+      g.howlFilt2.Q.value = 3.8 + res * 6;
     }
     if (g.howlFilt3) {
       smooth(g.howlFilt3.frequency, f3, tc, ctx);
-      g.howlFilt3.Q.value = 4 + res * 8;
+      g.howlFilt3.Q.value = 3.5 + res * 7;
     }
 
-    // Wet-road hiss — opens with same rpmNorm curve
+    // Wet-road swoosh — LOUD half of identity; opens with rpm + brightness + pan smear
     const wet = Number(p.wetHiss ?? 0.5);
-    const wetAmt = wet * open * (0.12 + rpmNorm * 0.35 + thr * 0.4 + Math.abs(d.load ?? 0) * 0.12);
+    const loadAbs = Math.abs(d.load ?? 0);
+    const wetAmt =
+      wet * open * (0.55 + rpmNorm * 0.65 + thr * 0.55 + loadAbs * 0.18) + wet * flyby * 0.85;
     if (g.wetHissGain) {
-      const baseGain = wetAmt * 0.7;
+      const baseGain = wetAmt * 1.45; // dramatic vs prior polite *0.7
       try {
         g.wetHissGain.gain.cancelScheduledValues(ctx.currentTime);
         g.wetHissGain.gain.setTargetAtTime(baseGain, ctx.currentTime, tc);
@@ -2312,32 +2377,47 @@ export class EngineSynthImpl implements EngineSynth {
         g.wetHissGain.gain.value = baseGain;
       }
     }
+    if (g.wetBodyGain) {
+      // Mid rush body — thick air displacement under the bright hiss
+      smooth(g.wetBodyGain.gain, wetAmt * 0.95 + open * wet * 0.35, tc, ctx);
+    }
+    if (g.wetBodyFilt) {
+      smooth(g.wetBodyFilt.frequency, 900 + open * 1600 + thr * 700 + rpmNorm * 500, tc, ctx);
+    }
+    if (g.wetFlybyGain) {
+      // Bright spike on pass-by / throttle slam
+      smooth(g.wetFlybyGain.gain, flyby * wet * 0.9 + open * wet * 0.08, Math.min(tc, 0.04), ctx);
+    }
     if (g.wetAmDepth) {
-      smooth(g.wetAmDepth.gain, wetAmt * 0.28, tc, ctx);
+      smooth(g.wetAmDepth.gain, wetAmt * 0.42 + flyby * 0.2, tc, ctx);
     }
     if (g.wetAmLfo) {
-      smooth(g.wetAmLfo.frequency, 2.2 + rpmNorm * 4 + thr * 3, tc, ctx);
+      smooth(g.wetAmLfo.frequency, 1.8 + rpmNorm * 5 + thr * 3.5 + flyby * 6, tc, ctx);
     }
+    // Doppler-ish brightness: HP opens hard as rpmNorm climbs
     if (g.wetHissFilt) {
-      smooth(g.wetHissFilt.frequency, 1400 + rpmNorm * 1800 + thr * 900, tc, ctx);
+      smooth(g.wetHissFilt.frequency, 700 + open * 2400 + thr * 1100 + rpmNorm * 900 + flyby * 800, tc, ctx);
     }
     if (g.wetHissFilt2) {
-      smooth(g.wetHissFilt2.frequency, 3200 + rpmNorm * 2800 + thr * 1200, tc, ctx);
+      smooth(g.wetHissFilt2.frequency, 2400 + open * 3600 + thr * 1600 + rpmNorm * 1200, tc, ctx);
+      g.wetHissFilt2.Q.value = 0.65 + open * 0.35;
     }
     if (g.wetPan) {
       const width = Number(p.stereoWidth ?? 0.55);
-      smooth(g.wetPan.pan, (d.load ?? 0) * width * 0.85, tc, ctx);
+      // Pass-by smear: load lean + speed-driven stereo rush
+      const smear = (d.load ?? 0) * width * 1.05 + Math.sin(rpmNorm * Math.PI) * width * 0.45 * open;
+      smooth(g.wetPan.pan, clamp(smear, -1, 1), tc, ctx);
     }
 
     const after = Number(p.afterburn ?? 0.5);
     if (g.afterGain) {
-      smooth(g.afterGain.gain, after * open * thr * thr * 0.55, tc, ctx);
+      smooth(g.afterGain.gain, after * open * thr * thr * 0.7 + flyby * after * 0.25, tc, ctx);
     }
 
     const hum = Number(p.hum ?? 0.4);
     if (g.humGain) {
-      const idleAmt = clamp(1 - rpmNorm * 2.2) * hum * 0.25;
-      smooth(g.humGain.gain, idleAmt + (d.speed < 0.03 ? d.throttle * hum * 0.12 : 0), tc, ctx);
+      const idleAmt = clamp(1 - rpmNorm * 2.2) * hum * 0.22;
+      smooth(g.humGain.gain, idleAmt + (d.speed < 0.03 ? d.throttle * hum * 0.1 : 0), tc, ctx);
     }
     if (g.humOsc) {
       smooth(g.humOsc.frequency, core * 0.5, tc, ctx);
@@ -2345,12 +2425,18 @@ export class EngineSynthImpl implements EngineSynth {
 
     const doppler = Number(p.doppler ?? 0.35);
     if (g.delay) {
-      smooth(g.delay.delayTime, 0.012 + doppler * 0.05 + Math.abs(d.load ?? 0) * 0.02, tc, ctx);
+      smooth(g.delay.delayTime, 0.01 + doppler * 0.055 + loadAbs * 0.022 + open * 0.012, tc, ctx);
     }
     if (g.delayGain) {
-      smooth(g.delayGain.gain, doppler * 0.28 + wet * 0.08, tc, ctx);
+      smooth(g.delayGain.gain, doppler * 0.32 + wet * 0.14 + open * 0.08, tc, ctx);
     }
+
+    if (open > 0.7 && thr > 0.55) this.driveMood = 'pull';
+    else if (d.speed < 0.04 && thr < 0.12) this.driveMood = 'idle';
+    else if (open > 0.35) this.driveMood = 'cruise';
+    else this.driveMood = 'idle';
   }
+
 }
 
 const UPSHIFT_SFX_KEY = 'ds-upshift-sfx';
