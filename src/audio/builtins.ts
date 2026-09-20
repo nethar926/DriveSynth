@@ -1,20 +1,20 @@
 import type { EnginePatch, EngineParams, ParamMeta } from './types';
 
 export const V8_DEFAULTS: EngineParams = {
-  masterGain: 0.72,
-  stereoWidth: 0.35,
+  masterGain: 0.74,
+  stereoWidth: 0.38,
   limiterCeiling: 0.95,
-  rpmIdle: 55,
-  rpmRedline: 240,
+  rpmIdle: 52,
+  rpmRedline: 255,
   cylinders: 8,
-  roughness: 0.38,
-  growl: 0.62,
-  presence: 0.48,
-  intake: 0.42,
-  exhaust: 0.55,
-  ignitionNoise: 0.28,
-  muffling: 0.28,
-  rpmCurve: 0.58,
+  roughness: 0.44,
+  growl: 0.68,
+  presence: 0.5,
+  intake: 0.48,
+  exhaust: 0.58,
+  ignitionNoise: 0.32,
+  muffling: 0.26,
+  rpmCurve: 0.62,
 };
 
 export const I4_DEFAULTS: EngineParams = {
@@ -70,7 +70,7 @@ export const BUILTIN_PATCHES: EnginePatch[] = [
     topology: 'v8-rumble',
     params: { ...V8_DEFAULTS } as Record<string, number | string>,
     meta: {
-      blurb: 'Deep cross-plane growl with intake whoosh and exhaust boom.',
+      blurb: 'Deep cross-plane V8: odd-partial bite, uneven lope, intake whoosh, exhaust boom — all procedural.',
       tags: ['ice', 'v8', 'free'],
       author: 'DriveSynth',
     },

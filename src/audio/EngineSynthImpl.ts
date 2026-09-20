@@ -20,11 +20,16 @@ interface GraphHandles {
   // ICE
   fund?: OscillatorNode;
   fund2?: OscillatorNode;
+  fund3?: OscillatorNode;
   sub?: OscillatorNode;
   pulseLfo?: OscillatorNode;
   pulseGain?: GainNode;
+  unevenLfo?: OscillatorNode;
+  unevenGain?: GainNode;
   fundGain?: GainNode;
   subGain?: GainNode;
+  mechGain?: GainNode;
+  mechFilt?: BiquadFilterNode;
   presenceFilt?: BiquadFilterNode;
   muffler?: BiquadFilterNode;
   intakeGain?: GainNode;
@@ -241,6 +246,14 @@ export class EngineSynthImpl implements EngineSynth {
     fund2.start();
     g.fund2 = fund2;
 
+    // Odd partial for cross-plane bite (not a sample — pure osc)
+    const fund3 = ctx.createOscillator();
+    fund3.type = 'sawtooth';
+    fund3.frequency.value = 82.5;
+    fund3.detune.value = -9;
+    fund3.start();
+    g.fund3 = fund3;
+
     const pulseLfo = ctx.createOscillator();
     pulseLfo.type = 'sine';
     pulseLfo.frequency.value = 8;
@@ -252,6 +265,19 @@ export class EngineSynthImpl implements EngineSynth {
     g.pulseGain = pulseGain;
     pulseLfo.connect(pulseGain);
     pulseGain.connect(fundGain.gain);
+
+    // Slower unevenness for V8 cross-plane lope (half firing feel)
+    const unevenLfo = ctx.createOscillator();
+    unevenLfo.type = 'sine';
+    unevenLfo.frequency.value = 4;
+    unevenLfo.start();
+    g.unevenLfo = unevenLfo;
+
+    const unevenGain = ctx.createGain();
+    unevenGain.gain.value = 0.12;
+    g.unevenGain = unevenGain;
+    unevenLfo.connect(unevenGain);
+    unevenGain.connect(fundGain.gain);
 
     const sub = ctx.createOscillator();
     sub.type = 'sine';
@@ -283,6 +309,7 @@ export class EngineSynthImpl implements EngineSynth {
 
     fund.connect(shaper);
     fund2.connect(shaper);
+    fund3.connect(shaper);
     shaper.connect(fundGain);
     fundGain.connect(presenceFilt);
     presenceFilt.connect(muffler);
@@ -331,6 +358,21 @@ export class EngineSynthImpl implements EngineSynth {
     g.noiseSrc!.connect(ignFilt);
     ignFilt.connect(ignGain);
     ignGain.connect(muffler);
+
+    // Light mechanical clatter (band-limited noise), scales with roughness later
+    const mechFilt = ctx.createBiquadFilter();
+    mechFilt.type = 'bandpass';
+    mechFilt.frequency.value = 900;
+    mechFilt.Q.value = 3.5;
+    g.mechFilt = mechFilt;
+
+    const mechGain = ctx.createGain();
+    mechGain.gain.value = 0.04;
+    g.mechGain = mechGain;
+
+    g.noiseSrc!.connect(mechFilt);
+    mechFilt.connect(mechGain);
+    mechGain.connect(muffler);
 
     const pan = ctx.createStereoPanner();
     pan.pan.value = 0;
@@ -548,8 +590,10 @@ export class EngineSynthImpl implements EngineSynth {
     stopOsc(g.pinkSrc);
     stopOsc(g.fund);
     stopOsc(g.fund2);
+    stopOsc(g.fund3);
     stopOsc(g.sub);
     stopOsc(g.pulseLfo);
+    stopOsc(g.unevenLfo);
     stopOsc(g.whine1);
     stopOsc(g.whine2);
     stopOsc(g.whine3);
@@ -638,9 +682,13 @@ export class EngineSynthImpl implements EngineSynth {
     const firing = (fund / 60) * (cyl / 2); // rough firing rate feel
 
     if (g.fund) smooth(g.fund.frequency, fund, tc, ctx);
-    if (g.fund2) smooth(g.fund2.frequency, fund * 2.01, tc, ctx);
+    // Square an octave up + slight detune for body
+    if (g.fund2) smooth(g.fund2.frequency, fund * 2.005, tc, ctx);
+    // Odd partial (~1.5×) for cross-plane V8 color
+    if (g.fund3) smooth(g.fund3.frequency, fund * 1.5, tc, ctx);
     if (g.sub) smooth(g.sub.frequency, fund * 0.5, tc, ctx);
-    if (g.pulseLfo) smooth(g.pulseLfo.frequency, clamp(firing, 2, 40), tc, ctx);
+    if (g.pulseLfo) smooth(g.pulseLfo.frequency, clamp(firing, 2, 48), tc, ctx);
+    if (g.unevenLfo) smooth(g.unevenLfo.frequency, clamp(firing * 0.5, 1.2, 24), tc, ctx);
 
     const growl = Number(p.growl ?? 0.55);
     const presence = Number(p.presence ?? 0.45);
@@ -649,36 +697,61 @@ export class EngineSynthImpl implements EngineSynth {
     const exhaust = Number(p.exhaust ?? 0.5);
     const ign = Number(p.ignitionNoise ?? 0.25);
     const rough = Number(p.roughness ?? 0.35);
+    const parked = d.speed < 0.04;
 
     if (g.fundGain) {
-      const base = 0.18 + growl * 0.22 + rpmNorm * 0.12 + d.throttle * 0.15;
+      const base =
+        0.16 + growl * 0.24 + rpmNorm * 0.14 + d.throttle * 0.18 + (parked ? d.throttle * 0.12 : 0);
       smooth(g.fundGain.gain, base, tc, ctx);
     }
     if (g.pulseGain) {
-      smooth(g.pulseGain.gain, 0.12 + rough * 0.35 + d.throttle * 0.1, tc, ctx);
+      smooth(g.pulseGain.gain, 0.1 + rough * 0.4 + d.throttle * 0.12, tc, ctx);
+    }
+    if (g.unevenGain) {
+      // Stronger lope on V8 (8 cyl) and at low rpm / parked rev
+      const lope = (cyl >= 8 ? 1 : 0.55) * (0.06 + rough * 0.2) * (1.1 - rpmNorm * 0.5);
+      smooth(g.unevenGain.gain, lope + (parked ? d.throttle * 0.08 : 0), tc, ctx);
     }
     if (g.subGain) {
-      smooth(g.subGain.gain, growl * 0.45 * (0.4 + rpmNorm * 0.6), tc, ctx);
+      smooth(g.subGain.gain, growl * 0.5 * (0.35 + rpmNorm * 0.55 + d.throttle * 0.15), tc, ctx);
     }
     if (g.presenceFilt) {
-      smooth(g.presenceFilt.frequency, 900 + presence * 1600 + d.throttle * 400, tc, ctx);
-      g.presenceFilt.gain.value = presence * 8;
+      smooth(g.presenceFilt.frequency, 850 + presence * 1700 + d.throttle * 500, tc, ctx);
+      g.presenceFilt.gain.value = presence * 9;
     }
     if (g.muffler) {
-      const open = lerp(900, 5200, 1 - muffling);
-      smooth(g.muffler.frequency, open + d.throttle * 800, tc, ctx);
+      const open = lerp(850, 5600, 1 - muffling);
+      smooth(g.muffler.frequency, open + d.throttle * 900 + rpmNorm * 400, tc, ctx);
     }
     if (g.intakeGain) {
-      smooth(g.intakeGain.gain, intake * d.throttle * (0.35 + rpmNorm * 0.5), tc, ctx);
+      // Parked Rev still opens intake whoosh
+      const throttleFeel = parked ? Math.max(d.throttle, d.throttle * d.throttle) : d.throttle;
+      smooth(g.intakeGain.gain, intake * throttleFeel * (0.4 + rpmNorm * 0.55), tc, ctx);
     }
     if (g.intakeFilt) {
-      smooth(g.intakeFilt.frequency, 1200 + d.throttle * 2200 + rpmNorm * 800, tc, ctx);
+      smooth(g.intakeFilt.frequency, 1100 + d.throttle * 2400 + rpmNorm * 900, tc, ctx);
     }
     if (g.exhaustGain) {
-      smooth(g.exhaustGain.gain, exhaust * (0.12 + rpmNorm * 0.28 + d.throttle * 0.1), tc, ctx);
+      smooth(
+        g.exhaustGain.gain,
+        exhaust * (0.14 + rpmNorm * 0.32 + d.throttle * 0.14 + (parked ? d.throttle * 0.08 : 0)),
+        tc,
+        ctx,
+      );
     }
     if (g.ignGain) {
-      smooth(g.ignGain.gain, ign * (0.02 + d.throttle * 0.12 + rpmNorm * 0.04), tc, ctx);
+      smooth(g.ignGain.gain, ign * (0.02 + d.throttle * 0.14 + rpmNorm * 0.05), tc, ctx);
+    }
+    if (g.mechGain) {
+      smooth(
+        g.mechGain.gain,
+        rough * (0.025 + rpmNorm * 0.06 + d.throttle * 0.05),
+        tc,
+        ctx,
+      );
+    }
+    if (g.mechFilt) {
+      smooth(g.mechFilt.frequency, 700 + rpmNorm * 900 + d.throttle * 400, tc, ctx);
     }
   }
 
