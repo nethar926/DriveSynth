@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { speedFromFix, type Fix } from "./gpsSpeed";
 import { kphToMph } from "../audio";
 
 export type GpsStatus =
@@ -16,6 +17,7 @@ export interface GpsState {
   accuracy: number | null;
   timestamp: number | null;
   errorMessage?: string;
+  estimated?: boolean;
 }
 export function useGeolocation(enabled: boolean) {
   const [state, setState] = useState<GpsState>({
@@ -26,8 +28,10 @@ export function useGeolocation(enabled: boolean) {
   });
   const watchId = useRef<number | null>(null);
   const generation = useRef(0);
+  const previous = useRef<Fix|null>(null);
   const stop = useCallback(() => {
     generation.current++;
+    previous.current = null;
     if (watchId.current !== null && navigator.geolocation)
       navigator.geolocation.clearWatch(watchId.current);
     watchId.current = null;
@@ -54,20 +58,23 @@ export function useGeolocation(enabled: boolean) {
     watchId.current = navigator.geolocation.watchPosition(
       (pos) => {
         if (request !== generation.current) return;
-        const speed = pos.coords.speed;
+        const fix = {...pos.coords,latitude:pos.coords.latitude,longitude:pos.coords.longitude,accuracy:pos.coords.accuracy,speed:pos.coords.speed,timestamp:pos.timestamp};
+        const {speed,estimated} = speedFromFix(fix,previous.current);
+        if (!previous.current || pos.timestamp > previous.current.timestamp) previous.current=fix;
         if (speed === null || !Number.isFinite(speed) || speed < 0) {
           setState({
             status: "waiting",
             mph: 0,
             accuracy: pos.coords.accuracy,
             timestamp: null,
-            errorMessage: "Location received; waiting for a speed reading.",
+            errorMessage: "Location received; waiting for two accurate fixes to estimate speed.",
           });
           return;
         }
         setState({
-          status: Date.now() - pos.timestamp > 5000 ? "stale" : "live",
+          status: Date.now() - pos.timestamp > 10000 ? "stale" : "live",
           mph: speed * 2.236936,
+          estimated,
           accuracy: pos.coords.accuracy,
           timestamp: pos.timestamp,
         });
@@ -95,7 +102,7 @@ export function useGeolocation(enabled: boolean) {
           setState((s) =>
             s.status === "live" &&
             s.timestamp !== null &&
-            Date.now() - s.timestamp > 5000
+            Date.now() - s.timestamp > 10000
               ? {
                   ...s,
                   status: "stale",

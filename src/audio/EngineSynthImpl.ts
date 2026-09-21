@@ -2469,5 +2469,5 @@ function writeUpshiftSfxPref(enabled: boolean): void {
 
 export function createEngineSynth(ctx: AudioContext, patch?: EnginePatch): EngineSynth {
   const base=patch?.revforge?new RevForgeSynth(ctx,patch):new EngineSynthImpl(ctx,patch);
-  return new CharacterEngine(base,patch??base.toPatch());
+  return new CharacterEngine(base,patch??base.toPatch(),p=>createEngineSynth(ctx,{...p,layers:[]}));
 }

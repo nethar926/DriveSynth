@@ -1,0 +1,3 @@
+import test from 'node:test';import assert from 'node:assert/strict';import {defaultCluster,validPlacement,sanitizeCluster,speedScale} from '../src/themes/clusterModel.ts';
+test('cluster grid blocks overlaps and out-of-bounds widgets',()=>{assert.ok(defaultCluster.every(w=>validPlacement(w,defaultCluster)));assert.equal(validPlacement({...defaultCluster[0],x:0},defaultCluster),false);assert.equal(validPlacement({...defaultCluster[0],x:11},[]),false);assert.deepEqual(sanitizeCluster([{...defaultCluster[0],w:NaN}]),[]);});
+test('all speed scale units represent the same configured physical maximum',()=>{assert.equal(speedScale(50,'kph'),180);assert.ok(Math.abs(speedScale(50,'mph')*1.609344-180)<.00001);assert.equal(speedScale(undefined,'kph'),360);});

@@ -45,7 +45,7 @@
   {
     "id": "apex-v8",
     "name": "Apex V8",
-    "tagline": "Big synth block — low, then metallic.",
+    "tagline": "Big synth block \u2014 low, then metallic.",
     "custom": false,
     "scene": "warp",
     "palette": {
@@ -555,6 +555,49 @@
       "shiftRpm": 9800,
       "finalDrive": 5.2,
       "hasManual": true,
+      "hasMusic": false
+    }
+  },
+  {
+    "id": "light-grid",
+    "name": "Lightbike",
+    "tagline": "Electric harmonic drive, luminous acceleration and a light-grid horizon.",
+    "custom": false,
+    "scene": "grid",
+    "palette": {
+      "skyTop": "#020911",
+      "skyBottom": "#062639",
+      "haze": "#ff4ad0",
+      "sun": "#4af0ff",
+      "road": "#020b12",
+      "lane": "#4ef3ff",
+      "shoulder": "#1a0828",
+      "fog": "#3a1860",
+      "particle": "#ffb14c",
+      "accent": "#4ef3ff"
+    },
+    "engine": {
+      "voice": "electric",
+      "cylinders": 0,
+      "firing": "smooth",
+      "idleRpm": 400,
+      "redline": 16000,
+      "rumble": 0.15,
+      "growl": 0.2,
+      "metallic": 0.6,
+      "air": 0.06,
+      "exhaust": 0.08,
+      "rasp": 0.55,
+      "body": 0.15,
+      "turbo": 0.7,
+      "turboPitch": 0.8,
+      "blowoff": 0.35,
+      "crackle": 0,
+      "distortion": 0.1,
+      "gears": 1,
+      "shiftRpm": 16000,
+      "finalDrive": 9,
+      "hasManual": false,
       "hasMusic": false
     }
   }

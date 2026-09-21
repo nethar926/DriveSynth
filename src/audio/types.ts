@@ -170,7 +170,9 @@ export interface SynthNodeDesc {
   y?: number;
 }
 
+export interface SoundLayer {id:string;name:string;patch:EnginePatch;level:number;pitch:number;pan:number;cutoff:number;response:"load"|"rpm"|"steady";muted:boolean;solo:boolean;}
 export interface EnginePatch {
+  layers?:SoundLayer[];
   /** Native RevForge parameters; persisted with custom presets. */
   revforge?: RevForgeVoiceConfig;
   version: 0;

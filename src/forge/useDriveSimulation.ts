@@ -36,13 +36,13 @@ export function useDriveSimulation(
       published = 0;
     const frame = (now: number) => {
       const { audio, gps, config, source, mode, pedal, brake, jitter } = latest.current;
-      const dt = Math.min(0.05, Math.max(0, (now - previous) / 1000));
+      const dt = Math.min(document.visibilityState === "hidden" ? .25 : .05, Math.max(0, (now - previous) / 1000));
       previous = now;
-      if (audio.running && document.visibilityState === "visible") {
+      if (audio.running || source === "gps") {
         const fresh =
           gps.status === "live" &&
           gps.timestamp !== null &&
-          Date.now() - gps.timestamp < 5000;
+          Date.now() - gps.timestamp < 10000;
         const previousGear = simulation.current.gear;
         stepSimulation(simulation.current, config, dt, {
           source,
@@ -56,7 +56,7 @@ export function useDriveSimulation(
         if (state.gear > previousGear) audio.triggerUiCue("upshift");
         if (state.gear < previousGear) audio.triggerUiCue("downshift");
         const throttle = source === "gps" ? state.load : pedal;
-        audio.setDriving({
+        if (audio.running) audio.setDriving({
           speed: clamp(state.speedMps / 53.6448, 0, 1),
           throttle: state.shifting ? throttle * 0.3 : throttle,
           load: state.load,
@@ -77,10 +77,13 @@ export function useDriveSimulation(
         const s=simulation.current,o=latest.current;
         setHud({ ...s,rpm:s.rpm+(o.audio.running?idleWander(now/1000,s.rpm,o.config.idleRpm,o.source==='demo'?o.pedal:s.load,o.jitter):0) });
       }
-      handle = requestAnimationFrame(frame);
+      if (document.visibilityState === "visible") handle = requestAnimationFrame(frame);
     };
     handle = requestAnimationFrame(frame);
-    return () => cancelAnimationFrame(handle);
+    const timer = window.setInterval(() => {if(document.visibilityState === "hidden") frame(performance.now());}, 100);
+    const visible = () => {cancelAnimationFrame(handle); if(document.visibilityState === "visible") handle=requestAnimationFrame(frame);};
+    document.addEventListener("visibilitychange",visible);
+    return () => {cancelAnimationFrame(handle);clearInterval(timer);document.removeEventListener("visibilitychange",visible);};
   }, []);
   return {
     simulation,

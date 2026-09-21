@@ -1,0 +1,7 @@
+export const widgetTypes=['speed','speed-dial','rpm','tachometer','gear','load','clock','distance','source','target-lock'] as const;
+export type WidgetType=typeof widgetTypes[number];
+export interface ClusterWidget {id:string;type:WidgetType;x:number;y:number;w:number;h:number;label:string;}
+export const defaultCluster:ClusterWidget[]=[{id:'speed',type:'speed',x:4,y:1,w:4,h:4,label:'Speed'},{id:'rpm',type:'tachometer',x:0,y:1,w:4,h:4,label:'Engine'},{id:'gear',type:'gear',x:8,y:1,w:2,h:2,label:'Gear'},{id:'load',type:'load',x:10,y:1,w:2,h:2,label:'Load'},{id:'source',type:'source',x:8,y:3,w:4,h:2,label:'Signal'}];
+export function validPlacement(widget:ClusterWidget,widgets:ClusterWidget[]){return [widget.x,widget.y,widget.w,widget.h].every(Number.isInteger)&&widget.x>=0&&widget.y>=0&&widget.w>=1&&widget.h>=1&&widget.x+widget.w<=12&&widget.y+widget.h<=6&&!widgets.some(w=>w.id!==widget.id&&widget.x<w.x+w.w&&widget.x+widget.w>w.x&&widget.y<w.y+w.h&&widget.y+widget.h>w.y);}
+export function sanitizeCluster(value:unknown):ClusterWidget[]{if(!Array.isArray(value))return defaultCluster;const out:ClusterWidget[]=[];for(const w of value.slice(0,72))if(w&&typeof w.id==='string'&&typeof w.label==='string'&&widgetTypes.includes(w.type)&&!out.some(x=>x.id===w.id)&&validPlacement(w,out))out.push(w);return out;}
+export function speedScale(maxSpeedMps:number|undefined,unit:'mph'|'kph'){return (Number.isFinite(maxSpeedMps)&&maxSpeedMps!>0?maxSpeedMps!:100)*(unit==='kph'?3.6:2.2369362921);}

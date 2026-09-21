@@ -1,3 +1,4 @@
+import {SourceMixer} from './SourceMixer';
 import {LiveSoundGraph} from './LiveSoundGraph';
 import {EngineSetup} from './EngineSetup';
 import {SoundCharacter} from './SoundCharacter';
@@ -41,7 +42,7 @@ export function NativeStudio({
   const [message, setMessage] = useState("");
   if (!patch.revforge)
     return (
-      <div className="forge-tune"><EngineSetup patch={patch} onChange={onChange}/><SoundCharacter patch={patch} onChange={onChange}/><LiveSoundGraph patch={patch} onChange={onChange}/><button onClick={()=>onSave({...patch,id:`user-${crypto.randomUUID()}`,name:`${patch.name} custom`})}>Save custom voice</button>
+      <div className="forge-tune"><EngineSetup patch={patch} onChange={onChange}/><SoundCharacter patch={patch} onChange={onChange}/><SourceMixer patch={patch} onChange={onChange}/><details><summary>Advanced · audio nodes and routing</summary><LiveSoundGraph patch={patch} onChange={onChange}/></details><button onClick={()=>onSave({...patch,id:`user-${crypto.randomUUID()}`,name:`${patch.name} custom`})}>Save custom voice</button>
       </div>
     );
   const voice = patch.revforge;
@@ -92,7 +93,7 @@ export function NativeStudio({
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   };
   return (
-    <div className="forge-native-studio"><EngineSetup patch={patch} onChange={onChange}/><SoundCharacter patch={patch} onChange={onChange}/><LiveSoundGraph patch={patch} onChange={onChange}/>
+    <div className="forge-native-studio"><EngineSetup patch={patch} onChange={onChange}/><SoundCharacter patch={patch} onChange={onChange}/><SourceMixer patch={patch} onChange={onChange}/><details><summary>Advanced · audio nodes and routing</summary><LiveSoundGraph patch={patch} onChange={onChange}/></details>
       <p className="forge-studio-description">
         RevForge synthesis. Shape the voice live, then save a personal preset.
       </p>

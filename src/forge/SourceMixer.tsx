@@ -1,0 +1,20 @@
+import {useState} from 'react';
+import {SOUND_SOURCES} from './soundSources';
+import {LiveSoundGraph} from './LiveSoundGraph';
+import type {EnginePatch,SoundLayer} from '../audio/types';
+import {SoundCharacter} from './SoundCharacter';
+const label=(s:string)=>s.replace(/([A-Z])/g,' $1').replace(/^./,s=>s.toUpperCase());
+export function SourceMixer({patch,onChange}:{patch:EnginePatch;onChange:(p:EnginePatch)=>void}){
+ const [source,setSource]=useState(SOUND_SOURCES[0].id);const layers=patch.layers??[];
+ const update=(next:SoundLayer[])=>onChange({...patch,layers:next});
+ const change=(id:string,changes:Partial<SoundLayer>)=>update(layers.map(l=>l.id===id?{...l,...changes}:l));
+ const add=()=>{const p=SOUND_SOURCES.find(p=>p.id===source);if(p&&layers.length<8)update([...layers,{id:crypto.randomUUID(),name:p.name,patch:{...structuredClone(p),layers:[]},level:.4,pitch:1,pan:0,cutoff:12000,response:'load',muted:false,solo:false}]);};
+ return <section className="source-mixer"><h3>Sound Lab · Layer mixer</h3><p>Start with your main voice, then add up to eight independent engine sources. Each follows your driving. Shape individual roar, spool and engine elements inside each layer. Save the voice below to keep the whole mix.</p>
+ <label>Main voice level · {Number(patch.params.mainLayerLevel??1).toFixed(2)}<input aria-label="Main voice level" type="range" min="0" max="1" step=".01" value={Number(patch.params.mainLayerLevel??1)} onChange={e=>onChange({...patch,params:{...patch.params,mainLayerLevel:Number(e.target.value)}})}/></label>
+ <label>Add sound source<select aria-label="Add sound source" value={source} onChange={e=>setSource(e.target.value)}>{SOUND_SOURCES.map(p=><option key={p.id} value={p.id}>{p.name} · {p.kind}</option>)}</select></label><button disabled={layers.length>=8} onClick={add}>Add layer</button>
+ {layers.map((l,i)=><article className="source-layer" key={l.id}><h4>{i+1} · {l.name}</h4><div className="source-actions"><label>Mute<input type="checkbox" checked={l.muted} onChange={e=>change(l.id,{muted:e.target.checked})}/></label><label>Solo<input type="checkbox" checked={l.solo} onChange={e=>change(l.id,{solo:e.target.checked})}/></label><button disabled={layers.length>=8} onClick={()=>update([...layers,{...structuredClone(l),id:crypto.randomUUID(),solo:false}])}>Duplicate</button><button onClick={()=>update(layers.filter(x=>x.id!==l.id))}>Remove</button></div>
+ {(['level','pitch','pan','cutoff'] as const).map(k=><label key={k}>{label(k)} · {l[k].toFixed(k==='cutoff'?0:2)}<input aria-label={`${l.name} ${k}`} type="range" min={k==='pan'?-1:k==='pitch'?.25:k==='cutoff'?80:0} max={k==='pitch'?2:k==='cutoff'?18000:1} step={k==='cutoff'?20:.01} value={l[k]} onChange={e=>change(l.id,{[k]:Number(e.target.value)})}/></label>)}
+ <label>Responds to<select value={l.response} onChange={e=>change(l.id,{response:e.target.value as SoundLayer['response']})}><option value="load">Throttle / load</option><option value="rpm">Engine RPM</option><option value="steady">Steady interior bed</option></select></label>
+ <details><summary>Shape this source</summary><SoundCharacter patch={l.patch} onChange={p=>change(l.id,{patch:p})}/>{l.patch.graph&&<LiveSoundGraph patch={l.patch} onChange={p=>change(l.id,{patch:p})}/>} {Object.entries(l.patch.revforge??l.patch.params).filter(([,v])=>typeof v==='number').map(([k,v])=><label key={k}>{label(k)}<input aria-label={`${l.name} ${label(k)}`} type="number" step="any" value={Number(v)} onChange={e=>{const raw=Number(e.target.value);if(!Number.isFinite(raw))return;const value=Math.max(0,Math.min(/rpm|redline/i.test(k)?18000:/frequency|pitch/i.test(k)?12000:/cylinder/i.test(k)?12:/gear/i.test(k)?10:/finalDrive/.test(k)?6:1,raw));change(l.id,{patch:l.patch.revforge?{...l.patch,revforge:{...l.patch.revforge,[k]:value}}:{...l.patch,params:{...l.patch.params,[k]:value}}});}}/></label>)}</details></article>)}
+ {!layers.length&&<p>No extra layers yet. Try an electric whine under Twin-Ion, or a turbine over a combustion engine.</p>}</section>;
+}

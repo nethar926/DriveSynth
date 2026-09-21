@@ -1,3 +1,4 @@
+import {MediaOutput} from "../audio/MediaOutput";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type {
   DrivingInput,
@@ -12,6 +13,9 @@ export function useAudioEngine(
   initialId = "v8-rumble",
   savedPatches: EnginePatch[] = [],
 ) {
+  const mediaRef=useRef<MediaOutput|null>(null);
+  const [background,setBackground]=useState(()=>{try{return localStorage.getItem("revforge.background")!=="false";}catch{return true;}});
+  const [backgroundStatus,setBackgroundStatus]=useState("Start audio to activate background playback");
   const ctxRef = useRef<AudioContext | null>(null);
   const engineRef = useRef<EngineSynth | null>(null);
   const pendingPatchRef = useRef<EnginePatch | null>(
@@ -39,6 +43,7 @@ export function useAudioEngine(
         (window as unknown as { webkitAudioContext: typeof AudioContext })
           .webkitAudioContext;
       ctxRef.current = new AC();
+      try{mediaRef.current=new MediaOutput(ctxRef.current);}catch{setBackgroundStatus("Media streams unavailable · direct audio active");}
       ctxRef.current.onstatechange = () =>
         setRunning(
           wantsRunning.current &&
@@ -53,6 +58,7 @@ export function useAudioEngine(
         getBuiltin("v8-rumble")!;
       pendingPatchRef.current = null;
       engineRef.current = createEngineSynth(ctxRef.current, patch);
+      mediaRef.current?.attach(engineRef.current.output);
       setEngineId(patch.id);
       setPatchName(patch.name);
     }
@@ -66,7 +72,9 @@ export function useAudioEngine(
     setError(null);
     try {
       const eng = ensure();
-      if (ctxRef.current?.state !== "running") await ctxRef.current?.resume();
+      const resumed=ctxRef.current?.state!=="running"?ctxRef.current?.resume():Promise.resolve();
+      if(background&&mediaRef.current) {try{await mediaRef.current.enable();setBackgroundStatus("Media output active · browser may still suspend playback");}catch{mediaRef.current?.disable();setBackgroundStatus("Background output unavailable · direct audio active");}}
+      await resumed;
       await eng.start();
       if (version !== startVersion.current || !wantsRunning.current) {
         eng.stop();
@@ -85,7 +93,7 @@ export function useAudioEngine(
     } finally {
       if (version === startVersion.current) setStarting(false);
     }
-  }, [ensure]);
+  }, [ensure,background]);
 
   const stop = useCallback(() => {
     wantsRunning.current = false;
@@ -112,6 +120,7 @@ export function useAudioEngine(
       engineRef.current.dispose();
       const next = createEngineSynth(ctxRef.current!, patch);
       engineRef.current = next;
+      mediaRef.current?.attach(next.output);
       setRunning(false);
       if (wantsRunning.current) {
         setStarting(true);
@@ -204,13 +213,19 @@ export function useAudioEngine(
       if (ctxRef.current) ctxRef.current.onstatechange = null;
       engineRef.current?.dispose();
       engineRef.current = null;
+      mediaRef.current?.dispose();
+      mediaRef.current=null;
       void ctxRef.current?.close();
       ctxRef.current = null;
     };
   }, []);
 
+  useEffect(()=>{try{localStorage.setItem("revforge.background",String(background));}catch{}if(!background)mediaRef.current?.disable();},[background]);
+  const setBackgroundEnabled=useCallback((value:boolean)=>{setBackground(value);if(value&&mediaRef.current)void mediaRef.current.enable().then(()=>setBackgroundStatus("Media output active · browser may still suspend playback")).catch(()=>setBackgroundStatus("Tap Ignition to retry background output"));},[]);
+  const getMediaElement=useCallback(()=>mediaRef.current?.element??null,[]);
   return useMemo(
     () => ({
+      background,backgroundStatus,setBackgroundEnabled,getMediaElement,
       error,
       starting,
       start,
@@ -233,6 +248,7 @@ export function useAudioEngine(
       context: ctxRef,
     }),
     [
+      background,backgroundStatus,setBackgroundEnabled,getMediaElement,
       error,
       starting,
       start,
