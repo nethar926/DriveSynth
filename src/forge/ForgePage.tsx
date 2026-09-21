@@ -1,3 +1,4 @@
+import {ThemeColors} from '../themes/ThemeColors';
 import {
   useEffect,
   useMemo,
@@ -228,7 +229,7 @@ export function ForgePage({
     audio.stop();
     reset();
   };
-  const media = useVehicleMedia({blasters:patch?.kind==='scifi',fire:()=>audio.triggerUiCue('blaster'),enabled:mediaEnabled,running:audio.running,manual:mode==='manual' && config.gears>1,pauseShifts,name:audio.patchName,start:()=>{void audio.start();if(source==='gps')onGpsEnabled(true);},stop,shift});
+  const media = useVehicleMedia({blasters:patch?.kind==='scifi',fire:()=>audio.triggerUiCue('ion-cannon'),enabled:mediaEnabled,running:audio.running,manual:mode==='manual' && config.gears>1,pauseShifts,name:audio.patchName,start:()=>{void audio.start();if(source==='gps')onGpsEnabled(true);},stop,shift});
   const sourceChange = (next: "demo" | "gps") => {
     setSource(next);
     setPedal(0);
@@ -259,7 +260,7 @@ export function ForgePage({
     >
       <main className={`rev-viewport ${!ignited?'is-launch':''}`} style={{'--hud-scale':scale,'--hud-opacity':opacity} as CSSProperties}>
         <section className="rev-scene" aria-label="Full-screen dashboard">
-          <ThemeStage atmosphereId={themeForId(themes.atmosphereId).sceneId} theme={theme} state={hud} simulation={simulation} warningRpm={config.warningRpm} redline={config.redline} unit={prefs.speedUnit} demo={source==='demo'} motion={motion} running={audio.running} gpsLabel={gpsLabel}/>
+          <ThemeStage lockStage={audio.getLockStage()} onTimeJump={()=>audio.triggerUiCue('time-jump')} colors={themes.colors[themes.skinId]} sceneColors={themes.colors[themes.atmosphereId+'-scene']} atmosphereId={themeForId(themes.atmosphereId).sceneId} theme={theme} state={hud} simulation={simulation} warningRpm={config.warningRpm} redline={config.redline} unit={prefs.speedUnit} demo={source==='demo'} motion={motion} running={audio.running} gpsLabel={gpsLabel}/>
         </section>
         <header className="rev-topbar"><div><strong>REVFORGE</strong>{ignited&&<small>{theme.name}</small>}</div><button className="rev-chip" onClick={()=>setPanel('tuner')}>Tuner <Icon name="tune" size={18}/></button></header>
         {!ignited?<div className="rev-launch"><p>ENGINE SOUND · YOUR ATMOSPHERE</p><h1>RevForge</h1><button className="rev-ignite" disabled={audio.starting} onClick={start}>{audio.starting?'Starting…':'Ignition'}</button><small>Set up while parked · Keep the browser visible</small></div>:<>
@@ -268,7 +269,7 @@ export function ForgePage({
             <div className="rev-segment"><button aria-pressed={mode==='auto'} onClick={()=>setMode('auto')}>Auto</button><button aria-pressed={mode==='manual'} onClick={()=>setMode('manual')}>Manual</button></div>
             {mode==='manual'&&<><button className="rev-chip" disabled={!audio.running} aria-label="Downshift" onClick={()=>shift(-1)}>−</button><button className="rev-chip" disabled={!audio.running} onClick={neutral}>N</button><button className="rev-chip" disabled={!audio.running} aria-label="Upshift" onClick={()=>shift(1)}>+</button></>}
             {source==='demo'&&<button className="rev-chip" disabled={!revReady} onPointerDown={e=>hold(e,'throttle')} onPointerUp={()=>setPedal(0)} onPointerCancel={()=>setPedal(0)} onLostPointerCapture={()=>setPedal(0)}>Hold to rev</button>}
-            {patch?.kind==='scifi'&&<button className="rev-chip rev-blaster" disabled={!audio.running} onClick={()=>audio.triggerUiCue('blaster')}>Blasters</button>}
+            {patch?.kind==='scifi'&&<button className="rev-chip rev-blaster" disabled={!audio.running} onClick={()=>audio.triggerUiCue('ion-cannon')}>Ion Cannons</button>}
             <button className="rev-chip rev-stop" disabled={audio.starting} onClick={audio.running?stop:start}>{audio.running?'Shutdown':mutedBeforeHide?'Resume':'Ignition'}</button>
           </footer>
         </>}
@@ -366,7 +367,7 @@ export function ForgePage({
               </div>
             )}
             {panel === "studio" && patch && (<><label className="tuner-sound-picker">Sound preset<select aria-label="Sound preset" value={patch.id} onChange={e=>{const next=options.find(p=>p.id===e.target.value);if(next)onSelectEngine(next);}}>{options.map(p=><option key={p.id} value={p.id}>{p.name}</option>)}</select></label><button className="rev-chip" disabled={audio.starting} onClick={audio.running?stop:start}>{audio.running?"Stop audition":"Audition sound"}</button>
-              <NativeStudio
+              <NativeStudio key={patch.id}
                 patch={patch}
                 onChange={(next) => {
                   onSelectEngine(next);
@@ -380,13 +381,13 @@ export function ForgePage({
             )}
             {panel === "tune" && (
               <div className="forge-tune">
-                <label>Dashboard scale · {Math.round(scale*100)}%<input aria-label="Dashboard scale" type="range" min=".65" max="1.35" step=".01" value={scale} onChange={e=>setScale(Number(e.target.value))}/></label><label>Instrument opacity<input aria-label="Instrument opacity" type="range" min=".25" max="1" step=".01" value={opacity} onChange={e=>setOpacity(Number(e.target.value))}/></label><label>Volume<input aria-label="Master volume" type="range" min="0" max="1" step=".01" value={prefs.masterVolume} onChange={e=>update({masterVolume:Number(e.target.value)})}/></label><label>Mute<input aria-label="Mute" type="checkbox" checked={prefs.masterMuted} onChange={e=>update({masterMuted:e.target.checked})}/></label>
+                <ThemeColors themes={themes}/><label>Dashboard scale · {Math.round(scale*100)}%<input aria-label="Dashboard scale" type="range" min=".65" max="1.35" step=".01" value={scale} onChange={e=>setScale(Number(e.target.value))}/></label><label>Instrument opacity<input aria-label="Instrument opacity" type="range" min=".25" max="1" step=".01" value={opacity} onChange={e=>setOpacity(Number(e.target.value))}/></label><label>Volume<input aria-label="Master volume" type="range" min="0" max="1" step=".01" value={prefs.masterVolume} onChange={e=>update({masterVolume:Number(e.target.value)})}/></label><label>Mute<input aria-label="Mute" type="checkbox" checked={prefs.masterMuted} onChange={e=>update({masterMuted:e.target.checked})}/></label>
                 <label>Demo mode<input aria-label="Demo mode" type="checkbox" checked={source==='demo'} onChange={e=>sourceChange(e.target.checked?'demo':'gps')}/></label>
                 <p className="forge-control-hint">Turn Demo off to use browser GPS. Location permission is required.</p>
                 <label>Idle jitter<input aria-label="Idle jitter" type="checkbox" checked={jitterEnabled} onChange={e=>setJitterEnabled(e.target.checked)}/></label><label>Idle jitter intensity · {Math.round(jitterAmount*100)}%<input aria-label="Idle jitter intensity" type="range" min="0" max="1" step=".01" disabled={!jitterEnabled} value={jitterAmount} onChange={e=>setJitterAmount(Number(e.target.value))}/></label><p className="forge-control-hint">Adds subtle RPM wander at idle. Fades out as you accelerate.</p>
                 <p className="forge-control-hint">Tesla field test: media-button shifting and background audio did not work. Keep RevForge visible; use touch shifting or Automatic.</p><label>Experimental media-button controls<input type="checkbox" checked={mediaEnabled} onChange={e=>setMediaEnabled(e.target.checked)}/></label>
                 <label>Play/pause button upshifts in Manual<input type="checkbox" checked={pauseShifts} onChange={e=>setPauseShifts(e.target.checked)}/></label>
-                <p className="forge-control-hint">Twin-Ion: received play/pause events fire blasters. Other engines: pause can upshift in Manual. Next/previous shift gears. Touch Shutdown always stops.</p>
+                <p className="forge-control-hint">Twin-Ion: received play/pause events fire ion cannons. Other engines: pause can upshift in Manual. Next/previous shift gears. Touch Shutdown always stops.</p>
                 <div className="compatibility-box"><h3>Tesla input check</h3><dl><dt>Location API</dt><dd>{typeof navigator!=='undefined'&&'geolocation' in navigator?'Available':'Unavailable'}</dd><dt>GPS status</dt><dd>{gps.status}</dd><dt>Position accuracy</dt><dd>{gps.accuracy===null?'No reading':`±${Math.round(gps.accuracy)} m`}</dd><dt>Speed reading</dt><dd>{gps.timestamp===null?'Not received':`${gps.mph.toFixed(1)} mph`}</dd><dt>Media handlers</dt><dd>{media.accepted.length}/4 registered</dd><dt>Media session</dt><dd>{media.carrier}</dd></dl><p className="input-check-log" role="status">{media.lastEvent}</p><button className="forge-text-button" disabled={!mediaEnabled || !audio.running} onClick={media.arm}>Enable controls / recheck</button><p>While parked, start the engine and press your media buttons. An event appearing here confirms delivery to this browser. Button registration alone does not mean Tesla delivers the event. GPS speed requires an actual location reading.</p></div>
 
                 <label>

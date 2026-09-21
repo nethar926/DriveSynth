@@ -50,7 +50,7 @@ export interface DrivingInput {
 }
 
 export interface EngineParams {
-  roarLevel?:number; roarVariant?:number; roarPitch?:number; roarThroat?:number; roarRasp?:number; roarPulse?:number; roarAttack?:number; roarRelease?:number;
+  roarDepth?:number;roarAir?:number;roarWidth?:number;roarLevel?:number; roarVariant?:number; roarPitch?:number; roarThroat?:number; roarRasp?:number; roarPulse?:number; roarAttack?:number; roarRelease?:number;
   interiorNoise?:number; interiorLevel?:number; targetingNoise?:number; targetingLevel?:number; gearingNoise?:number; gearingLevel?:number; blasterLevel?:number; lifecycleSounds?:number; lifecycleLevel?:number;
   gearCount?:number;maxRpm?:number;autoShiftRpm?:number;redlinePercent?:number;topSpeedKph?:number;graphEnabled?:number;
   jetSimulation?: number;

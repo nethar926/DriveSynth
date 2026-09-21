@@ -3,6 +3,7 @@ export type ThemeLayout = 'numerical' | 'arc' | 'line' | 'bar' | 'digital' | 'an
 export interface ThemePreset { id: string; name: string; family: ThemeFamily; group: string; layout: ThemeLayout; accent: string; secondary: string; description: string; feature: string; sceneId?: string; }
 const skin = (id: string, name: string, family: ThemeFamily, group: string, layout: ThemeLayout, accent: string, secondary: string, description: string, feature: string): ThemePreset => ({id,name,family,group,layout,accent,secondary,description,feature});
 export const THEMES: ThemePreset[] = [
+  skin('galactic-enforcer','Galactic Enforcer','Cockpit','SciFi','space','#76cce9','#ff465d','Twin-Ion combat instruments, sensor pods and a dynamic targeting scope.','Simulated acquisition and target lock'),
   skin('minimal-numeric','RF Aperture','Minimal','Numerical','numerical','#a5efdc','#4d75b9','A single speed readout floating over an RPM-reactive gradient.','RPM atmosphere'),
   skin('minimal-arc','RF Orbit Trace','Minimal','Arc','arc','#a8d9ff','#4763a2','A sweeping tachometer around a central digital speedometer.','Redline halo'),
   skin('minimal-line','RF Vector Rail','Minimal','Line','line','#f3b575','#945b38','Left-aligned speed, a continuous speed rail and compact telemetry.','Live telemetry rails'),
@@ -18,7 +19,7 @@ export const THEMES: ThemePreset[] = [
   skin('720','RF Track Ribbon','Gauge Cluster','Modern','arc','#ff9751','#dadfe8','A low horizontal instrument pod with a vivid orange tachometer.','Compact track display'),
   skin('lfa','RF Crescendo','Gauge Cluster','Modern','arc','#f1f3ef','#e86257','A large central tach ring with sequential shift lamps and a gear core.','Sequential shift lamps'),
   skin('tt','RF Splitline','Gauge Cluster','Modern','driver','#dce7f1','#ed5958','Balanced digital instruments flanking a live driving horizon.','Dual information panes'),
-  skin('time-machine','RF Chrono Banks','Gauge Cluster','PopCulture','time','#efbd64','#7cdda2','Three colored telemetry circuits with an animated energy core.','RPM flux charge'),
+  skin('time-machine','RF Chrono Banks','Gauge Cluster','PopCulture','time','#efbd64','#7cdda2','Destination, present and departure time circuits with a physical-style date keypad.','88 MPH temporal transition'),
   skin('night-rider','RF Crimson Sweep','Gauge Cluster','PopCulture','scanner','#ff5353','#ffc16a','A red scanner sweep, LED telemetry banks and a dark command console.','Scanner sweep'),
   skin('f22','RF Peregrine','Cockpit','Jet','jet','#8eeeb0','#c8eabe','Angular HUD, paired engine-load tapes and a restrained radar panel.','Engine-load HUD'),
   skin('f35','RF Glasswing','Cockpit','Jet','jet','#9ee6df','#dbecf3','A panoramic glass panel with three live instrument windows.','Panoramic instrumentation'),

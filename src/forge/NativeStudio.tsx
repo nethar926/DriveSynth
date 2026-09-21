@@ -114,7 +114,7 @@ export function NativeStudio({
         ))}
       </div>
       <div className="forge-studio-knobs">
-        {controls.map(([key, label, min, max, step]) => (
+        {controls.filter(([key])=>!['scifi','aerospace'].includes(patch.kind)||key==='idleRpm'||key==='finalDrive').map(([key, label, min, max, step]) => (
           <label key={key}>
             <span>
               {label}

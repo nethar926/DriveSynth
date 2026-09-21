@@ -5,6 +5,11 @@ export interface Combination { id: string; name: string; skinId: string; atmosph
 const THEME_KEY = 'drivesynth.theme.v2';
 const PAIRS_KEY = 'drivesynth.combinations.v1';
 export function useThemes() {
+  const [colors,setColors]=useState<Record<string,Record<string,string>>>(()=>{try{return JSON.parse(localStorage.getItem('revforge.colors')??'{}');}catch{return {};}});
+  const saveColors=(next:Record<string,Record<string,string>>)=>{setColors(next);try{localStorage.setItem('revforge.colors',JSON.stringify(next));}catch{setStorageError('Color settings could not be saved.');}};
+  const setColor=(id:string,key:string,value:string)=>{if(/^#[0-9a-f]{6}$/i.test(value))saveColors({...colors,[id]:{...colors[id],[key]:value}});};
+  const resetColors=(id:string)=>{const next={...colors};delete next[id];saveColors(next);};
+
   const [skinId,setSkin] = useState(()=>{try{return themeForId(localStorage.getItem(THEME_KEY) ?? DEFAULT_THEME).id;}catch{return DEFAULT_THEME;}});
   const [atmosphereId,setAtmosphere]=useState(()=>{try{return themeForId(localStorage.getItem("revforge.atmosphere")??DEFAULT_THEME).id;}catch{return DEFAULT_THEME;}});
   const selectAtmosphere=useCallback((id:string)=>{const t=themeForId(id);if(t.family!=="RoadView")return;setAtmosphere(t.id);try{localStorage.setItem("revforge.atmosphere",t.id);}catch{/* session only */}},[]);
@@ -17,5 +22,5 @@ export function useThemes() {
     setCombinations(next);try{localStorage.setItem(PAIRS_KEY,JSON.stringify(next));setStorageError('');}catch{setStorageError('Combination is available this session, but storage is full or blocked.');}
   };
   const removeCombination=(id:string)=>{const next=combinations.filter(c=>c.id!==id);setCombinations(next);try{localStorage.setItem(PAIRS_KEY,JSON.stringify(next));setStorageError('');}catch{setStorageError('Could not save this deletion.');}};
-  return {skinId,selectSkin,atmosphereId,selectAtmosphere,combinations,saveCombination,removeCombination,storageError};
+  return {colors,setColor,resetColors,skinId,selectSkin,atmosphereId,selectAtmosphere,combinations,saveCombination,removeCombination,storageError};
 }

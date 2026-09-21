@@ -399,13 +399,16 @@ export class RevForgeVoice {
       s = Math.max(18, r / 60),
       c = Math.max(1, t.cylinders || 8),
       l = t.voice === `combustion` ? (r / 60) * (c / 2) : s * 2;
+    // Four-stroke firing order supplies the combustion fundamental; motor poles set EV order.
+    if(t.voice === 'combustion') s=l;
+    if(t.voice === 'electric') s=Math.max(18,r/60*6);
     {
-      this.fund?.frequency.setTargetAtTime(s, n, 0.03);
-      this.sub?.frequency.setTargetAtTime(s * 0.5, n, 0.03);
+      this.fund?.frequency.setTargetAtTime(s, n, 0.045);
+      this.sub?.frequency.setTargetAtTime(Math.max(18,r/120), n, 0.08);
       this.h2?.frequency.setTargetAtTime(s * 2, n, 0.03);
       this.h3?.frequency.setTargetAtTime(s * 3.01, n, 0.03);
       this.h4?.frequency.setTargetAtTime(s * 4.04, n, 0.03);
-      this.pulseOsc?.frequency.setTargetAtTime(Xt(l, 8, 140), n, 0.04);
+      this.pulseOsc?.frequency.setTargetAtTime(Xt(l, 8, 1200), n, 0.04);
       this.lfo?.frequency.setTargetAtTime(
         8 + a * 28 + (t.firing === `crossplane` ? 6 : 0),
         n,
@@ -436,7 +439,7 @@ export class RevForgeVoice {
         n,
         0.05,
       );
-      this.updateDrive(t.distortion * (0.55 + i * 0.5));
+      this.updateDrive(t.distortion * (0.22 + i * 0.3));
     }
     let f = 0.08,
       p = 0.04,
@@ -447,7 +450,7 @@ export class RevForgeVoice {
       v = 0;
     {
       if (t.voice === `combustion`) {
-        f = (0.07 + t.growl * 0.12) * (0.35 + i * 0.75) * (0.55 + o * 0.2);
+        f = (0.07 + t.growl * 0.12) * (0.35 + i * 0.75) * (0.55 + Math.min(o,4) * 0.12);
         p = (0.05 + t.rumble * 0.16) * (0.4 + i * 0.7);
         m =
           (0.03 + t.metallic * 0.08 + t.rasp * 0.05) *
