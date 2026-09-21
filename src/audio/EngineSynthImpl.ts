@@ -1,3 +1,4 @@
+import {CharacterEngine} from './CharacterEngine';
 import {flightProfile} from '../forge/flightProfile';
 import { defaultsForTopology, getBuiltin } from './builtins';
 import type {
@@ -2467,6 +2468,6 @@ function writeUpshiftSfxPref(enabled: boolean): void {
 }
 
 export function createEngineSynth(ctx: AudioContext, patch?: EnginePatch): EngineSynth {
-  if (patch?.revforge) return new RevForgeSynth(ctx, patch);
-  return new EngineSynthImpl(ctx, patch);
+  const base=patch?.revforge?new RevForgeSynth(ctx,patch):new EngineSynthImpl(ctx,patch);
+  return new CharacterEngine(base,patch??base.toPatch());
 }

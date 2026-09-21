@@ -1,5 +1,7 @@
 /** Drivetrain derived from RevForge, with neutral, timestamped GPS and shared audio RPM. */
 export interface Drivetrain {
+  topSpeedMps?:number;
+  warningRpm?:number;
   idleRpm: number;
   redline: number;
   shiftRpm: number;
@@ -36,8 +38,8 @@ export const wheelRpm = (speed: number, config: Drivetrain, gear: number) =>
     ? config.idleRpm
     : config.gears <= 1
       ? config.idleRpm +
-        clamp(speed / 72, 0, 1) * (config.redline - config.idleRpm)
-      : (speed / 2.05) * 60 * gearRatio(config, gear) * config.finalDrive;
+        clamp(speed / (config.topSpeedMps??72), 0, 1) * (config.redline - config.idleRpm)
+      : config.topSpeedMps ? speed/config.topSpeedMps*config.redline*gearRatio(config,gear)/gearRatio(config,config.gears) : (speed / 2.05) * 60 * gearRatio(config, gear) * config.finalDrive;
 export function createSimulation(config: Drivetrain): Simulation {
   return {
     speedMps: 0,
@@ -97,7 +99,7 @@ export function stepSimulation(
     state.speedMps = clamp(
       state.speedMps + (drive * limiter - drag - (input.brake ? 8.5 : 0)) * dt,
       0,
-      100,
+      config.topSpeedMps??100,
     );
   }
   state.accel =

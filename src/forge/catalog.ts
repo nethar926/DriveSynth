@@ -67,7 +67,7 @@ export function scenePatch(scene: ScenePack): EnginePatch {
   };
 }
 export const REVFORGE_PATCHES = SCENES.map(scenePatch);
-export function drivetrainFor(
+function baseDrivetrain(
   patch: EnginePatch | undefined,
   _scene: ScenePack,
 ): Drivetrain {
@@ -99,4 +99,12 @@ export function drivetrainFor(
     shiftRpm: redline * 0.9,
     finalDrive: 3.31,
   };
+}
+
+export function drivetrainFor(patch:EnginePatch|undefined,scene:ScenePack):Drivetrain {
+ const c=baseDrivetrain(patch,scene),p=patch?.params??{};
+ const finite=(v:unknown,fallback:number)=>Number.isFinite(Number(v))?Number(v):fallback;
+ const max=Math.max(c.idleRpm+500,Math.min(18000,finite(p.maxRpm,c.redline)));
+ const top= p.topSpeedKph===undefined?undefined:Math.max(40,Math.min(500,finite(p.topSpeedKph,240)))/3.6;
+ return {...c,redline:max,gears:Math.round(Math.max(1,Math.min(10,finite(p.gearCount,c.gears)))),shiftRpm:Math.max(c.idleRpm+100,Math.min(max,finite(p.autoShiftRpm,c.shiftRpm))),warningRpm:max*Math.max(.5,Math.min(1,finite(p.redlinePercent,90)/100)),topSpeedMps:top};
 }

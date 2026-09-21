@@ -98,3 +98,19 @@ test("simulation stays finite and nonnegative after a long browser pause", () =>
   for (const [key, v] of Object.entries(s))
     if (typeof v === "number") assert.ok(Number.isFinite(v), key);
 });
+test('custom top speed scales highest gear to limiter and caps demo speed',()=>{
+ const c={...config,gears:8,redline:9000,shiftRpm:6500,topSpeedMps:20};
+ assert.ok(Math.abs(wheelRpm(20,c,8)-9000)<.001);
+ const s=createSimulation(c);s.gear=8;
+ for(let i=0;i<6000;i++)stepSimulation(s,c,1/60,{...base,pedal:1});
+ assert.ok(s.speedMps<=20);assert.ok(s.rpm<=9000);
+ for(let i=0;i<600;i++)stepSimulation(s,c,1/60,{...base,source:'gps',gpsSpeed:30});
+ assert.ok(s.speedMps>29.9,'virtual top speed must not falsify GPS');
+});
+test('lower auto-shift RPM upshifts sooner and gear count limits shifts',()=>{
+ const low={...config,shiftRpm:2500,gears:3},high={...low,shiftRpm:6500};
+ const a=createSimulation(low),b=createSimulation(high);a.speedMps=b.speedMps=12;
+ stepSimulation(a,low,1/60,{...base,pedal:1,mode:'auto'});stepSimulation(b,high,1/60,{...base,pedal:1,mode:'auto'});
+ assert.equal(a.gear,2);assert.equal(b.gear,1);
+ a.gear=3;stepSimulation(a,low,1/60,{...base,shift:1});assert.equal(a.gear,3);
+});

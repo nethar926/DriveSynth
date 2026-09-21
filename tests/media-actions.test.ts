@@ -19,3 +19,8 @@ test('play starts a stopped engine without shifting a running engine',()=>{
  assert.equal(mediaCommand('play',false,true,true),'start');
  assert.equal(mediaCommand('play',true,true,true),'none');
 });
+test('received play/pause fires blasters only while a Twin-Ion engine is running',()=>{
+ for(const action of ['play','pause'] as const)assert.equal(mediaCommand(action,true,false,false,true),'blaster');
+ assert.equal(mediaCommand('play',false,false,false,true),'start');
+ assert.equal(mediaCommand('pause',false,false,false,true),'none');
+});

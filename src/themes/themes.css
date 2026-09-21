@@ -15,3 +15,5 @@
 .forge .theme-card{display:block;width:100%;height:auto;white-space:normal}.forge .theme-card .theme-thumbnail{width:100%}.theme-builder-tools>label{flex:1}.theme-builder-tools input{width:100%}
 
 .theme-f14 .f14-inherited{position:relative;min-height:340px;width:100%;display:grid;place-items:center}.theme-f14 .skin-speed{position:relative;z-index:1;padding-top:35px}.theme-f14 .skin-speed>strong{font-size:clamp(68px,8vw,118px)}.theme-f14 .skin-body{padding-top:0}.theme-f14 .skin-telemetry{position:relative;z-index:1}.theme-f14 .aero-status-name{font-size:10px}.theme-f14 .aero-status-lat{display:none}.theme-f14 .aero-footer{font-size:9px}.sound-character{padding:14px 0}.sound-character>label{display:flex;justify-content:space-between;align-items:center;gap:18px}.sound-character input[type=checkbox]{width:24px;height:24px;accent-color:#dfad69}.theme-builder-panel .sound-character input[type=checkbox]{width:24px}
+
+.theme-stage.at-redline .skin-telemetry [data-testid=rpm]{color:#ff645e;text-shadow:0 0 18px #ff413f88}.theme-stage.at-redline .arc-value{stroke:#ff645e}

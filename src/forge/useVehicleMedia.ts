@@ -1,6 +1,6 @@
 import {useCallback,useEffect,useRef,useState} from 'react';
 import {mediaCommand,type VehicleMediaAction} from './mediaActions';
-interface Options {enabled:boolean;running:boolean;manual:boolean;pauseShifts:boolean;name:string;start:()=>void;stop:()=>void;shift:(direction:number)=>void;}
+interface Options {blasters?:boolean;fire?:()=>void;enabled:boolean;running:boolean;manual:boolean;pauseShifts:boolean;name:string;start:()=>void;stop:()=>void;shift:(direction:number)=>void;}
 function carrierUrl() {
  // Original one-second silent PCM clip. It activates a native media element without duplicating the synth output.
  const bytes=new ArrayBuffer(16044),v=new DataView(bytes);
@@ -24,8 +24,9 @@ export function useVehicleMedia(options:Options) {
   dispatch.current=(action)=>{
    const o=current.current;if(closing||!o.enabled||document.visibilityState==='hidden')return;
    const now=performance.now();if(now-last.current<300)return;last.current=now;
-   const command=mediaCommand(action,o.running,o.manual,o.pauseShifts);
+   const command=mediaCommand(action,o.running,o.manual,o.pauseShifts,!!o.blasters);
    setLastEvent(`${action} → ${command} · ${new Date().toLocaleTimeString()}`);
+   if(command==='blaster'){o.fire?.();arm();session.playbackState='playing';}
    if(command==='start'){arm();o.start();}
    if(command==='stop'){o.stop();a.pause();}
    if(command==='up'||command==='down'){o.shift(command==='up'?1:-1);arm();session.playbackState='playing';}
@@ -33,7 +34,7 @@ export function useVehicleMedia(options:Options) {
   const actions:VehicleMediaAction[]=['play','pause','nexttrack','previoustrack'];const registered:string[]=[];
   for(const action of actions){try{session.setActionHandler(action,()=>dispatch.current(action));registered.push(action);}catch{/* Unsupported actions remain visible as unregistered. */}}
   setAccepted(registered);
-  const pause=()=>{if(!closing&&current.current.running&&a.paused){dispatch.current('pause');if(current.current.manual&&current.current.pauseShifts)arm();}};
+  const pause=()=>{if(!closing&&current.current.running&&a.paused){dispatch.current('pause');if(current.current.blasters||(current.current.manual&&current.current.pauseShifts))arm();}};
   a.addEventListener('pause',pause);
   return ()=>{closing=true;a.removeEventListener('pause',pause);a.pause();URL.revokeObjectURL(a.src);a.removeAttribute('src');a.load();element.current=null;for(const action of actions){try{session.setActionHandler(action,null);}catch{/* unsupported */}}session.metadata=null;session.playbackState='none';};
  },[options.enabled,arm]);

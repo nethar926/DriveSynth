@@ -1,6 +1,8 @@
+import {LiveSoundGraph} from './LiveSoundGraph';
+import {EngineSetup} from './EngineSetup';
 import {SoundCharacter} from './SoundCharacter';
 import { useState } from "react";
-import { Link } from "react-router-dom";
+
 import type { EnginePatch } from "../audio";
 import type { RevForgeVoiceConfig } from "./voiceTypes";
 import architectures from "./architectures.json";
@@ -8,8 +10,8 @@ import { sceneForId, scenePatch } from "./catalog";
 
 const controls: [keyof RevForgeVoiceConfig, string, number, number, number][] =
   [
-    ["idleRpm", "Idle RPM", 400, 2000, 25],
-    ["redline", "Redline", 4000, 18000, 100],
+    ["idleRpm", "Idle RPM", 400, 2000, 5],
+
     ["rumble", "Rumble", 0, 1, 0.01],
     ["growl", "Growl", 0, 1, 0.01],
     ["metallic", "Metallic", 0, 1, 0.01],
@@ -22,9 +24,9 @@ const controls: [keyof RevForgeVoiceConfig, string, number, number, number][] =
     ["blowoff", "Blow-off", 0, 1, 0.01],
     ["crackle", "Crackle", 0, 1, 0.01],
     ["distortion", "Drive / grit", 0, 1, 0.01],
-    ["gears", "Gears", 1, 8, 1],
-    ["shiftRpm", "Shift RPM", 2500, 17000, 100],
-    ["finalDrive", "Final drive", 2, 6, 0.05],
+
+
+    ["finalDrive", "Final drive", 2, 6, 0.01],
   ];
 export function NativeStudio({
   patch,
@@ -39,14 +41,7 @@ export function NativeStudio({
   const [message, setMessage] = useState("");
   if (!patch.revforge)
     return (
-      <div className="forge-tune"><SoundCharacter patch={patch} onChange={onChange}/><button onClick={()=>onSave({...patch,id:`user-${crypto.randomUUID()}`,name:`${patch.name} custom`})}>Save custom voice</button>
-        <p>
-          This is a DriveSynth voice. Its full node editor is available in the
-          signal builder.
-        </p>
-        <Link className="forge-studio-link" to="/sound-builder">
-          Open signal builder →
-        </Link>
+      <div className="forge-tune"><EngineSetup patch={patch} onChange={onChange}/><SoundCharacter patch={patch} onChange={onChange}/><LiveSoundGraph patch={patch} onChange={onChange}/><button onClick={()=>onSave({...patch,id:`user-${crypto.randomUUID()}`,name:`${patch.name} custom`})}>Save custom voice</button>
       </div>
     );
   const voice = patch.revforge;
@@ -58,7 +53,7 @@ export function NativeStudio({
       ...patch,
       kind: converted.kind,
       topology: converted.topology,
-      params: {...converted.params,jetSimulation:patch.params.jetSimulation,tieSignature:patch.params.tieSignature},
+      params: {...patch.params,...converted.params},
       revforge: engine,
     });
     setMessage("");
@@ -97,7 +92,7 @@ export function NativeStudio({
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   };
   return (
-    <div className="forge-native-studio"><SoundCharacter patch={patch} onChange={onChange}/>
+    <div className="forge-native-studio"><EngineSetup patch={patch} onChange={onChange}/><SoundCharacter patch={patch} onChange={onChange}/><LiveSoundGraph patch={patch} onChange={onChange}/>
       <p className="forge-studio-description">
         RevForge synthesis. Shape the voice live, then save a personal preset.
       </p>
@@ -162,9 +157,7 @@ export function NativeStudio({
           {message}
         </p>
       )}
-      <Link to="/sound-builder" className="forge-builder-link">
-        Advanced signal builder ↗
-      </Link>
+
     </div>
   );
 }

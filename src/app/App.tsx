@@ -30,9 +30,9 @@ export default function App() {
     if (!eng) return;
     // Mute via output node so patch masterGain stays intact
     const out = eng.output;
-    // When running and unmuted, leave gain to EngineSynth.start(); only force 0 when muted.
+    // Engines gate their own running bus; keep the shared volume bus open for shutdown tails.
     const target =
-      prefs.masterMuted || !audio.running
+      prefs.masterMuted
         ? 0
         : Math.max(0, Math.min(1, prefs.masterVolume ?? 0.65));
     const now = eng.context.currentTime;
@@ -98,7 +98,7 @@ export default function App() {
           }
         />
       ))}
-      <Route path="/builder" element={<ExperienceBuilder themes={themes} audio={audio} userPatches={userPatches} onSelect={onSelectEngine} onLoadCombination={(skinId,patch)=>{themes.selectSkin(skinId);onSavePatch(patch);}}/>}/>
+      <Route path="/builder" element={<ExperienceBuilder themes={themes} audio={audio} userPatches={userPatches} onSelect={onSelectEngine} onLoadCombination={(skinId,patch,atmosphereId)=>{themes.selectSkin(skinId);if(atmosphereId)themes.selectAtmosphere(atmosphereId);onSavePatch(patch);}}/>}/>
       <Route
         element={
           <AppShell

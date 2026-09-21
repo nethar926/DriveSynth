@@ -54,6 +54,7 @@ export function useDriveSimulation(
         });
         const state = simulation.current;
         if (state.gear > previousGear) audio.triggerUiCue("upshift");
+        if (state.gear < previousGear) audio.triggerUiCue("downshift");
         const throttle = source === "gps" ? state.load : pedal;
         audio.setDriving({
           speed: clamp(state.speedMps / 53.6448, 0, 1),

@@ -1,5 +1,6 @@
 export type VehicleMediaAction = 'play'|'pause'|'nexttrack'|'previoustrack';
-export function mediaCommand(action:VehicleMediaAction, running:boolean, manual:boolean, pauseShifts:boolean):'start'|'stop'|'up'|'down'|'none' {
+export function mediaCommand(action:VehicleMediaAction, running:boolean, manual:boolean, pauseShifts:boolean, blasters=false):'start'|'stop'|'up'|'down'|'blaster'|'none' {
+ if(running&&blasters&&(action==='play'||action==='pause'))return 'blaster';
  if(action==='play') return running?'none':'start';
  if(!running) return 'none';
  if(action==='pause') return manual&&pauseShifts?'up':'stop';
