@@ -27,8 +27,6 @@ export const THEMES: ThemePreset[] = [
   skin('f35','RF Glasswing','Cockpit','Jet','jet','#9ee6df','#dbecf3','A panoramic glass panel with three live instrument windows.','Panoramic instrumentation'),
   skin('f14','RF Swingwing','Cockpit','Jet','analog','#97e6b0','#efa85e','Round engine instruments, green phosphor and a sweep display.','Original jet HUD + radar sweep'),
   skin('sr71','RF Nightglass','Cockpit','Jet','jet','#efab67','#d8dcc4','Amber edge lighting, dense engine tapes and a narrow center horizon.','Thermal-style load tapes'),
-  skin('tie','RF Hexcell','Cockpit','SciFi','space','#75e6a0','#ff7963','A hexagonal viewport and twin reactor meters surrounding the speed core.','Twin reactor meters'),
-  skin('xwing','RF Crosswing','Cockpit','SciFi','space','#ffa76e','#79d4ee','Cross-braced viewport, targeting brackets and warm flight instruments.','Targeting bracket animation'),
   skin('nostromo','RF Cargo Terminal','Cockpit','SciFi','digital','#a5db92','#dad3a0','Industrial green terminal blocks, diagnostic grids and scanlines.','Terminal scanlines'),
   skin('oblivion','RF White Spire','Cockpit','SciFi','arc','#d1f4fc','#fc8c6b','A clean white circular interface with orange engine-load accents.','Reactive circular interface'),
   skin('starfox','RF Blue Comet','Cockpit','SciFi','space','#70d9ff','#96f3ad','Angular blue viewport, luminous wing outlines and a boost meter.','Boost visualization'),
@@ -36,9 +34,18 @@ export const THEMES: ThemePreset[] = [
 ];
 const roads = [
  ['light-grid','RF Light Grid','#4ef3ff','Night'],
- ['road-66','RF Copper Mile','#eda75d','Desert'],['apex-v8','RF Apex Dusk','#ec665d','Track'],['neon-drive','RF Violet Grid','#d286fa','Night'],['italia','RF Azure Bend','#efbe81','Coast'],['miami','RF Pink Current','#fa93c6','Night'],['autobahn','RF Silver Run','#8ecad9','Road'],['plaid','RF Lightline','#85d8ed','Road'],['dune-runner','RF Sandwake','#f0b569','Desert'],['alpine','RF Frostpass','#b8e4e9','Mountain'],['starliner','RF Deep Transit','#a3a2fb','Space'],['sakura-gtr','RF Blossom Run','#f0aeca','Coast'],['tie-fighter','RF Trenchlight','#86dfb1','Space'],
+ ['road-66','RF Copper Mile','#eda75d','Desert'],['apex-v8','RF Apex Dusk','#ec665d','Track'],['neon-drive','RF Violet Grid','#d286fa','Night'],['italia','RF Azure Bend','#efbe81','Coast'],['miami','RF Pink Current','#fa93c6','Night'],['autobahn','RF Silver Run','#8ecad9','Road'],['plaid','RF Lightline','#85d8ed','Road'],['dune-runner','RF Sandwake','#f0b569','Desert'],['alpine','RF Frostpass','#b8e4e9','Mountain'],['starliner','RF Deep Transit','#a3a2fb','Space'],['sakura-gtr','RF Blossom Run','#f0aeca','Coast'],['trenchlight','RF Trenchlight','#86dfb1','Space'],
 ];
 for(const [id,name,accent,group] of roads) THEMES.push({...skin(`road-${id}`,name,'RoadView',group,'road',accent,'#9caac3','Procedural RevForge environment with speed-linked motion and atmospheric effects.','Reactive road atmosphere'),sceneId:id});
 export const FAMILIES: ThemeFamily[] = ['Minimal','Gauge Cluster','Cockpit','RoadView'];
 export const DEFAULT_THEME = 'road-road-66';
-export const themeForId = (id: string) => THEMES.find(t=>t.id===id) ?? THEMES.find(t=>t.id===DEFAULT_THEME)!;
+/** Legacy Tie/X-wing-named Theme Lab ids → Galactic Enforcer / Trenchlight. */
+export const RETIRED_THEME_IDS: Record<string, string> = {
+  tie: 'galactic-enforcer',
+  xwing: 'galactic-enforcer',
+  'road-tie-fighter': 'road-trenchlight',
+};
+export const themeForId = (id: string) => {
+  const resolved = RETIRED_THEME_IDS[id] ?? id;
+  return THEMES.find(t=>t.id===resolved) ?? THEMES.find(t=>t.id===DEFAULT_THEME)!;
+};

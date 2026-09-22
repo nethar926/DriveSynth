@@ -10,14 +10,14 @@ export type TopologyId =
   | 'ev-inverter-climb'
   | 'ev-regen-howl'
   | 'ev-dual-motor'
-  | 'tie-fighter'
+  | 'ion-twin'
   | 'aerospace-f14'
   | 'custom';
 
 /** Pack / builder categories. Old kinds map 1:1 (ice, ev-whine, scifi); aerospace is new. */
 export type EngineKind = 'ice' | 'ev-whine' | 'aerospace' | 'scifi';
 
-/** Ion Twin / tie-fighter targeting ladder (rpmNorm + hysteresis). */
+/** Ion Twin targeting ladder (rpmNorm + hysteresis). */
 export type LockStage = 'none' | 'identified' | 'lock' | 'kill';
 
 export type IceMode = 'worklet' | 'osc' | 'n/a';

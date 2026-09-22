@@ -6,7 +6,7 @@
 
 ## Goal
 
-Expose **separate tunable layer configs** that Frontend / Pro Builder can enable, gain-mix, and combine. Default pack = continuous roar (current TIE feel). Still driven by `setDriving({ speed, throttle })`.
+Expose **separate tunable layer configs** that Frontend / Pro Builder can enable, gain-mix, and combine. Default pack = continuous roar (Twin Ion / `ion-twin`). Still driven by `setDriving({ speed, throttle })`.
 
 ## Layer ids
 
@@ -46,4 +46,4 @@ Enable params are `0` or `1` (≥0.5 = on). Mix params are `0..1`.
 - `src/audio/EngineSynthImpl.ts` — scream bus + enable gates
 - `src/audio/builtins.ts` — `TIE_DEFAULTS` / `TIE_FULL_STACK` + param meta
 - `src/audio/ionTwinLayers.ts` — combine helpers
-- `public/snippets/ion-twin-tie-fighter.wav` — regenerated procedural preview only
+- `public/snippets/ion-twin.wav` — regenerated procedural preview only
