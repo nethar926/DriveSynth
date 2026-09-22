@@ -58,21 +58,38 @@ export const EV_DEFAULTS: EngineParams = {
 };
 
 export const TIE_DEFAULTS: EngineParams = {
-  masterGain: 0.74,
-  stereoWidth: 0.7,
+  masterGain: 0.72,
+  stereoWidth: 0.28,
   limiterCeiling: 0.95,
-  corePitch: 105,
-  pulseRate: 0.42,
-  resonance: 0.72,
-  noiseBody: 0.36,
-  carrierBite: 0.26,
-  doppler: 0.58,
-  engineHowl: 0.82,
-  afterburn: 0.58,
-  hum: 0.32,
-  formantHowl: 0.9,
-  wetHiss: 0.88,
-  formantSpread: 0.68,
+  // Twin motor bed ~50–70 Hz pole (ref-B DNA) — always-on continuous drive bed
+  corePitch: 62,
+  pulseRate: 0.36,
+  motorDetune: 0.55,
+  motorMix: 0.58,
+  resonance: 0.62,
+  formantQ: 0.62,
+  noiseBody: 0.62,
+  body: 0.5,
+  carrierBite: 0.44,
+  // Dry-leaning wet/dry + subtle twin width
+  doppler: 0.2,
+  wetDry: 0.2,
+  stereoTwin: 0.35,
+  spoolLag: 0.58,
+  engineHowl: 0.9,
+  formantHowl: 0.92,
+  formantSpread: 0.52,
+  formantShift: 0.5,
+  // Shallow slow phrase AM — breathe the bellow, never gate/chop the scream
+  phraseRate: 0.28,
+  phraseDepth: 0.18,
+  grit: 0.42,
+  wetHiss: 0.78,
+  air: 0.78,
+  afterburn: 0.3,
+  ionSpark: 0.3,
+  hum: 0.42,
+  ionHum: 0.42,
 };
 
 export const F14_DEFAULTS: EngineParams = {
