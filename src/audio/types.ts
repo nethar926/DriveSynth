@@ -261,9 +261,6 @@ export interface SynthNodeDesc {
 
 export interface SoundLayer {id:string;name:string;patch:EnginePatch;level:number;pitch:number;pan:number;depth?:number;cutoff:number;response:"load"|"rpm"|"steady";muted:boolean;solo:boolean;}
 export interface EnginePatch {
-  layers?:SoundLayer[];
-  /** Native RevForge parameters; persisted with custom presets. */
-  revforge?: RevForgeVoiceConfig;
   version: 0;
   id: EngineId;
   name: string;
@@ -271,10 +268,10 @@ export interface EnginePatch {
   topology: TopologyId;
   params: Record<string, number | string>;
   graph?: SynthNodeDesc[];
-  /** Optional stackable layers (Ion Twin configs, Sound Lab, etc.) */
+  /** Optional stackable layers (Sound Lab / character stacks) */
   layers?: SoundLayer[];
-  /** Original RevForge scene row (catalog); sakura left as legacy-only. */
-  revforge?: Record<string, unknown>;
+  /** Native RevForge parameters; persisted with custom presets. */
+  revforge?: RevForgeVoiceConfig;
   meta?: { author?: string; createdAt?: string; tags?: string[]; blurb?: string };
 }
 

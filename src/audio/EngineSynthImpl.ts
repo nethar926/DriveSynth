@@ -377,7 +377,7 @@ export class EngineSynthImpl implements EngineSynth {
       topology: this.patchMeta.topology,
       params: { ...this.params } as Record<string, number | string>,
       graph: this.customGraph ? [...this.customGraph] : undefined,
-      layers: this.patchMeta.layers ? this.patchMeta.layers.map((l) => ({ ...l, params: l.params ? { ...l.params } : undefined })) : undefined,
+      layers: this.patchMeta.layers ? this.patchMeta.layers.map((l) => ({ ...l })) : undefined,
       meta: {
         ...this.patchMeta.meta,
         createdAt: new Date().toISOString(),
