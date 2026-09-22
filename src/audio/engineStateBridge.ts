@@ -200,18 +200,6 @@ export const ICE_PACK_SCHEDULES: Record<string, IcePackSchedule> = {
     pulseJitterFrac: 0.01,
     misfireDefault: 0.02,
   },
-  lofi: {
-    cylinders: 6,
-    firingFamily: 3,
-    bankSchedule: 'i6Even',
-    eventAnglesDeg: [...I6_EVEN],
-    bankOffsetDeg: 0,
-    collectorDelayMs: 0.6,
-    tauManifold: 0.18,
-    tauExhaust: 0.3,
-    pulseJitterFrac: 0.006,
-    misfireDefault: 0,
-  },
   'dune-runner': {
     cylinders: 8,
     firingFamily: 1,

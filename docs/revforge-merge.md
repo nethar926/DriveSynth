@@ -14,14 +14,14 @@ The public bundle supplied the 13 preset definitions, 11 architecture templates,
 ## Combined behavior
 
 - `/drive`: new responsive dashboard, animated environments, 13 RevForge presets, nine DriveSynth alternatives, manual/automatic transmission, neutral, brake and throttle.
-- Native RevForge studio: architecture selection, turbo, blow-off, crackle, grit, engine character, transmission settings, optional lo-fi layer, save/export of custom voices.
+- Native RevForge studio: architecture selection, turbo, blow-off, crackle, grit, engine character, transmission settings, save/export of custom voices.
 - `/builder`: existing DriveSynth signal editor, including an adapter for native voice parameter editing. The existing graph editor maps node parameters onto synthesis controls; arbitrary signal routing is not added by this merge.
 - `/cockpit`: original DriveSynth cockpit view, including TIE and F-14 themes. This remains the legacy drive UI; its indicated manual gear is not connected to the new `/drive` drivetrain.
 - Existing engine library, customization, diagnostics and saved user patches are retained. Native presets include a `revforge` object so saving and reloading preserves their synthesis backend.
 
 ### Audio preservation and changes
 
-The oscillator waveforms, harmonics, pink/white/brown noise layers, filters, compression, shift ducking, overrun crackle, blow-off and procedural lo-fi music algorithms come from RevForge. Preset sound parameters are carried over directly, rather than approximated with DriveSynth's worklet engine.
+The oscillator waveforms, harmonics, pink/white/brown noise layers, filters, compression, shift ducking, overrun crackle, blow-off come from RevForge. Preset sound parameters are carried over directly, rather than approximated with DriveSynth's worklet engine.
 
 The adapter shares the application's AudioContext and mute/volume output. It uses one destination path; the published app connected both directly to the destination and through a media element. Loudness can therefore differ at the same numeric volume setting. Graph nodes and timers are explicitly disposed when changing audio backends. A WaveShaper replacement fallback preserves the requested distortion curve in strict runtimes that reject repeated curve assignments. See https://webaudio.github.io/web-audio-api/#dom-waveshapernode-curve and https://github.com/WebAudio/web-audio-api/issues/2655.
 

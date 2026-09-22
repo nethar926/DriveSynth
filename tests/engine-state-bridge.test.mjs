@@ -42,7 +42,6 @@ const SCHED_FAM = {
   italia: 2,
   miami: 1,
   autobahn: 2,
-  lofi: 3,
   'dune-runner': 1,
   alpine: 3,
   'rotary-hum': 4,

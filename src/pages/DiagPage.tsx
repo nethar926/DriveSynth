@@ -15,6 +15,8 @@ interface Snapshot {
   geoStatus: string;
   geoAccuracy: string;
   geoFixAge: string;
+  geoMph: string;
+  geoEstimated: string;
   acState: string;
   sampleRate: string;
   baseLatency: string;
@@ -47,6 +49,8 @@ function readSnapshot(audio: Props['audio'], gps: Props['gps']): Snapshot {
     geoStatus: gps.status,
     geoAccuracy: gps.accuracy != null ? `±${Math.round(gps.accuracy)} m` : '—',
     geoFixAge,
+    geoMph: Number.isFinite(gps.mph) ? `${gps.mph.toFixed(1)} mph` : '—',
+    geoEstimated: gps.estimated ? 'haversine' : gps.status === 'live' ? 'coords' : '—',
     acState: diag.contextState || ctx?.state || 'not started',
     sampleRate: ctx ? `${ctx.sampleRate} Hz` : '—',
     baseLatency,
@@ -79,6 +83,8 @@ export function DiagPage({ audio, gps }: Props) {
     { label: 'Geo status', value: snap.geoStatus },
     { label: 'Geo accuracy', value: snap.geoAccuracy },
     { label: 'Geo fix age', value: snap.geoFixAge },
+    { label: 'Geo mph', value: snap.geoMph },
+    { label: 'Geo speed source', value: snap.geoEstimated },
     { label: 'AudioContext.state', value: snap.acState },
     { label: 'sampleRate', value: snap.sampleRate },
     { label: 'baseLatency', value: snap.baseLatency },

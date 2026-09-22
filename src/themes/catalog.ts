@@ -36,7 +36,7 @@ export const THEMES: ThemePreset[] = [
 ];
 const roads = [
  ['light-grid','RF Light Grid','#4ef3ff','Night'],
- ['road-66','RF Copper Mile','#eda75d','Desert'],['apex-v8','RF Apex Dusk','#ec665d','Track'],['neon-drive','RF Violet Grid','#d286fa','Night'],['italia','RF Azure Bend','#efbe81','Coast'],['miami','RF Pink Current','#fa93c6','Night'],['autobahn','RF Silver Run','#8ecad9','Road'],['lofi','RF Rainroom','#b6a4e9','Rain'],['plaid','RF Lightline','#85d8ed','Road'],['dune-runner','RF Sandwake','#f0b569','Desert'],['alpine','RF Frostpass','#b8e4e9','Mountain'],['starliner','RF Deep Transit','#a3a2fb','Space'],['sakura-gtr','RF Blossom Run','#f0aeca','Coast'],['tie-fighter','RF Trenchlight','#86dfb1','Space'],
+ ['road-66','RF Copper Mile','#eda75d','Desert'],['apex-v8','RF Apex Dusk','#ec665d','Track'],['neon-drive','RF Violet Grid','#d286fa','Night'],['italia','RF Azure Bend','#efbe81','Coast'],['miami','RF Pink Current','#fa93c6','Night'],['autobahn','RF Silver Run','#8ecad9','Road'],['plaid','RF Lightline','#85d8ed','Road'],['dune-runner','RF Sandwake','#f0b569','Desert'],['alpine','RF Frostpass','#b8e4e9','Mountain'],['starliner','RF Deep Transit','#a3a2fb','Space'],['sakura-gtr','RF Blossom Run','#f0aeca','Coast'],['tie-fighter','RF Trenchlight','#86dfb1','Space'],
 ];
 for(const [id,name,accent,group] of roads) THEMES.push({...skin(`road-${id}`,name,'RoadView',group,'road',accent,'#9caac3','Procedural RevForge environment with speed-linked motion and atmospheric effects.','Reactive road atmosphere'),sceneId:id});
 export const FAMILIES: ThemeFamily[] = ['Minimal','Gauge Cluster','Cockpit','RoadView'];

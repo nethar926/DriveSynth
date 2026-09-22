@@ -2,6 +2,7 @@ import {idleWander} from './flightProfile';
 import { useEffect, useRef, useState } from "react";
 import type { useAudioEngine } from "../hooks/useAudioEngine";
 import type { useGeolocation } from "../hooks/useGeolocation";
+import { mphToSpeed } from "../audio";
 import { createSimulation, stepSimulation, clamp } from "./simulation";
 import type { Drivetrain, Controls } from "./simulation";
 
@@ -39,10 +40,8 @@ export function useDriveSimulation(
       const dt = Math.min(document.visibilityState === "hidden" ? .25 : .05, Math.max(0, (now - previous) / 1000));
       previous = now;
       if (audio.running || source === "gps") {
-        const fresh =
-          gps.status === "live" &&
-          gps.timestamp !== null &&
-          Date.now() - gps.timestamp < 10000;
+        // Status encodes wall-callback staleness from useGeolocation (not pos.timestamp).
+        const fresh = gps.status === "live";
         const previousGear = simulation.current.gear;
         stepSimulation(simulation.current, config, dt, {
           source,
@@ -57,7 +56,7 @@ export function useDriveSimulation(
         if (state.gear < previousGear) audio.triggerUiCue("downshift");
         const throttle = source === "gps" ? state.load : pedal;
         if (audio.running) audio.setDriving({
-          speed: clamp(state.speedMps / 53.6448, 0, 1),
+          speed: mphToSpeed(state.speedMps * 2.2369362920544),
           throttle: state.shifting ? throttle * 0.3 : throttle,
           load: state.load,
           rpm: state.rpm + idleWander(now/1000,state.rpm,config.idleRpm,throttle,jitter),

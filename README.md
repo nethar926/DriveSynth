@@ -2,7 +2,7 @@
 
 The default drive dashboard now combines **RevForge’s native synthesis and 13 animated scenes** with DriveSynth’s engine library, builder and cockpit themes. RevForge voices retain their original sound algorithms; nine DriveSynth voices remain available in the Garage.
 
-Start in **Demo**, tap **Start engine**, and raise Throttle. Choose **Manual** to shift (↑ / ↓), **N** to free-rev, hold **Space** to accelerate, or hold **B** to brake. Open settings and turn **Demo mode** off to grant browser location access. DEMO appears beneath the speedometer whenever simulation is selected. The native **Synth studio** edits and saves RevForge voices, including turbo, crackle, blow-off and the lo-fi layer.
+Start in **Demo**, tap **Start engine**, and raise Throttle. Choose **Manual** to shift (↑ / ↓), **N** to free-rev, hold **Space** to accelerate, or hold **B** to brake. Open settings and turn **Demo mode** off to grant browser location access. DEMO appears beneath the speedometer whenever simulation is selected. The native **Synth studio** edits and saves RevForge voices, including turbo, crackle, blow-off.
 
 Use Node 24. Run `npm ci`, `npm test`, `npm run dev`, and `npm run build`. The production build and 30 audio/drivetrain/media-action/flight-envelope tests pass. **Tesla hardware validation is still pending.** See [merge notes](docs/revforge-merge.md) for provenance, behavior and review details. The original cockpit is retained at `#/cockpit`; its manual gear display is legacy behavior. New physical gearing is on `#/drive`.
 

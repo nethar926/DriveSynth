@@ -2225,7 +2225,8 @@ export class EngineSynthImpl implements EngineSynth {
     if (g.iceMode === 'worklet' && g.pulseNode) {
       // Hysteresis on throttle/load; bridge owns manifold/exhaust lags + firingMask.
       // At true idle, band already carries living jitter — clamp to idleRpmMax ceiling.
-      let rpmOut = rpm * (1 + this.liveJit.pitch * 0.012);
+      const baseRpm = d.rpm != null && Number.isFinite(d.rpm) ? d.rpm : rpm;
+      let rpmOut = baseRpm * (1 + this.liveJit.pitch * 0.012);
       if (gate > 0.5) {
         rpmOut = Math.min(band.rpmMax, Math.max(band.rpmMin * 0.98, rpmOut));
       }
