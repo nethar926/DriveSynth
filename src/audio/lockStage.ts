@@ -1,4 +1,4 @@
-/** Ion Twin / tie-fighter rpmNorm lock ladder (~4% hysteresis). */
+/** Ion Twin rpmNorm lock ladder (~4% hysteresis). */
 
 import type { LockStage } from './types';
 
@@ -47,14 +47,14 @@ export function nextLockStage(
   return STAGE_ORDER[idx]!;
 }
 
-/** True for packs that use the Ion Twin lock ladder (scifi / tie-fighter). */
+/** True for packs that use the Ion Twin lock ladder (scifi / ion-twin). */
 export function packSupportsLockLadder(
   kind: string,
   topology?: string,
   id?: string,
 ): boolean {
   if (kind === 'scifi') return true;
-  if (topology === 'tie-fighter') return true;
-  if (id === 'tie-fighter') return true;
+  if (topology === 'ion-twin' || topology === 'tie-fighter') return true;
+  if (id === 'ion-twin' || id === 'tie-fighter') return true;
   return false;
 }

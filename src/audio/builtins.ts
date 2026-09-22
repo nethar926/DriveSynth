@@ -398,10 +398,10 @@ export const BUILTIN_PATCHES: EnginePatch[] = [
   },
   {
     version: 0,
-    id: 'tie-fighter',
-    name: 'Ion Twin',
+    id: 'ion-twin',
+    name: 'Twin Ion',
     kind: 'scifi',
-    topology: 'tie-fighter',
+    topology: 'ion-twin',
     params: { ...TIE_DEFAULTS } as Record<string, number | string>,
     ionLayers: [
       { id: 'motorBed', name: 'Motor Bed', enabled: true, gain: 0.58 },
@@ -413,7 +413,7 @@ export const BUILTIN_PATCHES: EnginePatch[] = [
     ],
     meta: {
       blurb:
-        'Ion Twin procedural layers (combinable): motorBed + formantHowl + screamBurst + surge + airSwoosh + grit. Continuous roar default; enable/mix each config. Original synthesis only — no samples.',
+        'Twin Ion procedural layers (combinable): motorBed + formantHowl + screamBurst + surge + airSwoosh + grit. Continuous roar default; enable/mix each config. Original synthesis only — no samples.',
       tags: ['scifi', 'ion', 'formant', 'layers', 'free'],
       author: 'DriveSynth',
     },
@@ -437,7 +437,8 @@ export function defaultsForTopology(topology: string): EngineParams {
       return { ...EV_REGEN_DEFAULTS };
     case 'ev-dual-motor':
       return { ...EV_DUAL_DEFAULTS };
-    case 'tie-fighter':
+    case 'ion-twin':
+    case 'tie-fighter': // legacy topology id
       return { ...TIE_DEFAULTS };
     case 'aerospace-f14':
       return { ...F14_DEFAULTS };
@@ -469,7 +470,7 @@ export function defaultPatchIdForKind(kind: EngineKind): string {
     case 'aerospace':
       return 'aerospace-f14';
     case 'scifi':
-      return 'tie-fighter';
+      return 'ion-twin';
     case 'ice':
     default:
       return 'v8-rumble';
@@ -604,8 +605,37 @@ export function paramMetaForKind(kind: EnginePatch['kind']): ParamMeta[] {
   ];
 }
 
+/** Legacy pack / revforge scene ids → canonical after Tie→Ion Twin rename. */
+export const LEGACY_PACK_IDS: Record<string, string> = {
+  'tie-fighter': 'ion-twin',
+  'revforge-tie-fighter': 'revforge-trenchlight',
+};
+
+export function resolveLegacyPackId(id: string): string {
+  return LEGACY_PACK_IDS[id] ?? id;
+}
+
+/** Normalize topology on loaded patches (prefs / localStorage / deep links). */
+export function resolveLegacyTopology(topology: string): string {
+  return topology === 'tie-fighter' ? 'ion-twin' : topology;
+}
+
+/** Migrate saved/user EnginePatch ids + topology off retired tie-fighter. */
+export function migrateEnginePatch(patch: EnginePatch): EnginePatch {
+  const id = resolveLegacyPackId(patch.id);
+  const topology = resolveLegacyTopology(String(patch.topology)) as EnginePatch['topology'];
+  if (id === patch.id && topology === patch.topology) return patch;
+  const name =
+    id === 'ion-twin' &&
+    (patch.id === 'tie-fighter' || /tie\s*fighter/i.test(patch.name) || patch.name === 'Ion Twin')
+      ? 'Twin Ion'
+      : patch.name;
+  return { ...patch, id, topology, name };
+}
+
 export function getBuiltin(id: string): EnginePatch | undefined {
-  return BUILTIN_PATCHES.find((p) => p.id === id);
+  const resolved = resolveLegacyPackId(id);
+  return BUILTIN_PATCHES.find((p) => p.id === resolved);
 }
 
 /** Param metas for builder graph node types */

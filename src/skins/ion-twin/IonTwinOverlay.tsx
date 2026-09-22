@@ -59,7 +59,7 @@ function tickLength(deg: number): { inner: number; outer: number } {
 /**
  * Original twin-ion interceptor silhouette (top-down wireframe).
  * Central angular fuselage + twin side ion nacelles on swept pylons —
- * NOT an X-wing / SW craft.
+ * Original art only — not based on any third-party craft IP.
  */
 function TwinIonCraft({
   color,
@@ -121,7 +121,7 @@ function TwinIonCraft({
       <path d="M202 136 L212 136 M202 160 L212 160 M207 128 L207 172" strokeWidth="0.9" opacity="0.8" />
       <path d="M200 168 L207 178 L214 168" strokeWidth="1.3" />
 
-      {/* Nacelle fin spines (vertical, not X-wing foils) */}
+      {/* Nacelle fin spines (vertical) */}
       <path d="M113 124 L113 116 M113 116 L108 120 M113 116 L118 120" strokeWidth="1.2" />
       <path d="M207 124 L207 116 M207 116 L202 120 M207 116 L212 120" strokeWidth="1.2" />
 

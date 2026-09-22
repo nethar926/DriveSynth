@@ -16,7 +16,7 @@ The public bundle supplied the 13 preset definitions, 11 architecture templates,
 - `/drive`: new responsive dashboard, animated environments, 13 RevForge presets, nine DriveSynth alternatives, manual/automatic transmission, neutral, brake and throttle.
 - Native RevForge studio: architecture selection, turbo, blow-off, crackle, grit, engine character, transmission settings, save/export of custom voices.
 - `/builder`: existing DriveSynth signal editor, including an adapter for native voice parameter editing. The existing graph editor maps node parameters onto synthesis controls; arbitrary signal routing is not added by this merge.
-- `/cockpit`: original DriveSynth cockpit view, including TIE and F-14 themes. This remains the legacy drive UI; its indicated manual gear is not connected to the new `/drive` drivetrain.
+- `/cockpit`: original DriveSynth cockpit view, including Ion Twin / Galactic Enforcer and F-14 themes. This remains the legacy drive UI; its indicated manual gear is not connected to the new `/drive` drivetrain.
 - Existing engine library, customization, diagnostics and saved user patches are retained. Native presets include a `revforge` object so saving and reloading preserves their synthesis backend.
 
 ### Audio preservation and changes
@@ -46,7 +46,7 @@ Host this branch's `dist/` on an isolated HTTPS preview. Verify phone and Tesla 
 
 ## Flight Lab 03 update
 
-RevForge is now the visible app name and the default UI. Repository URLs and local storage identifiers stay stable to preserve saved presets. Forty independently selectable themes span Minimal, Gauge Cluster, Cockpit and all thirteen RoadView scenes. Builder stores complete skin/sound combinations. The F-14 theme imports the original DriveSynth jet HUD. FT Aurebesh numbers and Engli-Besh labels ship locally for Ion Interceptor and Red Squadron.
+RevForge is now the visible app name and the default UI. Repository URLs and local storage identifiers stay stable to preserve saved presets. Forty independently selectable themes span Minimal, Gauge Cluster, Cockpit and all thirteen RoadView scenes. Builder stores complete skin/sound combinations. The F-14 theme imports the original DriveSynth jet HUD. FT Aurebesh numbers and Engli-Besh labels ship locally for Galactic Enforcer and Twin Ion.
 
 Demo is a settings toggle with DEMO under the speedometer. Idle jitter adds bounded RPM wander with an independent toggle and intensity slider. Jet Simulation switches thrust and afterburner layers; onset is 300 RPM above idle and afterburner requires high throttle and RPM. Twin-Ion signature is enabled by default and has an independent per-sound switch. Both native RevForge and retained DriveSynth flight voices have controls. Sound options persist in saved custom voices and combinations.
 

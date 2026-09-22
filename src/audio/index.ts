@@ -17,12 +17,16 @@ export type {
 } from './types';
 export {
   BUILTIN_PATCHES,
+  LEGACY_PACK_IDS,
   defaultPatchIdForKind,
   defaultsForKind,
   defaultsForTopology,
   getBuiltin,
   paramMetaForKind,
   paramMetaForNodeType,
+  resolveLegacyPackId,
+  resolveLegacyTopology,
+  migrateEnginePatch,
 } from './builtins';
 export { createEngineSynth, EngineSynthImpl } from './EngineSynthImpl';
 export { nextLockStage, packSupportsLockLadder } from './lockStage';

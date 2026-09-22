@@ -462,9 +462,9 @@
     }
   },
   {
-    "id": "tie-fighter",
-    "name": "TIE Fighter",
-    "tagline": "Twin ion scream. Trench run.",
+    "id": "trenchlight",
+    "name": "Ion Run",
+    "tagline": "Twin-ion scream. Trenchlight corridor.",
     "custom": false,
     "scene": "trench",
     "palette": {

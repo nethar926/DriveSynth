@@ -16,8 +16,8 @@ export function useThemes() {
   const setColor=(id:string,key:string,value:string)=>{if(/^#[0-9a-f]{6}$/i.test(value))saveColors({...colors,[id]:{...colors[id],[key]:value}});};
   const resetColors=(id:string)=>{const next={...colors};delete next[id];saveColors(next);};
 
-  const [skinId,setSkin] = useState(()=>{try{return themeForId(localStorage.getItem(THEME_KEY) ?? DEFAULT_THEME).id;}catch{return DEFAULT_THEME;}});
-  const [atmosphereId,setAtmosphere]=useState(()=>{try{return themeForId(localStorage.getItem("revforge.atmosphere")??DEFAULT_THEME).id;}catch{return DEFAULT_THEME;}});
+  const [skinId,setSkin] = useState(()=>{try{const next=themeForId(localStorage.getItem(THEME_KEY) ?? DEFAULT_THEME).id;try{localStorage.setItem(THEME_KEY,next);}catch{/* session */}return next;}catch{return DEFAULT_THEME;}});
+  const [atmosphereId,setAtmosphere]=useState(()=>{try{const next=themeForId(localStorage.getItem("revforge.atmosphere")??DEFAULT_THEME).id;try{localStorage.setItem("revforge.atmosphere",next);}catch{/* session */}return next;}catch{return DEFAULT_THEME;}});
   const selectAtmosphere=useCallback((id:string)=>{const t=themeForId(id);if(t.family!=="RoadView")return;setAtmosphere(t.id);try{localStorage.setItem("revforge.atmosphere",t.id);}catch{/* session only */}},[]);
   const [combinations,setCombinations] = useState<Combination[]>(()=>{try {const data=JSON.parse(localStorage.getItem(PAIRS_KEY)??'[]');return Array.isArray(data)?data.filter(x=>x && typeof x.id==='string' && typeof x.name==='string' && x.sound?.params && typeof x.skinId==='string'):[];}catch{return [];}});
   const [storageError,setStorageError]=useState('');

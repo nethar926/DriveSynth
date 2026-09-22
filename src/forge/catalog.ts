@@ -4,8 +4,14 @@ import type { Drivetrain } from "./simulation";
 
 export type ScenePack = (typeof packs)[number];
 export const SCENES = packs;
-export const sceneForId = (id: string) =>
-  SCENES.find((p) => p.id === id) ?? SCENES[0];
+/** Legacy RevForge scene ids retired with Tie Fighter rename. */
+const RETIRED_SCENE_IDS: Record<string, string> = {
+  'tie-fighter': 'trenchlight',
+};
+export const sceneForId = (id: string) => {
+  const resolved = RETIRED_SCENE_IDS[id] ?? id;
+  return SCENES.find((p) => p.id === resolved) ?? SCENES[0];
+};
 export function scenePatch(scene: ScenePack): EnginePatch {
   const p = scene.engine;
   const kind =
@@ -18,7 +24,7 @@ export function scenePatch(scene: ScenePack): EnginePatch {
           : "ice";
   const topology =
     kind === "scifi"
-      ? "tie-fighter"
+      ? "ion-twin"
       : kind === "aerospace"
         ? "aerospace-f14"
         : kind === "ev-whine"
