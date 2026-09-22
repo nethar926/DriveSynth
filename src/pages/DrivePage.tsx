@@ -393,21 +393,31 @@ export function DrivePage({ audio, gps, prefs, update, onEnableGps }: Props) {
 
   return (
     <div className="drive-page">
-      {!audio.running && (
-        <div className="audio-gate">
+      <div className="audio-gate">
+        {!audio.running ? (
+          <>
+            <button
+              type="button"
+              className="start-btn"
+              onClick={() => {
+                void audio.start();
+                onEnableGps();
+              }}
+            >
+              Start Engine
+            </button>
+            <p className="gate-hint">Tap to unlock audio, then drag REV or raise Speed (turn off silent mode on iPhone).</p>
+          </>
+        ) : (
           <button
             type="button"
-            className="start-btn"
-            onClick={() => {
-              void audio.start();
-              onEnableGps();
-            }}
+            className="start-btn shutdown-btn"
+            onClick={() => audio.stop()}
           >
-            Start Engine
+            Shutdown
           </button>
-          <p className="gate-hint">Tap to unlock audio, then drag REV or raise Speed (turn off silent mode on iPhone).</p>
-        </div>
-      )}
+        )}
+      </div>
 
       <div className="gps-strip">
         <GpsBadge status={gps.status} accuracy={gps.accuracy} onEnable={onEnableGps} />
@@ -423,7 +433,7 @@ export function DrivePage({ audio, gps, prefs, update, onEnableGps }: Props) {
 
       {tabBackgrounded && (
         <div className="tab-warn" role="status">
-          Tab was backgrounded — audio/GPS may have paused. Keep DriveSynth in the foreground.
+          Tab was backgrounded — audio/GPS may have paused. Keep RevForge in the foreground.
         </div>
       )}
 
@@ -487,7 +497,7 @@ export function DrivePage({ audio, gps, prefs, update, onEnableGps }: Props) {
           </div>
           <div className="speed-hero-unit">{unit}</div>
           {isIonTwin && !hintUsed && (
-            <p className="aurebesh-hint">Aurebesh SPEED · hold to cycle · Customize for Latin/dual</p>
+            <p className="aurebesh-hint">Aurebesh SPEED · hold to cycle · Interface Options for Latin/dual</p>
           )}
           {isIonTwin && (
             <button

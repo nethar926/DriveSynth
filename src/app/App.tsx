@@ -83,18 +83,8 @@ export default function App() {
           />
         }
       >
-        <Route
-          path="/"
-          element={
-            <DrivePage
-              audio={audio}
-              gps={gps}
-              prefs={prefs}
-              update={update}
-              onEnableGps={() => setGpsEnabled(true)}
-            />
-          }
-        />
+        <Route path="/" element={<Navigate to="/drive" replace />} />
+        <Route path="/cockpit" element={<Navigate to="/drive" replace />} />
         <Route
           path="/drive"
           element={

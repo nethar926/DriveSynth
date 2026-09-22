@@ -9,6 +9,15 @@ export type TelemetryDensity = 'full' | 'compact' | 'minimal';
 export type SpeedUnit = 'mph' | 'kph';
 /** Ion Twin SPEED glyph mode — aurebesh default; latin/dual for cabin glanceability. */
 export type IonTwinSpeedScript = 'aurebesh' | 'latin' | 'dual';
+/** UI font stack. Aurebesh is accents-only (brand / ion glyphs), not body. */
+export type FontFamilyId = 'system' | 'sans' | 'mono' | 'aurebesh';
+
+export interface ThemeColors {
+  bg: string;
+  text: string;
+  accent: string;
+  surface: string;
+}
 
 export interface ControlMapping {
   revPad: 'throttle';
@@ -19,6 +28,10 @@ export interface ControlMapping {
 export interface UiPrefs {
   theme: ThemeId;
   accent: string;
+  /** Full palette tokens — overrides theme CSS vars when set. */
+  colors: ThemeColors;
+  /** Body / UI font. Aurebesh only affects accent chrome via data-font. */
+  fontFamily: FontFamilyId;
   density: LayoutDensity;
   /** Legacy arc/bar/numeric — kept in sync with gaugeCluster. */
   gaugeStyle: GaugeStyle;
@@ -44,9 +57,26 @@ export interface UiPrefs {
 
 const KEY = 'drivesynth.ui.v1';
 
+export const THEME_COLOR_PRESETS: Record<ThemeId, ThemeColors> = {
+  night: { bg: '#07090d', text: '#e8eef8', accent: '#3dffb5', surface: '#10141c' },
+  day: { bg: '#f2f5fa', text: '#0c1220', accent: '#0b5fff', surface: '#ffffff' },
+  neon: { bg: '#05040a', text: '#f7e9ff', accent: '#ff3d9a', surface: '#120a18' },
+  mono: { bg: '#0a0a0a', text: '#f0f0f0', accent: '#e8ecf2', surface: '#141414' },
+};
+
+export const FONT_STACKS: Record<FontFamilyId, string> = {
+  system: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+  sans: '"Segoe UI", "Helvetica Neue", Helvetica, Arial, sans-serif',
+  mono: 'ui-monospace, "SF Mono", Menlo, Consolas, monospace',
+  /** Body stays readable Latin; Aurebesh applied to .aurebesh / brand accents via data-font. */
+  aurebesh: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+};
+
 export const DEFAULT_UI: UiPrefs = {
   theme: 'night',
   accent: '#3dffb5',
+  colors: { ...THEME_COLOR_PRESETS.night },
+  fontFamily: 'system',
   density: 'comfortable',
   gaugeStyle: 'arc',
   gaugeCluster: 'classic',
@@ -127,6 +157,28 @@ function migrateIonTwinSpeedScript(parsed: Partial<UiPrefs>): IonTwinSpeedScript
   return 'aurebesh';
 }
 
+function normalizeColors(parsed: Partial<UiPrefs>): ThemeColors {
+  const theme = (parsed.theme ?? DEFAULT_UI.theme) as ThemeId;
+  const preset = THEME_COLOR_PRESETS[theme] ?? THEME_COLOR_PRESETS.night;
+  const c = parsed.colors;
+  return {
+    bg: typeof c?.bg === 'string' ? c.bg : preset.bg,
+    text: typeof c?.text === 'string' ? c.text : preset.text,
+    accent:
+      typeof c?.accent === 'string'
+        ? c.accent
+        : typeof parsed.accent === 'string'
+          ? parsed.accent
+          : preset.accent,
+    surface: typeof c?.surface === 'string' ? c.surface : preset.surface,
+  };
+}
+
+function normalizeFont(v: unknown): FontFamilyId {
+  if (v === 'system' || v === 'sans' || v === 'mono' || v === 'aurebesh') return v;
+  return DEFAULT_UI.fontFamily;
+}
+
 function load(): UiPrefs {
   try {
     const raw = localStorage.getItem(KEY);
@@ -145,9 +197,13 @@ function load(): UiPrefs {
         : typeof parsed.upshiftBarkSfx === 'boolean'
           ? parsed.upshiftBarkSfx
           : dsUpshift;
+    const colors = normalizeColors(parsed);
     const merged: UiPrefs = {
       ...DEFAULT_UI,
       ...parsed,
+      colors,
+      accent: colors.accent,
+      fontFamily: normalizeFont(parsed.fontFamily),
       mapping: { ...DEFAULT_UI.mapping, ...parsed.mapping },
       upshiftSfx,
       ionTwinSpeedScript: migrateIonTwinSpeedScript(parsed),
@@ -169,6 +225,25 @@ function load(): UiPrefs {
   }
 }
 
+function applyCssTokens(prefs: UiPrefs) {
+  const root = document.documentElement;
+  root.dataset.theme = prefs.theme;
+  root.dataset.density = prefs.density;
+  root.dataset.telemetry = prefs.telemetryDensity;
+  root.dataset.font = prefs.fontFamily;
+
+  const { bg, text, accent, surface } = prefs.colors;
+  root.style.setProperty('--bg', bg);
+  root.style.setProperty('--text', text);
+  root.style.setProperty('--accent', accent);
+  root.style.setProperty('--surface', surface);
+  // Keep elevated surfaces in sync for existing chrome.
+  root.style.setProperty('--bg-elev', surface);
+  root.style.setProperty('--bg-card', surface);
+  root.style.setProperty('--font', FONT_STACKS[prefs.fontFamily]);
+  root.style.setProperty('--accent-dim', `color-mix(in srgb, ${accent} 35%, transparent)`);
+}
+
 export function useUiPrefs() {
   const [prefs, setPrefs] = useState<UiPrefs>(() => load());
 
@@ -180,15 +255,26 @@ export function useUiPrefs() {
     } catch {
       /* ignore */
     }
-    document.documentElement.dataset.theme = prefs.theme;
-    document.documentElement.style.setProperty('--accent', prefs.accent);
-    document.documentElement.dataset.density = prefs.density;
-    document.documentElement.dataset.telemetry = prefs.telemetryDensity;
+    applyCssTokens(prefs);
   }, [prefs]);
 
   const update = useCallback((partial: Partial<UiPrefs>) => {
     setPrefs((p) => {
       const next = { ...p, ...partial };
+      if (partial.colors) {
+        next.colors = { ...p.colors, ...partial.colors };
+        if (partial.colors.accent) next.accent = partial.colors.accent;
+      }
+      // Theme preset: refresh palette unless caller also passed colors.
+      if (partial.theme != null && partial.colors == null) {
+        const preset = THEME_COLOR_PRESETS[partial.theme];
+        next.colors = { ...preset };
+        next.accent = preset.accent;
+      }
+      // Legacy single accent field → colors.accent
+      if (partial.accent != null && partial.colors == null) {
+        next.colors = { ...next.colors, accent: partial.accent };
+      }
       if (partial.gaugeCluster != null) {
         next.gaugeStyle = clusterToGaugeStyle(partial.gaugeCluster);
       } else if (partial.gaugeStyle != null && partial.gaugeCluster == null) {
@@ -198,7 +284,7 @@ export function useUiPrefs() {
     });
   }, []);
 
-  const reset = useCallback(() => setPrefs({ ...DEFAULT_UI }), []);
+  const reset = useCallback(() => setPrefs({ ...DEFAULT_UI, colors: { ...DEFAULT_UI.colors } }), []);
 
   return { prefs, update, reset };
 }

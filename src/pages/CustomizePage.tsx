@@ -7,8 +7,10 @@ import type {
   TelemetryDensity,
   SpeedUnit,
   IonTwinSpeedScript,
+  FontFamilyId,
+  ThemeColors,
 } from '../hooks/useUiPrefs';
-import { clusterToGaugeStyle } from '../hooks/useUiPrefs';
+import { clusterToGaugeStyle, THEME_COLOR_PRESETS } from '../hooks/useUiPrefs';
 
 interface Props {
   prefs: UiPrefs;
@@ -27,8 +29,8 @@ export function CustomizePage({ prefs, update, reset }: Props) {
   return (
     <div className="page customize-page">
       <header className="page-head">
-        <h1>Customize</h1>
-        <p className="page-sub">Themes, gauge clusters, telemetry density & SFX — saved locally</p>
+        <h1>Interface Options</h1>
+        <p className="page-sub">Theme colors, fonts, gauge clusters, telemetry & SFX — saved locally</p>
       </header>
 
       <section className="panel">
@@ -39,7 +41,13 @@ export function CustomizePage({ prefs, update, reset }: Props) {
               key={t.id}
               type="button"
               className={`theme-card ${prefs.theme === t.id ? 'selected' : ''}`}
-              onClick={() => update({ theme: t.id, accent: t.accent })}
+              onClick={() =>
+                  update({
+                    theme: t.id,
+                    accent: t.accent,
+                    colors: { ...THEME_COLOR_PRESETS[t.id] },
+                  })
+                }
               style={{ ['--card-accent' as string]: t.accent }}
             >
               <span className="theme-swatch" />
@@ -47,15 +55,77 @@ export function CustomizePage({ prefs, update, reset }: Props) {
             </button>
           ))}
         </div>
-        <label className="field">
-          <span>Accent</span>
-          <input
-            type="color"
-            value={prefs.accent}
-            onChange={(e) => update({ accent: e.target.value })}
-            aria-label="Accent color"
-          />
-        </label>
+        <div className="color-token-grid" role="group" aria-label="Theme color tokens">
+          {(
+            [
+              ['bg', 'Background'],
+              ['text', 'Text'],
+              ['accent', 'Accent'],
+              ['surface', 'Surface'],
+            ] as [keyof ThemeColors, string][]
+          ).map(([key, label]) => (
+            <label key={key} className="field color-token-field">
+              <span>{label}</span>
+              <div className="color-token-row">
+                <input
+                  type="color"
+                  value={prefs.colors[key]}
+                  onChange={(e) =>
+                    update({
+                      colors: { ...prefs.colors, [key]: e.target.value },
+                      ...(key === 'accent' ? { accent: e.target.value } : {}),
+                    })
+                  }
+                  aria-label={`${label} color`}
+                />
+                <input
+                  type="text"
+                  className="text-input color-hex"
+                  value={prefs.colors[key]}
+                  maxLength={7}
+                  spellCheck={false}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    if (!/^#[0-9a-fA-F]{0,6}$/.test(v)) return;
+                    update({
+                      colors: { ...prefs.colors, [key]: v },
+                      ...(key === 'accent' && v.length === 7 ? { accent: v } : {}),
+                    });
+                  }}
+                  aria-label={`${label} hex`}
+                />
+              </div>
+            </label>
+          ))}
+        </div>
+      </section>
+
+      <section className="panel">
+        <h2 className="section-title">Font family</h2>
+        <p className="help-text dim">
+          System / sans / mono for UI body. Aurebesh is accents only (brand mark &amp; Ion Twin glyphs) —
+          never full-body text.
+        </p>
+        <div className="segmented">
+          {(
+            [
+              ['system', 'System'],
+              ['sans', 'Sans'],
+              ['mono', 'Mono'],
+              ['aurebesh', 'Aurebesh'],
+            ] as [FontFamilyId, string][]
+          ).map(([id, label]) => (
+            <button
+              key={id}
+              type="button"
+              className={`seg-btn ${prefs.fontFamily === id ? 'active' : ''}`}
+              style={{ minHeight: 48 }}
+              onClick={() => update({ fontFamily: id })}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
       </section>
 
       <section className="panel">
