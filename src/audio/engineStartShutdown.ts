@@ -134,14 +134,25 @@ function playIceStarter(s: StartShutdownCtx): number {
   const growl = clamp(Number(params.growl ?? 0.55));
   const pulseW = clamp(Number(params.pulseWidth ?? 0.45));
 
-  // Uneven crank spacing from family: crossplane lumpy, flat more regular, even metronomic
-  const baseGap =
-    fam >= 2.5 ? 0.072 : fam >= 1.5 ? 0.078 : 0.085 + (cyl >= 8 ? 0.012 : 0);
-  const pulses = 7 + Math.round(rough * 2);
+  // Uneven crank / chamber spacing from family
+  const isRotary = fam >= 3.5;
+  const chambers = Math.max(2, Math.min(4, Math.round(Number(params.chambersPerRotor ?? 3))));
+  const rotors = Math.max(1, Math.min(2, Math.round(Number(params.rotors ?? 1))));
+  const baseGap = isRotary
+    ? 0.055 + (rotors === 1 ? 0.012 : 0) // chamber spin-up — denser for twin stack
+    : fam >= 2.5
+      ? 0.072
+      : fam >= 1.5
+        ? 0.078
+        : 0.085 + (cyl >= 8 ? 0.012 : 0);
+  const pulses = isRotary
+    ? chambers * rotors + 2 + Math.round(rough)
+    : 7 + Math.round(rough * 2);
   let t = now + 0.02;
   for (let i = 0; i < pulses; i++) {
-    const uneven =
-      fam < 1.5
+    const uneven = isRotary
+      ? 1 + ((i % chambers) === 0 ? 0.06 : -0.02) // light chamber accent, not piston limp
+      : fam < 1.5
         ? (i % 2 === 0 ? 1.18 : 0.78) // crossplane limp
         : fam < 2.5
           ? 1 + ((i % 3) - 1) * 0.08
@@ -190,7 +201,12 @@ function playIceStarter(s: StartShutdownCtx): number {
   // Catch → short lope chuffs (combustion engages)
   const catchT = t + 0.02;
   for (let i = 0; i < 3; i++) {
-    const ct = catchT + i * (0.09 + (fam < 1.5 ? (i % 2) * 0.025 : 0));
+    const ct =
+      catchT +
+      i *
+        (isRotary
+          ? 0.065
+          : 0.09 + (fam < 1.5 ? (i % 2) * 0.025 : 0));
     const osc = ctx.createOscillator();
     osc.type = 'triangle';
     osc.frequency.value = 78 - i * 9 + growl * 12;
@@ -232,10 +248,13 @@ function playIceShutoff(s: StartShutdownCtx): number {
   const growl = clamp(Number(params.growl ?? 0.55));
   const crackle = clamp(Number(params.crackle ?? 0.25));
 
-  // Fuel-cut rundown: slowing irregular pulses
+  // Fuel-cut rundown: slowing irregular pulses (rotary = eccentric spin-down)
+  const isRotary = fam >= 3.5;
   let t = now;
-  let gap = fam < 1.5 ? 0.07 : 0.062;
-  const n = 5 + Math.round(cyl / 4);
+  let gap = isRotary ? 0.048 : fam < 1.5 ? 0.07 : 0.062;
+  const n = isRotary
+    ? 6 + Math.round(Number(params.rotors ?? 2))
+    : 5 + Math.round(cyl / 4);
   for (let i = 0; i < n; i++) {
     const peak = (0.2 - i * 0.028) * (0.85 + growl * 0.2);
     const osc = ctx.createOscillator();
@@ -271,7 +290,7 @@ function playIceShutoff(s: StartShutdownCtx): number {
     }
 
     t += gap;
-    gap *= 1.18 + (fam < 1.5 ? 0.06 : 0); // decelerate
+    gap *= 1.18 + (isRotary ? 0.1 : fam < 1.5 ? 0.06 : 0); // decelerate
   }
 
   // Mechanical settle: soft knock + body thump

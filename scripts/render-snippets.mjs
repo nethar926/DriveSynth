@@ -138,12 +138,12 @@ function automate(ctx, applyFrame) {
   }
 }
 
-function buildIce(ctx, master, { cyl = 8, silk = false } = {}) {
+function buildIce(ctx, master, { cyl = 8, silk = false, rotary = false } = {}) {
   const pink = makeNoise(ctx, 2, true);
   const white = makeNoise(ctx, 2, false);
   const body = ctx.createBiquadFilter();
   body.type = 'lowpass';
-  body.frequency.value = silk ? 420 : 280;
+  body.frequency.value = rotary ? 360 : silk ? 420 : 280;
   const bodyG = ctx.createGain();
   bodyG.gain.value = 0;
   pink.connect(body);
@@ -151,15 +151,15 @@ function buildIce(ctx, master, { cyl = 8, silk = false } = {}) {
   bodyG.connect(master);
 
   const pulse = ctx.createOscillator();
-  pulse.type = silk ? 'triangle' : 'sawtooth';
-  pulse.frequency.value = 55;
+  pulse.type = rotary || silk ? 'triangle' : 'sawtooth';
+  pulse.frequency.value = rotary ? 72 : 55;
   pulse.start();
   const pulseG = ctx.createGain();
   pulseG.gain.value = 0;
   const pulseF = ctx.createBiquadFilter();
   pulseF.type = 'bandpass';
   pulseF.frequency.value = 180;
-  pulseF.Q.value = silk ? 2 : 4;
+  pulseF.Q.value = rotary ? 2.4 : silk ? 2 : 4;
   pulse.connect(pulseF);
   pulseF.connect(pulseG);
   pulseG.connect(master);
@@ -179,12 +179,16 @@ function buildIce(ctx, master, { cyl = 8, silk = false } = {}) {
 
   automate(ctx, (t, d) => {
     const rpm = Math.max(d.speed * 0.7 + d.throttle * (d.speed < 0.05 ? 0.55 : 0.2), 0.05);
-    const fund = 55 + rpm * (silk ? 160 : 200);
-    scheduleParam(pulse.frequency, t, fund * (cyl / 8));
-    scheduleParam(pulseG.gain, t, 0.08 + rpm * 0.28 + d.throttle * 0.12);
-    scheduleParam(bodyG.gain, t, 0.12 + rpm * 0.35 + d.throttle * 0.1);
-    scheduleParam(body.frequency, t, (silk ? 380 : 240) + rpm * 500 + d.throttle * 300);
-    scheduleParam(tickG.gain, t, (silk ? 0.02 : 0.04) + d.throttle * 0.06);
+    // Rotary: 3 events/eccentric-rev × rotors → denser fund than piston cyl/8 proxy
+    const fund = rotary
+      ? 72 + rpm * 210
+      : 55 + rpm * (silk ? 160 : 200);
+    const cylScale = rotary ? 6 / 8 : cyl / 8;
+    scheduleParam(pulse.frequency, t, fund * cylScale);
+    scheduleParam(pulseG.gain, t, (rotary ? 0.07 : 0.08) + rpm * (rotary ? 0.26 : 0.28) + d.throttle * 0.12);
+    scheduleParam(bodyG.gain, t, (rotary ? 0.1 : 0.12) + rpm * 0.35 + d.throttle * 0.1);
+    scheduleParam(body.frequency, t, (rotary ? 320 : silk ? 380 : 240) + rpm * 500 + d.throttle * 300);
+    scheduleParam(tickG.gain, t, (rotary ? 0.025 : silk ? 0.02 : 0.04) + d.throttle * 0.06);
   });
 }
 
@@ -554,6 +558,7 @@ const PACKS = [
   { id: 'v8-rumble', file: 'v8-rumble.wav', build: (c, m) => buildIce(c, m, { cyl: 8 }) },
   { id: 'i4-zip', file: 'i4-zip.wav', build: (c, m) => buildIce(c, m, { cyl: 4 }) },
   { id: 'i6-silk', file: 'i6-silk.wav', build: (c, m) => buildIce(c, m, { cyl: 6, silk: true }) },
+  { id: 'rotary-hum', file: 'rotary-hum.wav', build: (c, m) => buildIce(c, m, { cyl: 6, rotary: true }) },
   { id: 'ev-whine', file: 'ev-whine.wav', build: (c, m) => buildEv(c, m) },
   { id: 'ev-inverter-climb', file: 'ev-inverter-climb.wav', build: (c, m) => buildEv(c, m, { climb: true }) },
   { id: 'ev-regen-howl', file: 'ev-regen-howl.wav', build: (c, m) => buildEv(c, m, { regen: true }) },

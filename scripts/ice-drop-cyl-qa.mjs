@@ -110,3 +110,34 @@ if (failed.length) {
   process.exit(1);
 }
 console.log('\nAll crossPlane drop-cyl packs: PASS (lope changes, not quieter-only)');
+
+// --- Rotary chamber-pulse drop-chamber QA (family 4, 360° eccentric) ---
+console.log('\n=== dropChamber(1) lope QA (rotary twin 6-slot @ 360°) ===');
+const ROTARY_TWIN = [0, 60, 120, 180, 240, 300];
+function activeIntervals360(angles, mask) {
+  const active = angles.filter((_, i) => (mask & (1 << i)) === 0);
+  assert.ok(active.length >= 2, 'need ≥2 active chambers');
+  const iv = [];
+  for (let i = 0; i < active.length; i++) {
+    const a = active[i];
+    const b = active[(i + 1) % active.length] + (i + 1 === active.length ? 360 : 0);
+    iv.push(b - a);
+  }
+  return { active, intervals: iv };
+}
+{
+  const full = activeIntervals360(ROTARY_TWIN, 0);
+  const dropped = activeIntervals360(ROTARY_TWIN, 1 << 1);
+  const intervalChanged =
+    signatureSorted(full.intervals) !== signatureSorted(dropped.intervals) ||
+    full.intervals.length !== dropped.intervals.length;
+  const maxGapGrew = Math.max(...dropped.intervals) > Math.max(...full.intervals);
+  const pass = dropped.active.length < full.active.length && intervalChanged && maxGapGrew;
+  console.log(
+    pass
+      ? `  rotary-hum: PASS lope events ${full.active.length}→${dropped.active.length}; maxGap ${Math.max(...full.intervals)}°→${Math.max(...dropped.intervals)}°`
+      : `  rotary-hum: FAIL quieter-only / no lope change`,
+  );
+  if (!pass) process.exitCode = 1;
+}
+

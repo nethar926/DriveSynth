@@ -5,6 +5,7 @@ export type TopologyId =
   | 'v8-rumble'
   | 'i4-zip'
   | 'i6-silk'
+  | 'rotary-hum'
   | 'ev-whine'
   | 'ev-inverter-climb'
   | 'ev-regen-howl'
@@ -48,6 +49,10 @@ export interface EngineStateSnapshot {
   manifoldNorm: number;
   exhaustOpenness: number;
   pulseJitter: number;
+  /** Rotary: chambers per rotor (default 3). */
+  chambersPerRotor?: number;
+  /** Rotary: rotor count 1|2. */
+  rotors?: number;
 }
 
 export interface DrivingInput {
@@ -78,7 +83,7 @@ export interface EngineParams {
   // ICE
   rpmIdle?: number;
   rpmRedline?: number;
-  cylinders?: 4 | 6 | 8 | 10 | 12;
+  cylinders?: 3 | 4 | 6 | 8 | 10 | 12;
   roughness?: number;
   growl?: number;
   presence?: number;
@@ -99,8 +104,12 @@ export interface EngineParams {
   crackle?: number;
   /** Stochastic misfire amount 0..1 (RES: changes lope) */
   misfire?: number;
-  /** 0=auto 1=crossplane 2=flatplane 3=even */
+  /** 0=auto 1=crossplane 2=flatplane 3=even 4=rotary chamber-pulse */
   firingFamily?: number;
+  /** Rotary: chambers per eccentric rotor (default 3). */
+  chambersPerRotor?: number;
+  /** Rotary: 1 or 2 rotors (2 stacks cadence). */
+  rotors?: number;
   /**
    * ICE drop-cyl bitfield 0–255 (worklet AudioParam).
    * Convention: bit i set = slot i disabled; 0 = all enabled (mask-none).

@@ -46,6 +46,7 @@ export {
   isSlotDisabled,
   mapRevforgeFiringToFamily,
   nextEventAnglesDeg,
+  rotaryEventAnglesDeg,
   physicsJitterToWorklet,
   resolveIcePackSchedule,
   workletJitterToPhysics,

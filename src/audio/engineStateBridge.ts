@@ -4,7 +4,7 @@
  * Worklet owns sample-accurate crank schedule; bridge is HUD/QA + param push helper.
  *
  * Canonical schedules: product-research/ice-pack-firing-schedules-v1.md
- * (exclude sakura-gtr).
+ * (exclude sakura-gtr). Family 4 = rotary chamber-pulse (docs/rotary-chamber-pulse-v1.md).
  */
 import type { EngineStateSnapshot } from './types';
 
@@ -15,6 +15,7 @@ export type FiringFamilyName =
   | 'i6Even'
   | 'evenI4'
   | 'even'
+  | 'rotary'
   | 'auto';
 
 export interface EngineStatePackHints {
@@ -32,6 +33,8 @@ export interface EngineStatePackHints {
   mufflerOpen?: number;
   collectorDelayMs?: number;
   bankOffsetDeg?: number;
+  chambersPerRotor?: number;
+  rotors?: number;
 }
 
 export interface EngineStateRawInput {
@@ -56,6 +59,8 @@ export interface WorkletParamPush {
   manifoldNorm: number;
   exhaustOpenness: number;
   collectorDelayMs: number;
+  chambersPerRotor: number;
+  rotors: number;
 }
 
 /** Pack physics constants from ice-pack-firing-schedules-v1.md (sakura excluded). */
@@ -71,12 +76,20 @@ export interface IcePackSchedule {
   /** Preferred living-drive jitter fraction 0.005…0.03. */
   pulseJitterFrac: number;
   misfireDefault: number;
+  /** Rotary only: chambers per rotor (default 3). */
+  chambersPerRotor?: number;
+  /** Rotary only: 1 or 2 rotors. */
+  rotors?: number;
 }
 
 const CROSS_BANK_A = [0, 180, 270, 450] as const;
 const FLAT_V8 = [0, 90, 180, 270, 360, 450, 540, 630] as const;
 const EVEN_I4 = [0, 180, 360, 540] as const;
 const I6_EVEN = [0, 120, 240, 360, 480, 600] as const;
+/** Twin-rotor 3-chamber eccentric: rotor-B offset half chamber → 60° stack. */
+const ROTARY_TWIN = [0, 60, 120, 180, 240, 300] as const;
+/** Single-rotor 3-chamber eccentric. */
+const ROTARY_SINGLE = [0, 120, 240] as const;
 
 export const ICE_PACK_SCHEDULES: Record<string, IcePackSchedule> = {
   'v8-rumble': {
@@ -223,6 +236,20 @@ export const ICE_PACK_SCHEDULES: Record<string, IcePackSchedule> = {
     pulseJitterFrac: 0.007,
     misfireDefault: 0.01,
   },
+  'rotary-hum': {
+    cylinders: 6,
+    firingFamily: 4,
+    bankSchedule: 'rotaryTwin',
+    eventAnglesDeg: [...ROTARY_TWIN],
+    bankOffsetDeg: 60,
+    collectorDelayMs: 0.7,
+    tauManifold: 0.08,
+    tauExhaust: 0.13,
+    pulseJitterFrac: 0.012,
+    misfireDefault: 0.02,
+    chambersPerRotor: 3,
+    rotors: 2,
+  },
 };
 
 const FAMILY_NUM: Record<string, number> = {
@@ -233,6 +260,7 @@ const FAMILY_NUM: Record<string, number> = {
   i6Even: 3,
   evenI4: 3,
   even: 3,
+  rotary: 4,
 };
 
 /** Physics jitter fraction (0…0.03) → worklet AudioParam (0…0.5). */
@@ -284,14 +312,39 @@ export function crossPlaneBankAAnglesDeg(): number[] {
  * crossPlane/flatPlane return the global 8-slot collector table (matches worklet);
  * bank-A potato character is in bank tags + crossPlaneBankAAnglesDeg().
  */
-export function nextEventAnglesDeg(family: number, cylinders: number): number[] {
+export function nextEventAnglesDeg(
+  family: number,
+  cylinders: number,
+  chambersPerRotor = 3,
+  rotors = 1,
+): number[] {
   let fam = family | 0;
   if (fam === 0) fam = cylinders === 8 ? 1 : 3;
+  if (fam === 4) return rotaryEventAnglesDeg(chambersPerRotor, rotors);
   if (fam === 1 || fam === 2) return [...FLAT_V8];
   if (cylinders === 6) return [...I6_EVEN];
   if (cylinders === 4) return [...EVEN_I4];
-  const n = Math.max(4, Math.min(12, cylinders | 0));
+  const n = Math.max(3, Math.min(12, cylinders | 0));
   return Array.from({ length: n }, (_, i) => (i / n) * 720);
+}
+
+/** Eccentric-shaft chamber angles (360° cycle). 2-rotor stacks with half-step offset. */
+export function rotaryEventAnglesDeg(chambersPerRotor = 3, rotors = 1): number[] {
+  const chambers = Math.max(2, Math.min(4, Math.round(chambersPerRotor) || 3));
+  const rot = Math.max(1, Math.min(2, Math.round(rotors) || 1));
+  if (chambers === 3 && rot === 2) return [...ROTARY_TWIN];
+  if (chambers === 3 && rot === 1) return [...ROTARY_SINGLE];
+  const step = 360 / chambers;
+  const rotorOff = rot === 2 ? step * 0.5 : 0;
+  const raw: number[] = [];
+  for (let r = 0; r < rot; r++) {
+    for (let c = 0; c < chambers; c++) {
+      let deg = c * step + r * rotorOff;
+      while (deg >= 360) deg -= 360;
+      raw.push(deg);
+    }
+  }
+  return raw.sort((a, b) => a - b);
 }
 
 /** Estimate seconds to next event from crank ° and rpm (§2.1). */
@@ -320,6 +373,8 @@ export class EngineStateBridge {
   pulseJitter = 0.015;
   collectorDelayMs = 1.0;
   bankOffsetDeg = 90;
+  chambersPerRotor = 3;
+  rotors = 1;
   private tauMan = 0.12;
   private tauExhaust = 0.2;
   private packId: string | undefined;
@@ -328,6 +383,7 @@ export class EngineStateBridge {
     const f = this.firingFamily | 0;
     if (f === 1) return 'crossPlane';
     if (f === 2) return 'flatPlane';
+    if (f === 4) return 'rotary';
     if (f === 3 && this.cylinders === 6) return 'i6Even';
     if (f === 3 && this.cylinders === 4) return 'evenI4';
     if (f === 3) return 'even';
@@ -356,6 +412,8 @@ export class EngineStateBridge {
     this.bankOffsetDeg = sched.bankOffsetDeg;
     this.pulseJitter = sched.pulseJitterFrac;
     this.misfireAmount = sched.misfireDefault;
+    if (sched.chambersPerRotor != null) this.chambersPerRotor = sched.chambersPerRotor;
+    if (sched.rotors != null) this.rotors = sched.rotors;
   }
 
   tick(dt: number, raw: EngineStateRawInput, hints: EngineStatePackHints = {}): void {
@@ -382,6 +440,12 @@ export class EngineStateBridge {
     if (hints.tauExhaust != null) this.tauExhaust = hints.tauExhaust;
     if (hints.collectorDelayMs != null) this.collectorDelayMs = hints.collectorDelayMs;
     if (hints.bankOffsetDeg != null) this.bankOffsetDeg = hints.bankOffsetDeg;
+    if (hints.chambersPerRotor != null) {
+      this.chambersPerRotor = Math.max(2, Math.min(4, Math.round(hints.chambersPerRotor)));
+    }
+    if (hints.rotors != null) {
+      this.rotors = Math.max(1, Math.min(2, Math.round(hints.rotors)));
+    }
 
     const thr = Math.max(0, Math.min(1, raw.throttle));
     const load = Math.max(-1, Math.min(1, raw.load ?? 0));
@@ -400,7 +464,8 @@ export class EngineStateBridge {
     const aEx = 1 - Math.exp(-d / Math.max(0.05, this.tauExhaust));
     this.exhaustOpenness += (openTarget - this.exhaustOpenness) * aEx;
 
-    this.crankAngleDeg = (this.crankAngleDeg + this.rpm * 6 * d) % 720;
+    const cycle = (this.firingFamily | 0) === 4 ? 360 : 720;
+    this.crankAngleDeg = (this.crankAngleDeg + this.rpm * 6 * d) % cycle;
   }
 
   toWorkletParams(): WorkletParamPush {
@@ -420,6 +485,8 @@ export class EngineStateBridge {
       manifoldNorm: this.manifoldNorm,
       exhaustOpenness: this.exhaustOpenness,
       collectorDelayMs: this.collectorDelayMs,
+      chambersPerRotor: this.chambersPerRotor,
+      rotors: this.rotors,
     };
   }
 
@@ -437,6 +504,8 @@ export class EngineStateBridge {
       manifoldNorm: this.manifoldNorm,
       exhaustOpenness: this.exhaustOpenness,
       pulseJitter: this.pulseJitter,
+      chambersPerRotor: this.chambersPerRotor,
+      rotors: this.rotors,
     };
   }
 }

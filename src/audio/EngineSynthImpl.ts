@@ -676,6 +676,8 @@ export class EngineSynthImpl implements EngineSynth {
           if (p.roughness !== undefined) mapped.roughness = Number(p.roughness);
           if (p.misfire !== undefined) mapped.misfire = Number(p.misfire);
           if (p.firingFamily !== undefined) mapped.firingFamily = Number(p.firingFamily);
+          if (p.chambersPerRotor !== undefined) mapped.chambersPerRotor = Number(p.chambersPerRotor);
+          if (p.rotors !== undefined) mapped.rotors = Number(p.rotors);
           if (p.firingMask !== undefined) mapped.firingMask = Number(p.firingMask) & 255;
           if (p.dropCyl !== undefined) mapped.dropCyl = Number(p.dropCyl);
           break;
@@ -1919,6 +1921,8 @@ export class EngineSynthImpl implements EngineSynth {
       this.setWorkletParam('masterGain', clamp(Number(p.masterGain ?? 0.7)), 0.05);
       this.setWorkletParam('misfire', Number(p.misfire ?? 0), 0.05);
       this.setWorkletParam('firingFamily', Number(p.firingFamily ?? 0), 0.05);
+      this.setWorkletParam('chambersPerRotor', Number(p.chambersPerRotor ?? 3), 0.05);
+      this.setWorkletParam('rotors', Number(p.rotors ?? 1), 0.05);
       {
         if (p.firingMask != null) this.engineState.setFiringMask(Number(p.firingMask));
         if (p.dropCyl != null) this.engineState.dropCylinder(Number(p.dropCyl));
@@ -2213,7 +2217,13 @@ export class EngineSynthImpl implements EngineSynth {
       }
       const topo = this.patchMeta.topology;
       const famDefault =
-        topo === 'v8-rumble' ? 1 : topo === 'i6-silk' || topo === 'i4-zip' ? 3 : 0;
+        topo === 'v8-rumble'
+          ? 1
+          : topo === 'i6-silk' || topo === 'i4-zip'
+            ? 3
+            : topo === 'rotary-hum'
+              ? 4
+              : 0;
       const fam = Number(p.firingFamily ?? famDefault);
       const now =
         typeof performance !== 'undefined' ? performance.now() : Date.now();
@@ -2246,6 +2256,9 @@ export class EngineSynthImpl implements EngineSynth {
           collectorDelayMs:
             p.collectorDelayMs != null ? Number(p.collectorDelayMs) : undefined,
           bankOffsetDeg: p.bankOffsetDeg != null ? Number(p.bankOffsetDeg) : undefined,
+          chambersPerRotor:
+            p.chambersPerRotor != null ? Number(p.chambersPerRotor) : undefined,
+          rotors: p.rotors != null ? Number(p.rotors) : undefined,
         },
       );
       const wp = this.engineState.toWorkletParams();
@@ -2256,6 +2269,12 @@ export class EngineSynthImpl implements EngineSynth {
       this.setWorkletParam('load', wp.load, tc);
       this.setWorkletParam('cylinders', wp.cylinders, tc);
       this.setWorkletParam('firingFamily', wp.firingFamily || fam, tc);
+      this.setWorkletParam(
+        'chambersPerRotor',
+        Number(wp.chambersPerRotor ?? p.chambersPerRotor ?? 3),
+        tc,
+      );
+      this.setWorkletParam('rotors', Number(wp.rotors ?? p.rotors ?? 1), tc);
       this.setWorkletParam('misfire', wp.misfire, tc);
       this.setWorkletParam('firingMask', wp.firingMask, tc);
       // Dual-collector L/R burble delay (ms) — pack / bridge owned
