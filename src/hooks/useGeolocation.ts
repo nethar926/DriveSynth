@@ -2,6 +2,14 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { speedFromFix, type Fix } from "./gpsSpeed";
 import { kphToMph } from "../audio";
 
+/** Wall-clock gap after last successful watch callback before marking stale. */
+const STALE_MS = 10000;
+/**
+ * If |wallNow - pos.timestamp| exceeds this, treat the device fix clock as
+ * skewed (common on Tesla Chromium) and prefer wall time for continuity.
+ */
+const SKEW_MS = 15000;
+
 export type GpsStatus =
   | "idle"
   | "requesting"
@@ -15,7 +23,10 @@ export interface GpsState {
   status: GpsStatus;
   mph: number;
   accuracy: number | null;
+  /** Fix time used for freshness / haversine (wall-corrected when device clock is skewed). */
   timestamp: number | null;
+  /** Raw GeolocationCoordinates.timestamp from the device (may be skewed). */
+  deviceTimestamp: number | null;
   errorMessage?: string;
   estimated?: boolean;
 }
@@ -25,13 +36,17 @@ export function useGeolocation(enabled: boolean) {
     mph: 0,
     accuracy: null,
     timestamp: null,
+    deviceTimestamp: null,
   });
   const watchId = useRef<number | null>(null);
   const generation = useRef(0);
-  const previous = useRef<Fix|null>(null);
+  const previous = useRef<Fix | null>(null);
+  /** Wall clock of the last watchPosition success callback. */
+  const lastCallbackAt = useRef<number | null>(null);
   const stop = useCallback(() => {
     generation.current++;
     previous.current = null;
+    lastCallbackAt.current = null;
     if (watchId.current !== null && navigator.geolocation)
       navigator.geolocation.clearWatch(watchId.current);
     watchId.current = null;
@@ -53,30 +68,51 @@ export function useGeolocation(enabled: boolean) {
       status: "requesting",
       mph: 0,
       timestamp: null,
+      deviceTimestamp: null,
       errorMessage: undefined,
     }));
     watchId.current = navigator.geolocation.watchPosition(
       (pos) => {
         if (request !== generation.current) return;
-        const fix = {...pos.coords,latitude:pos.coords.latitude,longitude:pos.coords.longitude,accuracy:pos.coords.accuracy,speed:pos.coords.speed,timestamp:pos.timestamp};
-        const {speed,estimated} = speedFromFix(fix,previous.current);
-        if (!previous.current || pos.timestamp > previous.current.timestamp) previous.current=fix;
+        const wallNow = Date.now();
+        // Continuous watch is alive as soon as a callback arrives — do not
+        // mark stale solely because pos.timestamp is clock-skewed / old.
+        lastCallbackAt.current = wallNow;
+        const deviceTs = pos.timestamp;
+        const skew =
+          !Number.isFinite(deviceTs) ||
+          Math.abs(wallNow - deviceTs) > SKEW_MS;
+        // Prefer wall time for haversine continuity when device clock is odd.
+        const fixTs = skew ? wallNow : deviceTs;
+        const fix: Fix = {
+          latitude: pos.coords.latitude,
+          longitude: pos.coords.longitude,
+          accuracy: pos.coords.accuracy,
+          speed: pos.coords.speed,
+          timestamp: fixTs,
+        };
+        const { speed, estimated } = speedFromFix(fix, previous.current);
+        if (!previous.current || fixTs > previous.current.timestamp)
+          previous.current = fix;
         if (speed === null || !Number.isFinite(speed) || speed < 0) {
           setState({
             status: "waiting",
             mph: 0,
             accuracy: pos.coords.accuracy,
-            timestamp: null,
-            errorMessage: "Location received; waiting for two accurate fixes to estimate speed.",
+            timestamp: fixTs,
+            deviceTimestamp: deviceTs,
+            errorMessage:
+              "Location received; waiting for two accurate fixes to estimate speed.",
           });
           return;
         }
         setState({
-          status: Date.now() - pos.timestamp > 10000 ? "stale" : "live",
+          status: "live",
           mph: speed * 2.236936,
           estimated,
           accuracy: pos.coords.accuracy,
-          timestamp: pos.timestamp,
+          timestamp: fixTs,
+          deviceTimestamp: deviceTs,
         });
       },
       (err) => {
@@ -95,22 +131,32 @@ export function useGeolocation(enabled: boolean) {
     if (enabled) start();
     else {
       stop();
-      setState((s) => ({ ...s, status: "idle", mph: 0, timestamp: null }));
+      setState((s) => ({
+        ...s,
+        status: "idle",
+        mph: 0,
+        timestamp: null,
+        deviceTimestamp: null,
+      }));
     }
     const timer = enabled
       ? window.setInterval(() => {
-          setState((s) =>
-            s.status === "live" &&
-            s.timestamp !== null &&
-            Date.now() - s.timestamp > 10000
-              ? {
-                  ...s,
-                  status: "stale",
-                  errorMessage:
-                    "GPS signal is stale. Sound is returning to idle.",
-                }
-              : s,
-          );
+          const last = lastCallbackAt.current;
+          setState((s) => {
+            if (
+              last !== null &&
+              (s.status === "live" || s.status === "waiting") &&
+              Date.now() - last > STALE_MS
+            ) {
+              return {
+                ...s,
+                status: "stale",
+                errorMessage:
+                  "GPS signal is stale. Sound is returning to idle.",
+              };
+            }
+            return s;
+          });
         }, 500)
       : undefined;
     return () => {

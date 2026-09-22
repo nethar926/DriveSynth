@@ -161,9 +161,13 @@ Public-knowledge acoustic targets; see `/workspace/product-research/acoustic-cue
 - [ ] Redline / AB is roar/blur / wet noise, not supersaw
 - [ ] Body/noise buses present
 
-### Ion Twin (future — out of scope this pass)
-- Layer goals: drive/motor · breath-proxy · ion/electrical · air · body; “familiar but unrecognizable” procedural sources.
-- IP-safe naming only (“inspired by layered ion-fighter design language”).
+### Ion Twin (landed — twin-ion-ref-analysis.md)
+- **Twin motor bed:** dual irregular pulse+filtered-noise ~50–200 Hz, detune beat, spool lag; short cabin waveguide on motor only.
+- **Formant howl:** 4 BP stacks ~400/700/900/1300 Hz + phrase AM; intensity × smoothstep(rpmNorm).
+- **Layer leadership:** throttle morphs motor ↔ howl ↔ air (not pitch-only); wet swoosh + formant bellow dominate high rpm.
+- **Grit × load;** dry-leaning wet/dry; near-mono + subtle stereoTwin; surge = rising CF.
+- **Anti-digital:** no saw/square lead; procedural only — never ship ref WAVs as samples.
+- IP-safe naming only (“Ion Twin” / layered ion-fighter design language).
 
 ### Legal
 - 100% procedural / free; no dribe rips; no commercial samples; no Star Wars audio assets.
@@ -177,9 +181,9 @@ Public product claims from https://realenginesimulator.com/engines — **do not*
 **North star:** if dropping a cylinder doesn’t change the lope, we’re still in synth-demo land.
 
 ### Fold-in priorities
-1. **P0** Sample-accurate firing-order pulse trains (cross-plane vs flat-plane vs i6 even); expand pack families by geometry, not more osc leads.
+1. **P0** Sample-accurate firing-order pulse trains (cross-plane vs flat-plane vs i6 even); expand pack families by geometry, not more osc leads. **Landed:** `firingFamily` + crank-angle `nextPulseTime` schedule + `firingMask` (bit i set = slot i disabled; 0 = all fire) + cylinders mute; `misfire` stochastic skips.
 2. **P0** Exhaust = pulse → waveguide/resonator body (already on organic V8 path).
-3. **P1** Intake bus separate; misfire/lump first-class (living-drive + optional drop-cylinder control).
+3. **P1** Intake bus separate; misfire/lump first-class (living-drive + optional drop-cylinder control). **Landed:** `misfire` worklet param.
 4. **P1** Jets = spool inertia + broadband core + wet AB (Carrier Jet path).
 5. **P2** Layout diversity as pack identity (twin limp, boxer, rotary-like chamber pulse) — original packs only.
 
@@ -190,3 +194,14 @@ Full Product Research note: `/workspace/product-research/realenginesimulator-les
 ## Soft UI cues (Frontend contract)
 
 - **MANUAL upshift bark:** call `eng.triggerUiCue('upshift')` on paddle up when Customize toggle / `ds-upshift-sfx` is on (default off). Procedural noise+knock ~80–150ms; ICE/aerospace full, EV quieter, scifi skipped. Does not alter `setDriving`.
+
+- **Ignition starter:** call `eng.triggerUiCue('starter')` (alias `'ignition'`) or `eng.playStarter()` after `start()` / on Ignition. Procedural one-shot from the **active pack** (not a shared clip):
+  - ICE — irregular crank pulses → catch lope (`firingFamily`, cylinders, pulseJitter, roughness, growl)
+  - Aerospace — spool inertia climb + light igniter hiss (`spoolPitch`, `spoolInertia`, compressor)
+  - Ion Twin / scifi — twin-motor bed fade-in → formant breath (`motorMix`, `formantHowl`, `formantShift`)
+  - EV — inverter wake / contactor click (`whinePitch`, `inverterBuzz`)
+- **Shutdown shutoff:** call `eng.triggerUiCue('shutdown')` (alias `'shutoff'`) or `eng.playShutoff()` **before** `stop()` so the output bus holds for the tail:
+  - ICE — fuel-cut rundown + mechanical settle
+  - Aerospace — spool decay (no hard gate)
+  - Ion Twin — howl collapses into motor bed → silence
+  - EV — inverter spin-down

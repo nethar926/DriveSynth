@@ -25,12 +25,17 @@ export interface DriveSkinProps {
   gaugeCluster?: GaugeCluster;
 }
 
-/** engineId → skin id (Visual Skins registry) */
+/**
+ * engineId → skin id (Visual Skins registry).
+ * Display name is Ion Twin / Twin Ion only — never "Tie Fighter".
+ * Canonical pack/topology id is `ion-twin`; `tie-fighter` remaps via getBuiltin.
+ */
 export function skinIdForEngine(engineId: string): string {
   const builtin = getBuiltin(engineId);
   if (builtin?.revforge) return builtin.kind === 'scifi' ? 'ion-twin' : builtin.kind === 'aerospace' ? 'aerospace-f14' : builtin.kind === 'ev-whine' ? 'ev-inverter' : 'ice-v8';
   switch (engineId) {
-    case 'tie-fighter':
+    case 'ion-twin':
+    case 'tie-fighter': // legacy audio id → Ion Twin immersive HUD
       return 'ion-twin';
     case 'v8-rumble':
     case 'i4-zip':

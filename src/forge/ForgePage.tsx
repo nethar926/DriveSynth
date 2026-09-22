@@ -240,15 +240,18 @@ export function ForgePage({
     setMutedBeforeHide(false);
     media.arm();
     if(source === "gps") onGpsEnabled(true);
-    void audio.start();
+    void audio.start().then(() => {
+      audio.playStarter?.();
+    });
   };
   const stop = () => {
     setPedal(0);
     setBrake(false);
+    audio.playShutoff?.();
     audio.stop();
     reset();
   };
-  const media = useVehicleMedia({blasters:patch?.kind==='scifi',fire:()=>audio.triggerUiCue('ion-cannon'),getMediaElement:audio.getMediaElement,enabled:mediaEnabled,running:audio.running,manual:mode==='manual' && config.gears>1,pauseShifts,name:audio.patchName,start:()=>{void audio.start();if(source==='gps')onGpsEnabled(true);},stop,shift});
+  const media = useVehicleMedia({blasters:patch?.kind==='scifi',fire:()=>audio.triggerUiCue('ion-cannon'),getMediaElement:audio.getMediaElement,enabled:mediaEnabled,running:audio.running,manual:mode==='manual' && config.gears>1,pauseShifts,name:audio.patchName,start:()=>{void audio.start().then(()=>audio.playStarter?.());if(source==='gps')onGpsEnabled(true);},stop,shift});
   const sourceChange = (next: "demo" | "gps") => {
     setSource(next);
     setPedal(0);
@@ -282,8 +285,8 @@ export function ForgePage({
         <section className="rev-scene" aria-label="Full-screen dashboard">
           <ThemeStage maxSpeedMps={config.topSpeedMps} fonts={themes.fonts[themes.skinId]} widgets={themes.widgets} lockStage={audio.getLockStage()} onTimeJump={()=>audio.triggerUiCue('time-jump')} colors={themes.colors[themes.skinId]} sceneColors={themes.colors[themes.atmosphereId+'-scene']} atmosphereId={themeForId(themes.atmosphereId).sceneId} theme={theme} state={hud} simulation={simulation} warningRpm={config.warningRpm} redline={config.redline} unit={prefs.speedUnit} demo={source==='demo'} motion={motion} running={audio.running} gpsLabel={gpsLabel}/>
         </section>
-        <header className="rev-topbar"><div><strong>REVFORGE</strong>{ignited&&<small>{garage.active?.name??theme.name}</small>}</div><button className="rev-chip" onClick={()=>setPanel('tuner')}>TUNE <Icon name="tune" size={18}/></button></header>
-        {!ignited?<div className="rev-launch"><Guide kind="welcome"><p>ENGINE SOUND · YOUR ATMOSPHERE</p><h1>RevForge</h1><button className="rev-ignite" disabled={audio.starting} onClick={start}>{audio.starting?'Starting…':'Ignition'}</button><small>Set up while parked</small></Guide></div>:<>
+        <header className="rev-topbar"><div><strong>REVFORGE</strong>{ignited&&<small>{garage.active?.name??theme.name}</small>}</div><button className="rev-chip" onClick={()=>setPanel('tuner')}>Tuner <Icon name="tune" size={18}/></button></header>
+        {!ignited?<div className="rev-launch"><p>ENGINE SOUND · YOUR ATMOSPHERE</p><h1>RevForge</h1><button type="button" className="rev-ignite" disabled={audio.starting} onClick={start}>{audio.starting?'Starting…':'IGNITION'}</button><small>Set up while parked · Keep the browser visible</small></div>:<>
           {source==='demo'&&<label className="rev-throttle">Throttle <span>{Math.round(pedal*100)}%</span><input aria-label="Throttle" type="range" min="0" max="1" step=".01" disabled={!revReady} value={pedal} onChange={e=>setPedal(Number(e.target.value))}/></label>}
           <footer className="rev-dock" aria-label="Drive controls">
             <div className="rev-segment"><button aria-pressed={mode==='auto'} onClick={()=>setMode('auto')}>Auto</button><button aria-pressed={mode==='manual'} onClick={()=>setMode('manual')}>Manual</button></div>

@@ -157,17 +157,5 @@
       "gears": 4,
       "hasManual": true
     }
-  },
-  {
-    "id": "lofi-pad",
-    "name": "Lo-fi pad",
-    "patch": {
-      "voice": "lofi",
-      "hasMusic": true,
-      "hasManual": false,
-      "rumble": 0.35,
-      "body": 0.85,
-      "rasp": 0.1
-    }
   }
 ]

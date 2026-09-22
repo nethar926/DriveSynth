@@ -56,8 +56,6 @@ export class RevForgeVoice {
   lastLoad = 0;
   crackleAt = 0;
   blowoffAt = 0;
-  lofiStep = 0;
-  lofiTimer = 0;
   fundGain = null;
   subGain = null;
   harmGain = null;
@@ -82,11 +80,6 @@ export class RevForgeVoice {
   screamOsc = null;
   screamOsc2 = null;
   turboOsc = null;
-  musicOsc = [];
-  musicFilter = null;
-  musicGain = null;
-  kickGain = null;
-  hatGain = null;
   pink = null;
   white = null;
   brown = null;
@@ -97,11 +90,7 @@ export class RevForgeVoice {
     {
       this.master?.gain.setTargetAtTime(Yt(e.masterVolume), t, 0.04);
       this.engineBus?.gain.setTargetAtTime(Yt(e.engineVolume), t, 0.04);
-      this.musicBus?.gain.setTargetAtTime(
-        e.musicVolume * e.musicVolume * +!!this.patch?.hasMusic,
-        t,
-        0.05,
-      );
+      this.musicBus?.gain.setTargetAtTime(0, t, 0.05);
     }
   }
   loopBuffer(e, t, n) {
@@ -245,84 +234,7 @@ export class RevForgeVoice {
       if (this.brown) {
         this.loopBuffer(e, this.brown, this.subGain);
       }
-      if (t.hasMusic) {
-        this.buildLofi(e);
-      }
       this.zeroGains();
-    }
-  }
-  buildLofi(e) {
-    {
-      this.musicFilter = this.track(e.createBiquadFilter());
-      this.musicFilter.type = `lowpass`;
-      this.musicFilter.frequency.value = 1400;
-      this.musicGain = this.track(e.createGain());
-      this.musicGain.gain.value = 0.18;
-      this.musicGain.connect(this.musicFilter);
-      this.musicFilter.connect(this.musicBus);
-    }
-    let t = [
-      [196, 246.9, 293.7],
-      [174.6, 220, 261.6],
-      [146.8, 196, 246.9],
-      [164.8, 196, 246.9],
-    ];
-    this.musicOsc = [];
-    for (let n = 0; n < 3; n++) {
-      let r = e.createOscillator();
-      {
-        r.type = `triangle`;
-        r.frequency.value = t[0][n];
-        r.connect(this.musicGain);
-        r.start();
-        this.osc.push(r);
-        this.musicOsc.push(r);
-      }
-    }
-    {
-      this.kickGain = this.track(e.createGain());
-      this.kickGain.gain.value = 0;
-      this.kickGain.connect(this.musicBus);
-    }
-    let n = e.createOscillator();
-    {
-      n.type = `sine`;
-      n.frequency.value = 52;
-      n.connect(this.kickGain);
-      n.start();
-      this.osc.push(n);
-      this.hatGain = this.track(e.createGain());
-      this.hatGain.gain.value = 0;
-    }
-    let r = this.track(e.createBiquadFilter());
-    {
-      r.type = `highpass`;
-      r.frequency.value = 6e3;
-      this.hatGain.connect(r);
-      r.connect(this.musicBus);
-      if (this.white) {
-        this.loopBuffer(e, this.white, this.hatGain);
-      }
-      this.lofiTimer = window.setInterval(() => {
-        if (!this.ctx || !this.patch?.hasMusic) return;
-        let e = this.ctx.currentTime;
-        this.lofiStep = (this.lofiStep + 1) % 16;
-        let n = t[Math.floor(this.lofiStep / 4) % t.length];
-        this.musicOsc.forEach((osc, index) =>
-          osc.frequency.setTargetAtTime(n[index] * 0.5, e, 0.04),
-        );
-        if (this.lofiStep % 4 === 0) {
-          this.kickGain?.gain.cancelScheduledValues(e);
-          this.kickGain?.gain.setValueAtTime(0.28, e);
-          this.kickGain?.gain.exponentialRampToValueAtTime(0.001, e + 0.18);
-        }
-        if (this.lofiStep % 2 === 1) {
-          this.hatGain?.gain.cancelScheduledValues(e);
-          this.hatGain?.gain.setValueAtTime(0.045, e);
-          this.hatGain?.gain.exponentialRampToValueAtTime(0.001, e + 0.08);
-        }
-      }, 190);
-      this.intervals.push(this.lofiTimer);
     }
   }
   makeWave(e, t) {
@@ -369,10 +281,7 @@ export class RevForgeVoice {
         e.disconnect();
       } catch {}
     }
-    {
-      this.osc = [];
-      this.musicOsc = [];
-    }
+    this.osc = [];
     for (let e of this.sources) {
       try {
         e.stop();
@@ -491,14 +400,6 @@ export class RevForgeVoice {
               f = 0.03 + a * 0.04;
               _ = 0.02 + a * 0.05;
               m = 0.02 + t.metallic * 0.04;
-            } else {
-              if (t.voice === `lofi`) {
-                f = 0.03 * (0.4 + i * 0.4);
-                p = 0.04;
-                h = 0.025;
-                m = 0.015;
-                g = 0.008;
-              }
             }
           }
         }
@@ -595,7 +496,7 @@ export class RevForgeVoice {
     this.engineBus = ctx.createGain();
     this.engineBus.gain.value = Yt(look.engineVolume);
     this.musicBus = ctx.createGain();
-    this.musicBus.gain.value = Yt(look.musicVolume);
+    this.musicBus.gain.value = 0;
     this.compressor = ctx.createDynamicsCompressor();
     this.compressor.threshold.value = -18;
     this.compressor.knee.value = 18;

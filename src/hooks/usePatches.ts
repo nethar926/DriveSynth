@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { EnginePatch } from '../audio';
-import { BUILTIN_PATCHES } from '../audio';
+import { BUILTIN_PATCHES, migrateEnginePatch } from '../audio';
 
 const KEY = 'drivesynth.patches.v1';
 const BUILTIN_IDS = new Set(BUILTIN_PATCHES.map((p) => p.id));
@@ -10,7 +10,7 @@ function loadUser(): EnginePatch[] {
     const raw = localStorage.getItem(KEY);
     if (!raw) return [];
     const parsed = JSON.parse(raw) as EnginePatch[];
-    return Array.isArray(parsed) ? parsed : [];
+    return Array.isArray(parsed) ? parsed.map(migrateEnginePatch) : [];
   } catch {
     return [];
   }
@@ -28,14 +28,15 @@ export function usePatches() {
   }, [userPatches]);
 
   const savePatch = useCallback((patch: EnginePatch) => {
+    const migrated = migrateEnginePatch(patch);
     setUserPatches((list) => {
-      const idx = list.findIndex((p) => p.id === patch.id);
+      const idx = list.findIndex((p) => p.id === migrated.id);
       if (idx >= 0) {
         const next = [...list];
-        next[idx] = patch;
+        next[idx] = migrated;
         return next;
       }
-      return [...list, patch];
+      return [...list, migrated];
     });
   }, []);
 

@@ -63,7 +63,7 @@ for (const pack of packs)
     assert.equal(voice.nodes.length, 0);
     assert.equal(timers.size, 0);
   });
-test("changing voice architecture cleans the previous graph and lo-fi scheduler", async () => {
+test("changing voice architecture cleans the previous graph and timers", async () => {
   const offline = new OfflineAudioContext(2, 4410, 44100);
   const ctx = new Proxy(offline, {
     get(t, k) {
@@ -73,13 +73,12 @@ test("changing voice architecture cleans the previous graph and lo-fi scheduler"
     },
   });
   const voice = new RevForgeVoice(ctx, offline.destination);
-  await voice.start(packs.find((p) => p.id === "lofi").engine, {
+  await voice.start(packs.find((p) => p.id === "road-66").engine, {
     masterVolume: 0.85,
     engineVolume: 1,
     musicVolume: 0.45,
   });
-  assert.ok(timers.size > 0);
-  voice.applyPatch(packs[0].engine);
+  voice.applyPatch(packs.find((p) => p.id === "apex-v8").engine);
   assert.equal(timers.size, 0);
   voice.update({
     rpm: 3000,

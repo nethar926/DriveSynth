@@ -47,7 +47,7 @@ function loadBool(key: string, fallback = false): boolean {
 function resolveKind(engineId: string): EngineKind {
   const builtin = getBuiltin(engineId);
   if (builtin) return builtin.kind;
-  if (engineId.includes('tie') || engineId.includes('scifi')) return 'scifi';
+  if (engineId.includes('ion-twin') || engineId.includes('tie') || engineId.includes('scifi')) return 'scifi';
   if (engineId.includes('f14') || engineId.includes('aero')) return 'aerospace';
   if (engineId.includes('ev')) return 'ev-whine';
   return 'ice';
@@ -438,7 +438,7 @@ export function DrivePage({ audio, gps, prefs, update, onEnableGps }: Props) {
 
       {tabBackgrounded && (
         <div className="tab-warn" role="status">
-          Tab was backgrounded — audio/GPS may have paused. Keep DriveSynth in the foreground.
+          Tab was backgrounded — audio/GPS may have paused. Keep RevForge in the foreground.
         </div>
       )}
 

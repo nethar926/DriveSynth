@@ -20,5 +20,6 @@ export interface RevForgeVoiceConfig {
   shiftRpm: number;
   finalDrive: number;
   hasManual: boolean;
-  hasMusic: boolean;
+  /** @deprecated Lo-fi music layer removed; optional for saved-preset compat. */
+  hasMusic?: boolean;
 }

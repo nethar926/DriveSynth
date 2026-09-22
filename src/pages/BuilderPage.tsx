@@ -156,10 +156,25 @@ function nextId() {
 }
 
 const SCREAM_LABEL_OVERRIDE: Record<string, string> = {
-  formantHowl: 'Intensity',
-  corePitch: 'Pitch center',
-  carrierBite: 'Grit',
-  wetHiss: 'Wet/Dry',
+  // Legacy aliases
+  formantHowl: 'Howl intensity',
+  corePitch: 'Motor Hz',
+  carrierBite: 'Motor mix',
+  wetHiss: 'Air / wet',
+  // Layer enable + mix (combinable configs)
+  motorEnable: 'Motor on',
+  motorMix: 'Motor mix',
+  howlEnable: 'Howl on',
+  howlMix: 'Howl mix',
+  screamEnable: 'Scream on',
+  screamMix: 'Scream mix',
+  screamBright: 'Scream bright',
+  surgeEnable: 'Surge on',
+  surgeMix: 'Surge mix',
+  airEnable: 'Air on',
+  airMix: 'Air mix',
+  gritEnable: 'Grit on',
+  gritMix: 'Grit mix',
 };
 
 const SCREAM_PARAM_IDS = new Set(Object.keys(SCREAM_LABEL_OVERRIDE));
@@ -485,7 +500,7 @@ export function BuilderPage({ audio, onSave, userPatches, onDeleteUserPatch }: P
   if (!audio.running || !params) {
     return (
       <div className="page builder-page">
-        <h1 className="page-title">Synth builder</h1>
+        <h1 className="page-title">Pro Builder</h1>
         <p className="page-blurb">
           Start the engine on Drive first (unlocks audio), then come back to build node graphs and tweak knobs.
         </p>
@@ -496,7 +511,7 @@ export function BuilderPage({ audio, onSave, userPatches, onDeleteUserPatch }: P
   return (
     <div className="page builder-page">
       <header className="page-head">
-        <h1>Synth Builder</h1>
+        <h1>Pro Builder</h1>
         <p className="page-sub">Node graph · EngineParams · preview · save / export / import</p>
       </header>
 

@@ -5,18 +5,19 @@ export type TopologyId =
   | 'v8-rumble'
   | 'i4-zip'
   | 'i6-silk'
+  | 'rotary-hum'
   | 'ev-whine'
   | 'ev-inverter-climb'
   | 'ev-regen-howl'
   | 'ev-dual-motor'
-  | 'tie-fighter'
+  | 'ion-twin'
   | 'aerospace-f14'
   | 'custom';
 
 /** Pack / builder categories. Old kinds map 1:1 (ice, ev-whine, scifi); aerospace is new. */
 export type EngineKind = 'ice' | 'ev-whine' | 'aerospace' | 'scifi';
 
-/** Ion Twin / tie-fighter targeting ladder (rpmNorm + hysteresis). */
+/** Ion Twin targeting ladder (rpmNorm + hysteresis). */
 export type LockStage = 'none' | 'identified' | 'lock' | 'kill';
 
 export type IceMode = 'worklet' | 'osc' | 'n/a';
@@ -31,6 +32,27 @@ export interface EngineDiag {
   engineId: EngineId;
   /** Present when AudioWorklet load/init failed */
   workletError?: string;
+}
+
+/** ICE EngineState snapshot from Audio Physics bridge (HUD / QA). */
+export interface EngineStateSnapshot {
+  rpm: number;
+  throttle: number;
+  load: number;
+  /** bit i SET = slot i disabled */
+  firingMask: number;
+  misfireAmount: number;
+  firingFamily: number;
+  bankSchedule: string;
+  cylinders: number;
+  crankAngleDeg: number;
+  manifoldNorm: number;
+  exhaustOpenness: number;
+  pulseJitter: number;
+  /** Rotary: chambers per rotor (default 3). */
+  chambersPerRotor?: number;
+  /** Rotary: rotor count 1|2. */
+  rotors?: number;
 }
 
 export interface DrivingInput {
@@ -61,7 +83,7 @@ export interface EngineParams {
   // ICE
   rpmIdle?: number;
   rpmRedline?: number;
-  cylinders?: 4 | 6 | 8 | 10 | 12;
+  cylinders?: 3 | 4 | 6 | 8 | 10 | 12;
   roughness?: number;
   growl?: number;
   presence?: number;
@@ -80,7 +102,30 @@ export interface EngineParams {
   exhaustFeedback?: number;
   /** Overrun crackle amount 0..1 */
   crackle?: number;
-  // Sci-fi
+  /** Stochastic misfire amount 0..1 (RES: changes lope) */
+  misfire?: number;
+  /** 0=auto 1=crossplane 2=flatplane 3=even 4=rotary chamber-pulse */
+  firingFamily?: number;
+  /** Rotary: chambers per eccentric rotor (default 3). */
+  chambersPerRotor?: number;
+  /** Rotary: 1 or 2 rotors (2 stacks cadence). */
+  rotors?: number;
+  /**
+   * ICE drop-cyl bitfield 0–255 (worklet AudioParam).
+   * Convention: bit i set = slot i disabled; 0 = all enabled (mask-none).
+   */
+  firingMask?: number;
+  /** QA: drop this cylinder slot (0–7); Synth maps to firingMask bit */
+  dropCyl?: number;
+  /** Dual-collector L/R delay ms (pack schedule). Synth may map to stereo delay. */
+  collectorDelayMs?: number;
+  /** Bank B offset degrees (typical 90 for V8). */
+  bankOffsetDeg?: number;
+  /** Manifold fill lag τ seconds (EngineState). */
+  tauManifold?: number;
+  /** Exhaust openness lag τ seconds (EngineState). */
+  tauExhaust?: number;
+  // Sci-fi / Ion Twin
   corePitch?: number;
   pulseRate?: number;
   resonance?: number;
@@ -96,6 +141,59 @@ export interface EngineParams {
   wetHiss?: number;
   /** Formant sweep rate / spread 0..1 */
   formantSpread?: number;
+  /** Twin motor detune / beat 0..1 */
+  motorDetune?: number;
+  /** Twin motor mix 0..1 */
+  motorMix?: number;
+  /** Formant CF scale 0..1 (~0.7–1.4×) */
+  formantShift?: number;
+  /** Formant Q alias 0..1 */
+  formantQ?: number;
+  /** Phrase AM rate 0..1 */
+  phraseRate?: number;
+  /** Phrase AM depth 0..1 */
+  phraseDepth?: number;
+  /** Grit / saturation × load 0..1 */
+  grit?: number;
+  /** Short cabin body 0..1 */
+  body?: number;
+  /** Wet vs dry crossfade 0..1 (dry-leaning default) */
+  wetDry?: number;
+  /** Subtle L/R twin motor delay 0..1 */
+  stereoTwin?: number;
+  /** Motor+howl spool inertia 0..1 */
+  spoolLag?: number;
+  /** Air / slipstream alias for wetHiss */
+  air?: number;
+  /** Ion spark alias for afterburn */
+  ionSpark?: number;
+  /** Ion hum alias for hum */
+  ionHum?: number;
+  // Ion Twin layer enables (0=off, 1=on) — combinable configs
+  /** Twin motor bed enable 0|1 */
+  motorEnable?: number;
+  /** Formant howl (ref-A/F) enable 0|1 */
+  howlEnable?: number;
+  /** Howl mix alias (maps onto formantHowl) 0..1 */
+  howlMix?: number;
+  /** Brighter scream burst (ref-C) enable 0|1 */
+  screamEnable?: number;
+  /** Scream burst mix 0..1 */
+  screamMix?: number;
+  /** Scream brightness / CF lift 0..1 */
+  screamBright?: number;
+  /** Rising CF surge gesture (ref-D) enable 0|1 */
+  surgeEnable?: number;
+  /** Surge gesture mix 0..1 */
+  surgeMix?: number;
+  /** Air / wet swoosh enable 0|1 */
+  airEnable?: number;
+  /** Air mix alias (maps onto wetHiss/air) 0..1 */
+  airMix?: number;
+  /** Grit bus enable 0|1 */
+  gritEnable?: number;
+  /** Grit mix alias 0..1 */
+  gritMix?: number;
   // EV
   whinePitch?: number;
   gearSteps?: number;
@@ -171,10 +269,19 @@ export interface SynthNodeDesc {
 }
 
 export interface SoundLayer {id:string;name:string;patch:EnginePatch;level:number;pitch:number;pan:number;depth?:number;cutoff:number;response:"load"|"rpm"|"steady";muted:boolean;solo:boolean;}
+/** Ion Twin procedural layer config (enable + gain + character) for save/combine. */
+export interface IonTwinLayerConfig {
+  id: string;
+  name: string;
+  /** When false, layer contributes silence regardless of mix. */
+  enabled: boolean;
+  /** Layer bus gain 0..1 */
+  gain: number;
+  /** Optional character knobs merged into EngineParams when applied */
+  params?: Record<string, number>;
+}
+
 export interface EnginePatch {
-  layers?:SoundLayer[];
-  /** Native RevForge parameters; persisted with custom presets. */
-  revforge?: RevForgeVoiceConfig;
   version: 0;
   id: EngineId;
   name: string;
@@ -182,6 +289,12 @@ export interface EnginePatch {
   topology: TopologyId;
   params: Record<string, number | string>;
   graph?: SynthNodeDesc[];
+  /** Optional stackable layers (Sound Lab / character stacks) */
+  layers?: SoundLayer[];
+  /** Ion Twin bus configs (motor/howl/scream/surge/air/grit) for save/combine */
+  ionLayers?: IonTwinLayerConfig[];
+  /** Native RevForge parameters; persisted with custom presets. */
+  revforge?: RevForgeVoiceConfig;
   meta?: { author?: string; createdAt?: string; tags?: string[]; blurb?: string };
 }
 
@@ -228,11 +341,18 @@ export interface EngineSynth {
   onLockStageChange?: (stage: LockStage) => void;
 
   /**
-   * Soft UI cue (Frontend-driven). For 'upshift': short procedural mechanical bark
-   * (noise burst + dull knock) — not a whole-stack pitch jump. Gated by setUpshiftSfxEnabled.
-   * Frontend: call eng.triggerUiCue('upshift') when MANUAL paddle up and toggle on.
+   * Soft UI cue (Frontend-driven). Does not alter setDriving.
+   * - 'upshift': short procedural mechanical bark (gated by setUpshiftSfxEnabled)
+   * - 'starter' | 'ignition': per-engine Ignition one-shot from active pack params
+   * - 'shutdown' | 'shutoff': per-engine Shutdown one-shot (call before stop() for full tail)
    */
-  triggerUiCue?(cue: 'upshift' | string): void;
+  triggerUiCue?(cue: 'upshift' | 'starter' | 'shutdown' | 'shutoff' | string): void;
+
+  /** Procedural Ignition starter from active pack (alias of triggerUiCue('starter')). */
+  playStarter?(): void;
+
+  /** Procedural Shutdown shutoff from active pack (alias of triggerUiCue('shutdown')). */
+  playShutoff?(): void;
 
   /** Optional MANUAL upshift bark; default false. Persists to localStorage `ds-upshift-sfx`. */
   setUpshiftSfxEnabled(enabled: boolean): void;
@@ -240,6 +360,15 @@ export interface EngineSynth {
 
   /** Frontend /diag snapshot — field names stable for iceMode consumers */
   getDiag(): EngineDiag;
+
+  /** Audio Physics ICE bridge snapshot (optional). */
+  getEngineState?(): EngineStateSnapshot;
+
+  /** QA / pack: set firingMask (bit SET = disabled). */
+  setFiringMask?(mask: number): void;
+
+  /** QA §2.5 drop-cylinder: disable slot (sets bit). */
+  dropCylinder?(slot: number): void;
 }
 
 export interface ParamMeta {
@@ -251,4 +380,6 @@ export interface ParamMeta {
   unit?: string;
   kind?: 'slider' | 'segmented';
   options?: number[];
+  /** Pro Builder group label (Ion Twin layers, etc.) */
+  group?: string;
 }

@@ -1,17 +1,41 @@
 :root {
-  --glass-bg: color-mix(in srgb, var(--bg-elev) 55%, transparent);
-  --glass-bg-strong: color-mix(in srgb, var(--bg-card) 72%, transparent);
-  --glass-border: color-mix(in srgb, #ffffff 18%, var(--border));
-  --glass-highlight: color-mix(in srgb, #ffffff 28%, transparent);
-  --glass-shadow: 0 10px 40px rgba(0, 0, 0, 0.35), inset 0 1px 0 var(--glass-highlight);
-  --glass-blur: 22px;
-  --glass-saturate: 1.35;
+  --glass-bg: color-mix(in srgb, var(--bg-elev) 42%, transparent);
+  --glass-bg-strong: color-mix(in srgb, var(--bg-card) 58%, transparent);
+  --glass-bg-soft: color-mix(in srgb, #ffffff 6%, transparent);
+  --glass-border: color-mix(in srgb, #ffffff 22%, var(--border));
+  --glass-border-soft: color-mix(in srgb, #ffffff 12%, transparent);
+  --glass-highlight: color-mix(in srgb, #ffffff 42%, transparent);
+  --glass-specular: linear-gradient(
+    135deg,
+    color-mix(in srgb, #ffffff 38%, transparent) 0%,
+    color-mix(in srgb, #ffffff 8%, transparent) 28%,
+    transparent 48%,
+    color-mix(in srgb, #ffffff 6%, transparent) 72%,
+    color-mix(in srgb, #ffffff 18%, transparent) 100%
+  );
+  --glass-edge: inset 0 1px 0 var(--glass-highlight),
+    inset 0 -1px 0 color-mix(in srgb, #ffffff 6%, transparent),
+    inset 1px 0 0 color-mix(in srgb, #ffffff 10%, transparent),
+    inset -1px 0 0 color-mix(in srgb, #000000 18%, transparent);
+  --glass-shadow: 0 12px 48px rgba(0, 0, 0, 0.42),
+    0 2px 8px rgba(0, 0, 0, 0.28),
+    var(--glass-edge);
+  --glass-shadow-tight: 0 8px 28px rgba(0, 0, 0, 0.36), var(--glass-edge);
+  --glass-blur: 32px;
+  --glass-blur-strong: 44px;
+  --glass-saturate: 1.55;
   --radius-lg: 22px;
   --radius-xl: 28px;
+  --radius-pill: 999px;
+  --touch-min: 48px;
+  --glass-letter: 0.02em;
 }
 
 .glass {
-  background: var(--glass-bg);
+  position: relative;
+  background:
+    var(--glass-specular),
+    var(--glass-bg);
   border: 1px solid var(--glass-border);
   box-shadow: var(--glass-shadow);
   backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
@@ -19,11 +43,14 @@
 }
 
 .glass-strong {
-  background: var(--glass-bg-strong);
+  position: relative;
+  background:
+    var(--glass-specular),
+    var(--glass-bg-strong);
   border: 1px solid var(--glass-border);
   box-shadow: var(--glass-shadow);
-  backdrop-filter: blur(28px) saturate(1.45);
-  -webkit-backdrop-filter: blur(28px) saturate(1.45);
+  backdrop-filter: blur(var(--glass-blur-strong)) saturate(1.65);
+  -webkit-backdrop-filter: blur(var(--glass-blur-strong)) saturate(1.65);
 }
 
 .app-shell {
@@ -37,27 +64,25 @@
   margin: 10px 12px 0;
   padding: 10px 14px !important;
   border-radius: var(--radius-xl);
-  background: var(--glass-bg-strong) !important;
+  background:
+    var(--glass-specular),
+    var(--glass-bg-strong) !important;
   border: 1px solid var(--glass-border) !important;
   box-shadow: var(--glass-shadow);
   backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
   -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
 }
 
-.nav-bar {
-  margin: 0 12px 12px;
-  padding: 8px !important;
-  border-radius: var(--radius-xl);
-  background: var(--glass-bg-strong) !important;
-  border: 1px solid var(--glass-border) !important;
-  box-shadow: var(--glass-shadow);
-  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
-  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+.menu-drawer {
+  backdrop-filter: blur(var(--glass-blur-strong)) saturate(var(--glass-saturate));
+  -webkit-backdrop-filter: blur(var(--glass-blur-strong)) saturate(var(--glass-saturate));
 }
 
-.nav-btn {
-  border-radius: 16px !important;
-  min-height: 48px !important;
+.hamburger-btn {
+  min-height: var(--touch-min);
+  min-width: var(--touch-min);
+  backdrop-filter: blur(18px) saturate(1.4);
+  -webkit-backdrop-filter: blur(18px) saturate(1.4);
 }
 
 .icon-btn,
@@ -66,8 +91,9 @@
 .engine-preview-btn,
 .gear-pill,
 .palette-btn {
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  min-height: var(--touch-min);
+  backdrop-filter: blur(16px) saturate(1.35);
+  -webkit-backdrop-filter: blur(16px) saturate(1.35);
 }
 
 .engine-card,
@@ -76,11 +102,13 @@
 .diag-row,
 .stat-card,
 .tele-cell {
-  background: var(--glass-bg) !important;
+  background:
+    var(--glass-specular),
+    var(--glass-bg) !important;
   border: 1px solid var(--glass-border) !important;
-  box-shadow: var(--glass-shadow);
-  backdrop-filter: blur(18px) saturate(1.3);
-  -webkit-backdrop-filter: blur(18px) saturate(1.3);
+  box-shadow: var(--glass-shadow-tight);
+  backdrop-filter: blur(26px) saturate(1.45);
+  -webkit-backdrop-filter: blur(26px) saturate(1.45);
 }
 
 .hud-stage {
@@ -92,10 +120,176 @@
   box-shadow: 0 0 24px var(--accent-dim);
 }
 
+/* ── RevForge chrome (Tuner / dock / chips / modals) — splash locked ── */
+
+.forge .rev-chip,
+.forge .rev-segment {
+  background:
+    var(--glass-specular),
+    color-mix(in srgb, #10171e 58%, transparent) !important;
+  border: 1px solid var(--glass-border) !important;
+  box-shadow: var(--glass-shadow-tight);
+  backdrop-filter: blur(28px) saturate(1.55) !important;
+  -webkit-backdrop-filter: blur(28px) saturate(1.55) !important;
+  letter-spacing: var(--glass-letter);
+}
+
+.forge .rev-chip {
+  min-height: var(--touch-min) !important;
+  min-width: var(--touch-min) !important;
+  border-radius: var(--radius-pill) !important;
+  font-weight: 600;
+}
+
+.forge .rev-segment {
+  border-radius: 30px !important;
+  padding: 4px !important;
+}
+
+.forge .rev-segment button {
+  min-height: var(--touch-min) !important;
+  border-radius: var(--radius-pill) !important;
+  font-weight: 600;
+  letter-spacing: var(--glass-letter);
+}
+
+.rev-dock {
+  gap: 10px;
+}
+
+.rev-topbar strong {
+  letter-spacing: 0.2em;
+  font-weight: 650;
+}
+
+.rev-throttle {
+  background:
+    var(--glass-specular),
+    color-mix(in srgb, #0c131c 62%, transparent) !important;
+  border: 1px solid var(--glass-border) !important;
+  box-shadow: var(--glass-shadow-tight);
+  backdrop-filter: blur(28px) saturate(1.5) !important;
+  -webkit-backdrop-filter: blur(28px) saturate(1.5) !important;
+  border-radius: 18px !important;
+  padding: 14px 16px !important;
+}
+
+.forge-modal-backdrop {
+  backdrop-filter: blur(18px) saturate(1.2);
+  -webkit-backdrop-filter: blur(18px) saturate(1.2);
+  background: color-mix(in srgb, #05070a 55%, transparent) !important;
+}
+
+.forge-modal {
+  background:
+    var(--glass-specular),
+    color-mix(in srgb, #121820 72%, transparent) !important;
+  border: 1px solid var(--glass-border) !important;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.55), var(--glass-edge) !important;
+  backdrop-filter: blur(var(--glass-blur-strong)) saturate(1.6) !important;
+  -webkit-backdrop-filter: blur(var(--glass-blur-strong)) saturate(1.6) !important;
+  border-radius: var(--radius-xl) !important;
+}
+
+.forge-modal-heading h2 {
+  letter-spacing: -0.02em;
+  font-weight: 560;
+}
+
+.forge-eyebrow {
+  letter-spacing: 0.18em;
+  opacity: 0.72;
+}
+
+.tuner-menu {
+  gap: 14px !important;
+}
+
+.forge .tuner-menu > button {
+  min-height: 72px;
+  border: 1px solid var(--glass-border) !important;
+  border-radius: 18px !important;
+  padding: 20px 22px !important;
+  background:
+    var(--glass-specular),
+    color-mix(in srgb, #131b23 70%, transparent) !important;
+  box-shadow: var(--glass-shadow-tight);
+  backdrop-filter: blur(22px) saturate(1.45);
+  -webkit-backdrop-filter: blur(22px) saturate(1.45);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.forge .tuner-menu > button:active {
+  transform: scale(0.985);
+}
+
+.tuner-menu strong {
+  font-size: 1.15rem;
+  font-weight: 560;
+  letter-spacing: -0.015em;
+}
+
+.tuner-menu small {
+  color: color-mix(in srgb, #9aa9b7 90%, transparent);
+  line-height: 1.45;
+}
+
+.forge .tuner-back {
+  min-height: var(--touch-min);
+  padding: 12px 4px;
+  letter-spacing: 0.04em;
+}
+
+.forge .forge-icon {
+  min-height: var(--touch-min);
+  min-width: var(--touch-min);
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--glass-border-soft);
+  background: var(--glass-bg-soft);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+
+.rev-scene .layout-road .skin-telemetry {
+  background:
+    var(--glass-specular),
+    color-mix(in srgb, #10171e 55%, transparent) !important;
+  border: 1px solid var(--glass-border) !important;
+  box-shadow: var(--glass-shadow-tight);
+  backdrop-filter: blur(28px) saturate(1.5) !important;
+  -webkit-backdrop-filter: blur(28px) saturate(1.5) !important;
+  border-radius: 16px !important;
+}
+
+.rf-dynamics-panel,
+.theme-builder-panel {
+  background:
+    var(--glass-specular),
+    var(--glass-bg) !important;
+  border: 1px solid var(--glass-border) !important;
+  border-radius: 18px;
+  box-shadow: var(--glass-shadow-tight);
+  backdrop-filter: blur(24px) saturate(1.4);
+  -webkit-backdrop-filter: blur(24px) saturate(1.4);
+  padding: 16px 18px;
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .glass, .glass-strong, .top-chrome, .nav-bar {
+  .glass,
+  .glass-strong,
+  .top-chrome,
+  .menu-drawer,
+  .forge .rev-chip,
+  .forge .rev-segment,
+  .forge-modal,
+  .forge .tuner-menu > button,
+  .rev-throttle,
+  .rev-scene .layout-road .skin-telemetry {
     backdrop-filter: none;
     -webkit-backdrop-filter: none;
+  }
+  .forge .tuner-menu > button:active {
+    transform: none;
   }
 }
 
@@ -108,10 +302,8 @@
   opacity: 0.7;
 }
 
-
-/* Tesla-friendly delete on user presets */
 .engine-delete-btn {
-  min-height: 48px;
+  min-height: var(--touch-min);
   width: 100%;
   margin-top: 8px;
   padding: 0 14px;
@@ -122,8 +314,8 @@
   font-weight: 700;
   font-size: 0.9rem;
   cursor: pointer;
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
 }
 .engine-delete-btn:active {
   transform: scale(0.98);
@@ -142,10 +334,15 @@
   grid-template-columns: 1fr auto;
   gap: 6px 12px;
   align-items: center;
-  padding: 10px 12px;
+  padding: 12px 14px;
   border-radius: 16px;
   border: 1px solid var(--glass-border);
-  background: var(--glass-bg);
+  background:
+    var(--glass-specular),
+    var(--glass-bg);
+  box-shadow: var(--glass-shadow-tight);
+  backdrop-filter: blur(20px) saturate(1.35);
+  -webkit-backdrop-filter: blur(20px) saturate(1.35);
 }
 .user-preset-name {
   font-weight: 700;
@@ -163,12 +360,10 @@
   margin-top: 0;
 }
 
-/* Ion Twin scream panel */
 .ion-scream-panel .slider-block {
   margin-top: 10px;
 }
 
-/* Drive commentary chips */
 .commentary-chips {
   position: relative;
   z-index: 1;
@@ -179,26 +374,27 @@
   padding: 4px 0 8px;
 }
 .commentary-chip {
-  min-height: 44px;
+  min-height: var(--touch-min);
   min-width: 72px;
   padding: 0 16px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   font-weight: 800;
   font-size: 0.78rem;
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--text);
   border: 1px solid var(--glass-border);
-  background: var(--glass-bg-strong);
-  box-shadow: var(--glass-shadow);
-  backdrop-filter: blur(16px) saturate(1.3);
-  -webkit-backdrop-filter: blur(16px) saturate(1.3);
+  background:
+    var(--glass-specular),
+    var(--glass-bg-strong);
+  box-shadow: var(--glass-shadow-tight);
+  backdrop-filter: blur(22px) saturate(1.45);
+  -webkit-backdrop-filter: blur(22px) saturate(1.45);
 }
 
-/* Ion Twin SPEED script toggle (Aurebesh default; Customize for Latin/dual) */
 .aurebesh-hint {
   margin: 4px 0 0;
   font-size: 0.68rem;
@@ -215,10 +411,10 @@
   position: absolute;
   right: 8px;
   top: 8px;
-  min-height: 36px;
-  min-width: 44px;
-  padding: 0 10px;
-  border-radius: 999px;
+  min-height: var(--touch-min);
+  min-width: var(--touch-min);
+  padding: 0 12px;
+  border-radius: var(--radius-pill);
   border: 1px solid var(--glass-border);
   background: var(--glass-bg);
   color: var(--text-dim);
@@ -227,6 +423,8 @@
   letter-spacing: 0.08em;
   cursor: pointer;
   opacity: 0.55;
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
 }
 .aurebesh-toggle[aria-pressed="true"] {
   color: var(--accent);
@@ -247,3 +445,8 @@
     opacity: 0.5;
   }
 }
+
+/*
+ * IGNITION splash is LOCKED — do not restyle .rev-launch / .rev-ignite here.
+ * Coral CTA, Tuner chip placement, parked subtitle remain in viewport.css.
+ */

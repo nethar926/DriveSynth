@@ -7,32 +7,33 @@ import type {
   EngineSynth,
   LockStage,
 } from "../audio";
-import { createEngineSynth, getBuiltin } from "../audio";
+import { createEngineSynth, getBuiltin, resolveLegacyPackId } from "../audio";
 
 export function useAudioEngine(
   initialId = "v8-rumble",
   savedPatches: EnginePatch[] = [],
 ) {
+  const resolvedInitialId = resolveLegacyPackId(initialId);
   const mediaRef=useRef<MediaOutput|null>(null);
   const [background,setBackground]=useState(()=>{try{return localStorage.getItem("revforge.background")!=="false";}catch{return true;}});
   const [backgroundStatus,setBackgroundStatus]=useState("Start audio to activate background playback");
   const ctxRef = useRef<AudioContext | null>(null);
   const engineRef = useRef<EngineSynth | null>(null);
   const pendingPatchRef = useRef<EnginePatch | null>(
-    savedPatches.find((p) => p.id === initialId) ?? null,
+    savedPatches.find((p) => p.id === resolvedInitialId) ?? null,
   );
-  const selectedIdRef = useRef(initialId);
+  const selectedIdRef = useRef(resolvedInitialId);
   const wantsRunning = useRef(false);
   const startVersion = useRef(0);
   const [starting, setStarting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
   const [running, setRunning] = useState(false);
-  const [engineId, setEngineId] = useState(initialId);
+  const [engineId, setEngineId] = useState(resolvedInitialId);
   const [patchName, setPatchName] = useState(
     () =>
-      savedPatches.find((p) => p.id === initialId)?.name ??
-      getBuiltin(initialId)?.name ??
+      savedPatches.find((p) => p.id === resolvedInitialId)?.name ??
+      getBuiltin(resolvedInitialId)?.name ??
       "Engine",
   );
 
@@ -202,8 +203,19 @@ export function useAudioEngine(
     }
   }, []);
 
-  const triggerUiCue = useCallback((cue: "upshift" | string) => {
-    engineRef.current?.triggerUiCue?.(cue);
+  const triggerUiCue = useCallback(
+    (cue: 'upshift' | 'starter' | 'shutdown' | 'shutoff' | string) => {
+      engineRef.current?.triggerUiCue?.(cue);
+    },
+    [],
+  );
+
+  const playStarter = useCallback(() => {
+    engineRef.current?.playStarter?.();
+  }, []);
+
+  const playShutoff = useCallback(() => {
+    engineRef.current?.playShutoff?.();
   }, []);
 
   useEffect(() => {
@@ -241,6 +253,8 @@ export function useAudioEngine(
       setUpshiftSfxEnabled,
       getUpshiftSfxEnabled,
       triggerUiCue,
+      playStarter,
+      playShutoff,
       ready,
       running,
       engineId,
@@ -264,6 +278,8 @@ export function useAudioEngine(
       setUpshiftSfxEnabled,
       getUpshiftSfxEnabled,
       triggerUiCue,
+      playStarter,
+      playShutoff,
       ready,
       running,
       engineId,

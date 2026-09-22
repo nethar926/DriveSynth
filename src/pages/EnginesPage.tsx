@@ -19,11 +19,13 @@ const SNIPPET_BY_ID: Record<string, string> = {
   'v8-rumble': 'snippets/v8-rumble.wav',
   'i4-zip': 'snippets/i4-zip.wav',
   'i6-silk': 'snippets/i6-silk.wav',
+  'rotary-hum': 'snippets/rotary-hum.wav',
   'ev-whine': 'snippets/ev-whine.wav',
   'ev-inverter-climb': 'snippets/ev-inverter-climb.wav',
   'ev-regen-howl': 'snippets/ev-regen-howl.wav',
   'ev-dual-motor': 'snippets/ev-dual-motor.wav',
-  'tie-fighter': 'snippets/ion-twin-tie-fighter.wav',
+  'ion-twin': 'snippets/ion-twin.wav',
+  'tie-fighter': 'snippets/ion-twin.wav', // legacy prefs / deep-link id
   'aerospace-f14': 'snippets/aerospace-f14.wav',
 };
 
@@ -46,9 +48,9 @@ type ScreamState = typeof SCREAM_DEFAULTS;
 
 function isIonTwinScreamPatch(p: EnginePatch | undefined): boolean {
   if (!p) return false;
-  if (p.id === 'tie-fighter') return true;
-  // topology is TopologyId (e.g. tie-fighter); kind carries scifi category
-  return p.kind === 'scifi' || p.topology === 'tie-fighter';
+  if (p.id === 'ion-twin' || p.id === 'tie-fighter') return true;
+  // topology: ion-twin (Audio rename); tie-fighter legacy alias
+  return p.kind === 'scifi' || p.topology === 'ion-twin' || (p.topology as string) === 'tie-fighter';
 }
 
 function screamFromParams(p: Partial<EngineParams> | null | undefined): ScreamState {
@@ -130,7 +132,7 @@ export function EnginesPage({
   return (
     <div className="page engines-page">
       <header className="page-head">
-        <h1>Engines</h1>
+        <h1>Garage</h1>
         <p className="page-sub">All packs unlocked · free forever · ICE · EV · Aerospace · SciFi</p>
       </header>
 

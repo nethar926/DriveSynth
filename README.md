@@ -2,11 +2,11 @@
 
 The default drive dashboard now combines **RevForge’s native synthesis and 13 animated scenes** with DriveSynth’s engine library, builder and cockpit themes. RevForge voices retain their original sound algorithms; nine DriveSynth voices remain available in the Garage.
 
-Start in **Demo**, tap **Start engine**, and raise Throttle. Choose **Manual** to shift (↑ / ↓), **N** to free-rev, hold **Space** to accelerate, or hold **B** to brake. Open settings and turn **Demo mode** off to grant browser location access. DEMO appears beneath the speedometer whenever simulation is selected. The native **Synth studio** edits and saves RevForge voices, including turbo, crackle, blow-off and the lo-fi layer.
+Start in **Demo**, tap **Start engine**, and raise Throttle. Choose **Manual** to shift (↑ / ↓), **N** to free-rev, hold **Space** to accelerate, or hold **B** to brake. Open settings and turn **Demo mode** off to grant browser location access. DEMO appears beneath the speedometer whenever simulation is selected. The native **Synth studio** edits and saves RevForge voices, including turbo, crackle, blow-off.
 
 Use Node 24. Run `npm ci`, `npm test`, `npm run dev`, and `npm run build`. The production build and 30 audio/drivetrain/media-action/flight-envelope tests pass. **Tesla hardware validation is still pending.** See [merge notes](docs/revforge-merge.md) for provenance, behavior and review details. The original cockpit is retained at `#/cockpit`; its manual gear display is legacy behavior. New physical gearing is on `#/drive`.
 
-Theme Lab adds Minimal, Gauge Cluster, Cockpit and RoadView families. TIE-inspired Ion Interceptor and X-wing-inspired Red Squadron use FT Aurebesh numbers and Engli-Besh descriptors.
+Theme Lab adds Minimal, Gauge Cluster, Cockpit and RoadView families. Galactic Enforcer and Ion Twin HUDs use FT Aurebesh numbers and Engli-Besh descriptors (OFL fonts).
 
 Experimental media controls are off by default in settings: pause upshifts in Manual when enabled, next/previous shift up/down, and pause stops in Automatic. Touch Stop always stops. Settings includes GPS and received-media-action diagnostics. The user’s Tesla field test found no media-button shifting and no background audio. These are unsupported in the tested build; use touch shifting or Automatic and keep the browser visible. GPS still needs a live speed/accuracy reading; API availability is not hardware verification.
 
@@ -54,8 +54,9 @@ Hash routing (`#/drive`) is used so static hosts work without rewrite rules.
 
 - **V8 Rumble** (`v8-rumble`) — AudioWorklet pulse-train ICE + Karplus–Strong exhaust (oscillator fallback)
 - **I4 Zip** (`i4-zip`) — even-fire four-cylinder pulse path
+- **Rotary Hum** (`rotary-hum`) — chamber-pulse rotary ICE
 - **EV Whine** (`ev-whine`) — inverter-style whine + buzz
-- **Ion Twin** (`tie-fighter`) — twin-ion carriers + multi-formant howl + wet-road hiss — **procedural only, no samples**
+- **Twin Ion** (`ion-twin`; remaps legacy `tie-fighter`) — twin-ion carriers + multi-formant howl + wet-road hiss — **procedural only, no samples**
 
 ## Audio API
 
@@ -69,8 +70,10 @@ interface EngineSynth {
   getParams(): EngineParams;
   toPatch(): EnginePatch;
   fromPatch(patch: EnginePatch): void;
-  /** MANUAL paddle up: eng.triggerUiCue('upshift') when Customize toggle on (default off). */
-  triggerUiCue?(cue: 'upshift' | string): void;
+  /** Soft UI cues: 'upshift' | 'starter' | 'shutdown' (see docs/frontend-starter-shutoff-cues.md). */
+  triggerUiCue?(cue: 'upshift' | 'starter' | 'shutdown' | string): void;
+  playStarter?(): void;
+  playShutoff?(): void;
   setUpshiftSfxEnabled(enabled: boolean): void;
   getUpshiftSfxEnabled(): boolean;
 }
@@ -79,6 +82,8 @@ interface EngineSynth {
 Frontend maps mph → `speed` 0..1 via `mphToSpeed`. Audio owns RPM curves and smoothing.
 
 **Frontend upshift cue:** when MANUAL paddle up and upshift SFX is on, call `eng.triggerUiCue('upshift')` (short mechanical bark; does not pitch-jump the drive stack). Pref key `ds-upshift-sfx` / Customize “MANUAL upshift bark”.
+
+**Ignition / Shutdown SFX:** call `eng.triggerUiCue('starter')` after Start and `eng.triggerUiCue('shutdown')` before Stop — procedural per active pack (ICE / jet / Ion Twin / EV). See `docs/frontend-starter-shutoff-cues.md`.
 
 ## Key files
 

@@ -143,14 +143,6 @@ export function NativeStudio({
           </label>
         ))}
       </div>
-      <label className="forge-music-toggle">
-        Lo-fi music layer
-        <input
-          type="checkbox"
-          checked={voice.hasMusic}
-          onChange={(e) => update({ hasMusic: e.target.checked })}
-        />
-      </label>
       <div className="forge-studio-actions">
         <button onClick={exportPreset}>Export preset</button>
         <button onClick={save}>Save custom voice ↗</button>
