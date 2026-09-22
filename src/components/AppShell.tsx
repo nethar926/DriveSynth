@@ -1,5 +1,6 @@
+import { useCallback, useState } from 'react';
 import { Outlet } from 'react-router-dom';
-import { NavBar } from './NavBar';
+import { HamburgerMenu } from './NavBar';
 import type { UiPrefs } from '../hooks/useUiPrefs';
 
 interface Props {
@@ -11,7 +12,10 @@ interface Props {
 }
 
 export function AppShell({ prefs, engineName, running, onMuteToggle, skinId = 'default' }: Props) {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const closeMenu = useCallback(() => setMenuOpen(false), []);
   const speedScript = skinId === 'ion-twin' ? prefs.ionTwinSpeedScript : undefined;
+
   return (
     <div
       className={`app-shell density-${prefs.density}`}
@@ -19,20 +23,34 @@ export function AppShell({ prefs, engineName, running, onMuteToggle, skinId = 'd
       {...(speedScript ? { 'data-speed-script': speedScript } : {})}
     >
       <header className="top-chrome">
-        <div className="brand">
-          <span className="brand-mark">DS</span>
-          <div>
-            <div className="brand-name">
-              {skinId === 'ion-twin' ? (
-                <>
-                  <span className="aurebesh brand-ab">DS</span>
-                  <span className="brand-lat">DriveSynth</span>
-                </>
-              ) : (
-                'DriveSynth'
-              )}
+        <div className="chrome-leading">
+          <button
+            type="button"
+            className="hamburger-btn"
+            aria-label="Open menu"
+            aria-expanded={menuOpen}
+            aria-controls="revforge-menu"
+            onClick={() => setMenuOpen(true)}
+          >
+            <span className="hamburger-glyph" aria-hidden="true">
+              ☰
+            </span>
+          </button>
+          <div className="brand">
+            <span className="brand-mark">RF</span>
+            <div>
+              <div className="brand-name">
+                {skinId === 'ion-twin' ? (
+                  <>
+                    <span className="aurebesh brand-ab">RF</span>
+                    <span className="brand-lat">RevForge</span>
+                  </>
+                ) : (
+                  'RevForge'
+                )}
+              </div>
+              <div className="brand-sub">{engineName} · free</div>
             </div>
-            <div className="brand-sub">{engineName} · free</div>
           </div>
         </div>
         <div className="chrome-actions">
@@ -46,10 +64,13 @@ export function AppShell({ prefs, engineName, running, onMuteToggle, skinId = 'd
           </button>
         </div>
       </header>
+
+      <HamburgerMenu open={menuOpen} onClose={closeMenu} />
+
       <main className="main-stage">
         <Outlet />
       </main>
-      <NavBar />
+
       {prefs.showKeepAliveTip && (
         <div className="keepalive-tip" role="note">
           Tesla tip: keep this Browser tab open — backgrounding may pause audio & GPS.

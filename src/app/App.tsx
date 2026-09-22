@@ -11,7 +11,6 @@ import { DiagPage } from "../pages/DiagPage";
 import { useThemes } from "../themes/useThemes";
 import { ExperienceBuilder } from "../themes/ExperienceBuilder";
 import { ForgePage } from "../forge/ForgePage";
-import { DrivePage } from "../pages/DrivePage";
 import { EnginesPage } from "../pages/EnginesPage";
 import type { EnginePatch } from "../audio";
 import { getBuiltin } from "../audio";
@@ -98,6 +97,8 @@ export default function App() {
           }
         />
       ))}
+      {/* Legacy Cockpit → Drive (ForgePage); never show DriveSynth chrome */}
+      <Route path="/cockpit" element={<Navigate to="/drive" replace />} />
       <Route path="/builder" element={<ExperienceBuilder themes={themes} audio={audio} userPatches={userPatches} onSelect={onSelectEngine} onLoadCombination={(skinId,patch,atmosphereId)=>{themes.selectSkin(skinId);if(atmosphereId)themes.selectAtmosphere(atmosphereId);onSavePatch(patch);}}/>}/>
       <Route
         element={
@@ -110,20 +111,6 @@ export default function App() {
           />
         }
       >
-        <Route
-          path="/cockpit"
-          element={
-            <DrivePage
-              audio={audio}
-              gps={gps}
-              prefs={prefs}
-              update={update}
-              onEnableGps={() =>
-                gpsEnabled ? gps.start() : setGpsEnabled(true)
-              }
-            />
-          }
-        />
         <Route
           path="/engines"
           element={
