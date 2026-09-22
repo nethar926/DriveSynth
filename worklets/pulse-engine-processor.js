@@ -2,6 +2,7 @@
  * Pulse-train ICE AudioWorkletProcessor (organic v1 + PR cue sheet)
  * Buses: mechanical bed + soft combustion pulses + intake×throttle + exhaust waveguide.
  * V8 per-bank schedule 180°/90°/180°/270° + dual-collector L/R burble.
+ * RES: firingFamily + misfire / drop-cyl mute slots so lope changes (no Wiebe).
  * Anti-digital: soft asymmetric envelopes, noise/body dominate — no saw/square lead.
  * Self-contained (no imports) for Tesla Chromium AudioWorklet constraints.
  */
@@ -22,6 +23,8 @@ class PulseEngineProcessor extends AudioWorkletProcessor {
       { name: 'intake', defaultValue: 0.45, minValue: 0, maxValue: 1, automationRate: 'k-rate' },
       { name: 'crackle', defaultValue: 0.35, minValue: 0, maxValue: 1, automationRate: 'k-rate' },
       { name: 'masterGain', defaultValue: 0.7, minValue: 0, maxValue: 1, automationRate: 'k-rate' },
+      { name: 'misfire', defaultValue: 0, minValue: 0, maxValue: 1, automationRate: 'k-rate' },
+      { name: 'firingFamily', defaultValue: 0, minValue: 0, maxValue: 3, automationRate: 'k-rate' },
     ];
   }
 
@@ -41,6 +44,8 @@ class PulseEngineProcessor extends AudioWorkletProcessor {
     // Overall still every 90° → 4th-order fundamental.
     this._v8Deg = new Float64Array([0, 90, 180, 270, 360, 450, 540, 630]);
     this._v8Bank = new Int8Array([0, 1, 0, 0, 1, 0, 1, 1]); // 0=L 1=R
+    this._flatDeg = new Float64Array([0, 90, 180, 270, 360, 450, 540, 630]);
+    this._flatBank = new Int8Array([0, 1, 0, 1, 0, 1, 0, 1]);
 
     const maxDelay = 4096;
     this._delay = new Float32Array(maxDelay);
@@ -78,6 +83,13 @@ class PulseEngineProcessor extends AudioWorkletProcessor {
     this._b6 = 0;
     this._dc = 0;
 
+    // Living drive: continuous micro-wander + sparse valvetrain
+    this._rpmWander = 0;
+    this._filtWander = 0;
+    this._gainWander = 0;
+    this._tickWait = (Math.random() * 6000) | 0;
+    this._timingWander = 0;
+
     this.port.onmessage = (e) => {
       const d = e.data || {};
       if (d.type === 'reset') {
@@ -88,6 +100,11 @@ class PulseEngineProcessor extends AudioWorkletProcessor {
         this._muff = 0;
         this._bodyLp = 0;
         this._crackleHold = 0;
+        this._rpmWander = 0;
+        this._filtWander = 0;
+        this._gainWander = 0;
+        this._timingWander = 0;
+        this._tickWait = (Math.random() * 4000) | 0;
       }
     };
   }
@@ -160,6 +177,10 @@ class PulseEngineProcessor extends AudioWorkletProcessor {
     const intake0 = intakeP.length === 1 ? intakeP[0] : 0.45;
     const crack0 = crackP.length === 1 ? crackP[0] : 0.35;
     const gain0 = gainP.length === 1 ? gainP[0] : 0.7;
+    const misP = parameters.misfire;
+    const famP = parameters.firingFamily;
+    const mis0 = misP ? (misP.length === 1 ? misP[0] : misP[0]) : 0;
+    const fam0 = famP ? (famP.length === 1 ? famP[0] : famP[0]) : 0;
 
     const delayMs = 3 + exLen0 * 29;
     this._delaySamples = Math.max(10, Math.min(this._delayLen - 4, Math.floor((delayMs / 1000) * sr)));
@@ -170,7 +191,9 @@ class PulseEngineProcessor extends AudioWorkletProcessor {
       Math.min(this._burbleLen - 2, Math.floor((0.0009 + rough0 * 0.0016) * sr)),
     );
 
-    const isV8 = cylN === 8;
+    // 0=auto → crossplane@8 else even; 1=crossplane; 2=flatplane; 3=even
+    let family = Math.round(fam0);
+    if (family === 0) family = cylN === 8 ? 1 : 3;
 
     for (let i = 0; i < n; i++) {
       const rpm = rpmP.length > 1 ? rpmP[i] : rpm0;
@@ -185,13 +208,23 @@ class PulseEngineProcessor extends AudioWorkletProcessor {
       const intakeAmt = intakeP.length > 1 ? intakeP[i] : intake0;
       const crackAmt = crackP.length > 1 ? crackP[i] : crack0;
       const master = gainP.length > 1 ? gainP[i] : gain0;
+      const misAmt = misP && misP.length > 1 ? misP[i] : mis0;
 
-      const safeRpm = Math.max(200, Math.min(9000, rpm));
-      const revsPerSample = safeRpm / (60 * sr);
+      // Continuous micro-jitter on effective RPM / pulse timing
+      this._rpmWander += (Math.random() * 2 - 1) * (0.00035 + jit * 0.0005);
+      this._rpmWander *= 0.994;
+      this._timingWander += (Math.random() * 2 - 1) * (0.0002 + jit * 0.0004);
+      this._timingWander *= 0.991;
+      const safeRpm = Math.max(
+        200,
+        Math.min(9000, rpm * (1 + this._rpmWander * (0.6 + jit * 1.4))),
+      );
+      const revsPerSample = (safeRpm / (60 * sr)) * (1 + this._timingWander);
       this._phase += revsPerSample;
 
-      // Half-order mechanical AM lope (stronger at idle)
-      this._lopePhase += revsPerSample * Math.PI * (isV8 ? 1.0 : 2.0);
+      const useBankGeom = family === 1 || family === 2;
+      // Half-order mechanical AM lope (stronger at idle / cross-plane)
+      this._lopePhase += revsPerSample * Math.PI * (useBankGeom ? 1.0 : 2.0);
       const lopeAm = 0.6 + 0.4 * Math.sin(this._lopePhase);
       const lopeAm2 = 0.75 + 0.25 * Math.sin(this._lopePhase * 0.5 + 0.7);
 
@@ -205,18 +238,32 @@ class PulseEngineProcessor extends AudioWorkletProcessor {
 
       let pulseL = 0;
       let pulseR = 0;
-      const fireCount = isV8 ? 8 : cylN;
+      // Cross/flat: keep 8-slot geometry; mute excess so drop-cyl changes lope
+      const slots = useBankGeom ? 8 : cylN;
+      const active = useBankGeom ? Math.max(1, Math.min(8, cylN)) : cylN;
 
-      for (let c = 0; c < fireCount; c++) {
+      for (let c = 0; c < slots; c++) {
+        if (useBankGeom && c >= active) continue;
+
         let fireDeg;
         let bank = 0;
-        if (isV8) {
+        if (family === 1) {
           fireDeg = this._v8Deg[c];
           bank = this._v8Bank[c];
+        } else if (family === 2) {
+          fireDeg = this._flatDeg[c];
+          bank = this._flatBank[c];
         } else {
-          // Even-fire I4/etc: equal spacing over 720°
           fireDeg = (c / cylN) * 720;
           bank = c % 2;
+        }
+
+        // Stochastic misfire → living lope (RES north star)
+        if (misAmt > 0.001 && Math.random() < misAmt * 0.22) {
+          if (Math.random() < 0.5) {
+            this._nextJitter[c] = (Math.random() * 2 - 1) * jit * (0.45 + rough * 0.4);
+          }
+          continue;
         }
 
         let distDeg = crankDeg - fireDeg - this._nextJitter[c] * 90; // jitter in degrees
@@ -268,7 +315,9 @@ class PulseEngineProcessor extends AudioWorkletProcessor {
       const bodyRaw = excited * 0.72 + excited2 * 0.38;
       this._bodyLp += (0.18 + thr * 0.12) * (bodyRaw - this._bodyLp);
 
-      const muffA = 0.1 + muffMix * 0.58;
+      this._filtWander += (Math.random() * 2 - 1) * 0.0025;
+      this._filtWander *= 0.988;
+      const muffA = Math.max(0.04, Math.min(0.85, 0.1 + muffMix * 0.58 + this._filtWander * 0.08));
       this._muff += muffA * (bodyRaw - this._muff);
       const exhaust =
         bodyRaw * (1 - muffMix * 0.7) + this._muff * (0.4 + muffMix * 0.6) + this._bodyLp * 0.25;
@@ -285,12 +334,16 @@ class PulseEngineProcessor extends AudioWorkletProcessor {
       const midTick = this._mechBp * rough * (0.05 + safeRpm / 9000 * 0.1 + thr * 0.06) * lopeAm2;
       const tw = this._white();
       this._tickLp += 0.35 * (tw - this._tickLp);
-      const tick =
-        (tw - this._tickLp) *
-        rough *
-        rough *
-        (0.012 + thr * 0.02) *
-        (Math.random() < 0.02 + rough * 0.03 ? 1 : 0.15);
+      // Stochastic valvetrain clatter — sparse irregular, not a metronome
+      this._tickWait -= 1;
+      let tick = (tw - this._tickLp) * rough * rough * 0.004;
+      if (this._tickWait <= 0) {
+        const burst = (tw - this._tickLp) * rough * (0.035 + thr * 0.05) * (0.45 + Math.random() * 0.7);
+        tick += burst;
+        const gapSec = 0.07 + Math.random() * (0.22 + (1 - thr) * 0.35) + rough * Math.random() * 0.12;
+        const dens = 0.55 + safeRpm / 7000;
+        this._tickWait = Math.max(64, Math.floor((gapSec * sr) / dens));
+      }
       const mech = idleBed + midTick + tick;
 
       // --- Intake × throttle ---
@@ -339,8 +392,11 @@ class PulseEngineProcessor extends AudioWorkletProcessor {
       const dcOut = dcIn - this._dc;
       this._dc += 0.0005 * (dcIn - this._dc);
       const dcCorr = dcOut - dcIn;
-      sampleL = (sampleL + dcCorr) * master * 0.88;
-      sampleR = (sampleR + dcCorr) * master * 0.88;
+      this._gainWander += (Math.random() * 2 - 1) * 0.0018;
+      this._gainWander *= 0.99;
+      const liveGain = master * 0.88 * (1 + this._gainWander * (0.5 + rough * 0.8));
+      sampleL = (sampleL + dcCorr) * liveGain;
+      sampleR = (sampleR + dcCorr) * liveGain;
 
       const pan = Math.max(-1, Math.min(1, load * 0.35));
       ch0[i] = sampleL * (1 - Math.max(0, pan) * 0.35);

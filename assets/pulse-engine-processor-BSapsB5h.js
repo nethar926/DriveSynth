@@ -2,6 +2,7 @@
  * Pulse-train ICE AudioWorkletProcessor (organic v1 + PR cue sheet)
  * Buses: mechanical bed + soft combustion pulses + intake×throttle + exhaust waveguide.
  * V8 per-bank schedule 180°/90°/180°/270° + dual-collector L/R burble.
+ * RES: firingFamily + misfire / drop-cyl mute slots so lope changes (no Wiebe).
  * Anti-digital: soft asymmetric envelopes, noise/body dominate — no saw/square lead.
  * Self-contained (no imports) for Tesla Chromium AudioWorklet constraints.
  */
@@ -22,6 +23,8 @@ class PulseEngineProcessor extends AudioWorkletProcessor {
       { name: 'intake', defaultValue: 0.45, minValue: 0, maxValue: 1, automationRate: 'k-rate' },
       { name: 'crackle', defaultValue: 0.35, minValue: 0, maxValue: 1, automationRate: 'k-rate' },
       { name: 'masterGain', defaultValue: 0.7, minValue: 0, maxValue: 1, automationRate: 'k-rate' },
+      { name: 'misfire', defaultValue: 0, minValue: 0, maxValue: 1, automationRate: 'k-rate' },
+      { name: 'firingFamily', defaultValue: 0, minValue: 0, maxValue: 3, automationRate: 'k-rate' },
     ];
   }
 
@@ -41,6 +44,8 @@ class PulseEngineProcessor extends AudioWorkletProcessor {
     // Overall still every 90° → 4th-order fundamental.
     this._v8Deg = new Float64Array([0, 90, 180, 270, 360, 450, 540, 630]);
     this._v8Bank = new Int8Array([0, 1, 0, 0, 1, 0, 1, 1]); // 0=L 1=R
+    this._flatDeg = new Float64Array([0, 90, 180, 270, 360, 450, 540, 630]);
+    this._flatBank = new Int8Array([0, 1, 0, 1, 0, 1, 0, 1]);
 
     const maxDelay = 4096;
     this._delay = new Float32Array(maxDelay);
@@ -172,6 +177,10 @@ class PulseEngineProcessor extends AudioWorkletProcessor {
     const intake0 = intakeP.length === 1 ? intakeP[0] : 0.45;
     const crack0 = crackP.length === 1 ? crackP[0] : 0.35;
     const gain0 = gainP.length === 1 ? gainP[0] : 0.7;
+    const misP = parameters.misfire;
+    const famP = parameters.firingFamily;
+    const mis0 = misP ? (misP.length === 1 ? misP[0] : misP[0]) : 0;
+    const fam0 = famP ? (famP.length === 1 ? famP[0] : famP[0]) : 0;
 
     const delayMs = 3 + exLen0 * 29;
     this._delaySamples = Math.max(10, Math.min(this._delayLen - 4, Math.floor((delayMs / 1000) * sr)));
@@ -182,7 +191,9 @@ class PulseEngineProcessor extends AudioWorkletProcessor {
       Math.min(this._burbleLen - 2, Math.floor((0.0009 + rough0 * 0.0016) * sr)),
     );
 
-    const isV8 = cylN === 8;
+    // 0=auto → crossplane@8 else even; 1=crossplane; 2=flatplane; 3=even
+    let family = Math.round(fam0);
+    if (family === 0) family = cylN === 8 ? 1 : 3;
 
     for (let i = 0; i < n; i++) {
       const rpm = rpmP.length > 1 ? rpmP[i] : rpm0;
@@ -197,6 +208,7 @@ class PulseEngineProcessor extends AudioWorkletProcessor {
       const intakeAmt = intakeP.length > 1 ? intakeP[i] : intake0;
       const crackAmt = crackP.length > 1 ? crackP[i] : crack0;
       const master = gainP.length > 1 ? gainP[i] : gain0;
+      const misAmt = misP && misP.length > 1 ? misP[i] : mis0;
 
       // Continuous micro-jitter on effective RPM / pulse timing
       this._rpmWander += (Math.random() * 2 - 1) * (0.00035 + jit * 0.0005);
@@ -210,8 +222,9 @@ class PulseEngineProcessor extends AudioWorkletProcessor {
       const revsPerSample = (safeRpm / (60 * sr)) * (1 + this._timingWander);
       this._phase += revsPerSample;
 
-      // Half-order mechanical AM lope (stronger at idle)
-      this._lopePhase += revsPerSample * Math.PI * (isV8 ? 1.0 : 2.0);
+      const useBankGeom = family === 1 || family === 2;
+      // Half-order mechanical AM lope (stronger at idle / cross-plane)
+      this._lopePhase += revsPerSample * Math.PI * (useBankGeom ? 1.0 : 2.0);
       const lopeAm = 0.6 + 0.4 * Math.sin(this._lopePhase);
       const lopeAm2 = 0.75 + 0.25 * Math.sin(this._lopePhase * 0.5 + 0.7);
 
@@ -225,18 +238,32 @@ class PulseEngineProcessor extends AudioWorkletProcessor {
 
       let pulseL = 0;
       let pulseR = 0;
-      const fireCount = isV8 ? 8 : cylN;
+      // Cross/flat: keep 8-slot geometry; mute excess so drop-cyl changes lope
+      const slots = useBankGeom ? 8 : cylN;
+      const active = useBankGeom ? Math.max(1, Math.min(8, cylN)) : cylN;
 
-      for (let c = 0; c < fireCount; c++) {
+      for (let c = 0; c < slots; c++) {
+        if (useBankGeom && c >= active) continue;
+
         let fireDeg;
         let bank = 0;
-        if (isV8) {
+        if (family === 1) {
           fireDeg = this._v8Deg[c];
           bank = this._v8Bank[c];
+        } else if (family === 2) {
+          fireDeg = this._flatDeg[c];
+          bank = this._flatBank[c];
         } else {
-          // Even-fire I4/etc: equal spacing over 720°
           fireDeg = (c / cylN) * 720;
           bank = c % 2;
+        }
+
+        // Stochastic misfire → living lope (RES north star)
+        if (misAmt > 0.001 && Math.random() < misAmt * 0.22) {
+          if (Math.random() < 0.5) {
+            this._nextJitter[c] = (Math.random() * 2 - 1) * jit * (0.45 + rough * 0.4);
+          }
+          continue;
         }
 
         let distDeg = crankDeg - fireDeg - this._nextJitter[c] * 90; // jitter in degrees
