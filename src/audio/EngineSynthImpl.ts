@@ -240,7 +240,7 @@ export class EngineSynthImpl implements EngineSynth {
   private driveMood = 'idle';
   private liveJit = { filt: 0, gain: 0, pitch: 0 };
   private valveTickWait = 0;
-  /** Ion Twin lock ladder (scifi/tie-fighter only) */
+  /** Ion Twin lock ladder (scifi/ion-twin only) */
   private lockStage: LockStage = 'none';
   private lockSfxEnabled = false;
   /** Soft-cue for Frontend; prefer polling getHud().lockStage if unset. */

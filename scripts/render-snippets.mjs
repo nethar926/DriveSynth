@@ -564,7 +564,7 @@ const PACKS = [
   { id: 'ev-regen-howl', file: 'ev-regen-howl.wav', build: (c, m) => buildEv(c, m, { regen: true }) },
   { id: 'ev-dual-motor', file: 'ev-dual-motor.wav', build: (c, m) => buildEv(c, m, { dual: true }) },
   { id: 'aerospace-f14', file: 'aerospace-f14.wav', build: (c, m) => buildAero(c, m) },
-  { id: 'tie-fighter', file: 'ion-twin-tie-fighter.wav', build: (c, m) => buildScifi(c, m) },
+  { id: 'ion-twin', file: 'ion-twin.wav', build: (c, m) => buildScifi(c, m) },
 ];
 
 mkdirSync(OUT, { recursive: true });

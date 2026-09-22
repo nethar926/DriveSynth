@@ -210,7 +210,7 @@ export function combineIonTwinLayers(
     id: opts?.id ?? 'ion-twin-custom',
     name: opts?.name ?? 'Ion Twin Custom',
     kind: 'scifi',
-    topology: 'tie-fighter',
+    topology: 'ion-twin',
     params: params as Record<string, number | string>,
     ionLayers: layers.map((l) => ({ ...l, params: l.params ? { ...l.params } : undefined })),
     meta: {

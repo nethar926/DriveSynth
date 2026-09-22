@@ -1,3 +1,4 @@
+import { resolveLegacyPackId } from '../audio';
 import { useCallback, useEffect, useState } from 'react';
 import {
   DEFAULT_GEAR_COUNT,
@@ -271,6 +272,7 @@ function load(): UiPrefs {
       merged.telemetryDensity = DEFAULT_UI.telemetryDensity;
     }
     merged.gaugeStyle = clusterToGaugeStyle(merged.gaugeCluster);
+    merged.selectedEngineId = resolveLegacyPackId(merged.selectedEngineId);
     return merged;
   } catch {
     return { ...DEFAULT_UI };
