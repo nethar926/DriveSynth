@@ -251,6 +251,14 @@ export interface EngineSynth {
   setUpshiftSfxEnabled(enabled: boolean): void;
   getUpshiftSfxEnabled(): boolean;
 
+  /**
+   * Drive Dynamics idle band (RPM). Optional — EngineSynth also reads
+   * `revforge.dynamics.idleRpmMin/Max` / `drivesynth.ui.v1` on setDriving.
+   * Frontend can call this later; not required for Dynamics UI to work.
+   */
+  setIdleBand?(band: { rpmMin: number; rpmMax: number }): void;
+  getIdleBand?(): { rpmMin: number; rpmMax: number };
+
   /** Frontend /diag snapshot — field names stable for iceMode consumers */
   getDiag(): EngineDiag;
 }

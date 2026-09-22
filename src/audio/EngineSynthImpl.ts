@@ -12,6 +12,18 @@ import type {
   TopologyId,
 } from './types';
 import { nextLockStage, packSupportsLockLadder } from './lockStage';
+import {
+  clampIdleBand,
+  DEFAULT_IDLE_BAND,
+  DEFAULT_IDLE_RPM_MAX,
+  DEFAULT_IDLE_RPM_MIN,
+  iceFiringHzFromRpm,
+  IDLE_PREF_REFRESH_MS,
+  idleGate,
+  idleJitter01,
+  readIdleBandFromStorage,
+  type IdleBand,
+} from './idleBand';
 import { clamp, createNoiseBuffer, lerp, makeShaper, rpmCurve, smooth, smoothstep } from './utils';
 import pulseWorkletUrl from './worklets/pulse-engine-processor.js?url';
 
@@ -216,6 +228,11 @@ export class EngineSynthImpl implements EngineSynth {
   onLockStageChange?: (stage: LockStage) => void;
   /** MANUAL upshift bark; default false; localStorage `ds-upshift-sfx`. */
   private upshiftSfxEnabled = false;
+  /** Drive Dynamics idle RPM band (localStorage or setIdleBand). */
+  private idleBand: IdleBand = { ...DEFAULT_IDLE_BAND };
+  /** When true, setIdleBand wins over localStorage refresh. */
+  private idleBandFromApi = false;
+  private lastIdlePrefMs = 0;
 
   constructor(ctx: AudioContext, patch?: EnginePatch) {
     this.context = ctx;
@@ -241,8 +258,11 @@ export class EngineSynthImpl implements EngineSynth {
 
     this.g = this.buildGraph(initial.kind, initial.topology);
     this.applyAllParams();
-    this.applyDriving(true);
     this.upshiftSfxEnabled = readUpshiftSfxPref();
+    this.idleBand = readIdleBandFromStorage();
+    this.lastIdlePrefMs =
+      typeof performance !== 'undefined' ? performance.now() : Date.now();
+    this.applyDriving(true);
   }
 
   get id(): EngineId {
@@ -294,6 +314,7 @@ export class EngineSynthImpl implements EngineSynth {
   }
 
   setDriving(d: DrivingInput): void {
+    this.refreshIdleBandFromPrefs();
     this.driving = {
       speed: clamp(d.speed),
       throttle: clamp(d.throttle),
@@ -301,6 +322,29 @@ export class EngineSynthImpl implements EngineSynth {
       reverse: !!d.reverse,
     };
     this.applyDriving(false);
+  }
+
+  /**
+   * Drive Dynamics idle band. Pins over localStorage until reload.
+   * Dynamics UI already writes localStorage — calling this is optional.
+   */
+  setIdleBand(band: { rpmMin: number; rpmMax: number }): void {
+    this.idleBand = clampIdleBand(band.rpmMin, band.rpmMax);
+    this.idleBandFromApi = true;
+    this.applyDriving(false);
+  }
+
+  getIdleBand(): { rpmMin: number; rpmMax: number } {
+    return { rpmMin: this.idleBand.rpmMin, rpmMax: this.idleBand.rpmMax };
+  }
+
+  /** Re-read Dynamics idle prefs (throttled). No-op if setIdleBand pinned. */
+  private refreshIdleBandFromPrefs(): void {
+    if (this.idleBandFromApi) return;
+    const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
+    if (now - this.lastIdlePrefMs < IDLE_PREF_REFRESH_MS) return;
+    this.lastIdlePrefMs = now;
+    this.idleBand = readIdleBandFromStorage();
   }
 
   setParams(p: Partial<EngineParams>): void {
@@ -1956,13 +2000,23 @@ export class EngineSynthImpl implements EngineSynth {
     const g = this.g;
     const ctx = this.context;
 
-    const idle = Number(p.rpmIdle ?? 55);
+    const cyl = Number(p.cylinders ?? 8);
+    const band = this.idleBand;
+    // Prefs idle RPM → firing fundamental (N·rpm/120); redline stays pack param
+    const idle = iceFiringHzFromRpm(band.rpmMin, cyl);
+    const idleMax = iceFiringHzFromRpm(band.rpmMax, cyl);
     const red = Number(p.rpmRedline ?? 240);
     let fund = lerp(idle, red, rpmNorm);
+    // True idle: living jitter fills [idleRpmMin, idleRpmMax] (max = ceiling)
+    const gate = idleGate(d.speed, d.throttle, rpmNorm);
+    if (gate > 0.01) {
+      const jit = idleJitter01(this.liveJit.pitch);
+      const bandFund = idle + (idleMax - idle) * jit;
+      fund = lerp(fund, Math.min(bandFund, idleMax), gate);
+    }
     if (d.reverse) fund *= 0.92;
     this.hud.fundamentalHz = fund;
 
-    const cyl = Number(p.cylinders ?? 8);
     // fund ≈ aggregate firing Hz ≈ N*rpm/120 → rpm = fund*120/N
     const rpm = clamp(fund * (120 / Math.max(4, cyl)), 200, 9000);
 
@@ -1971,8 +2025,13 @@ export class EngineSynthImpl implements EngineSynth {
     const loadL = this.loadLag;
 
     if (g.iceMode === 'worklet' && g.pulseNode) {
-      // Hysteresis on throttle/load; worklet adds its own micro-jitter / valvetrain
-      this.setWorkletParam('rpm', rpm * (1 + this.liveJit.pitch * 0.012), tc);
+      // Hysteresis on throttle/load; worklet adds its own micro-jitter / valvetrain.
+      // At true idle, band already carries living jitter — clamp to idleRpmMax ceiling.
+      let rpmOut = rpm * (1 + this.liveJit.pitch * 0.012);
+      if (gate > 0.5) {
+        rpmOut = Math.min(band.rpmMax, Math.max(band.rpmMin * 0.98, rpmOut));
+      }
+      this.setWorkletParam('rpm', rpmOut, tc);
       this.setWorkletParam('throttle', thr, tc);
       this.setWorkletParam('load', loadL, tc);
       this.setWorkletParam('cylinders', cyl, tc);
@@ -2148,6 +2207,8 @@ export class EngineSynthImpl implements EngineSynth {
     }
     let fund = base * pitchMul * (0.5 + rpmNorm * 0.5 + thr * 0.15);
     fund *= 1 + this.liveJit.pitch * 0.02;
+    // Idle band: scale low end vs defaults (700/900 → no change); jitter ≤ idleRpmMax
+    fund = this.applyIdleBandScale(fund, d.speed, thrRaw, rpmNorm);
     if (d.reverse) fund *= 0.85;
     this.hud.fundamentalHz = fund;
 
@@ -2273,8 +2334,12 @@ export class EngineSynthImpl implements EngineSynth {
     // Spool target + rate wander (living)
     this.spoolWander += (Math.random() * 2 - 1) * 0.012;
     this.spoolWander *= 0.96;
+    const idleSpoolScale = this.idleBand.rpmMin / DEFAULT_IDLE_RPM_MIN;
     const spoolTarget = clamp(
-      rpmNorm * 0.62 + thr * 0.48 + (parked ? idleAmt * 0.22 + thr * 0.18 : 0) + this.spoolWander * 0.04,
+      rpmNorm * 0.62 +
+        thr * 0.48 +
+        (parked ? idleAmt * 0.22 * idleSpoolScale + thr * 0.18 : 0) +
+        this.spoolWander * 0.04,
     );
     const spoolTc = lerp(0.14, 0.52, inertia);
     if (tc <= 0.015) {
@@ -2297,6 +2362,8 @@ export class EngineSynthImpl implements EngineSynth {
 
     let fund = spoolBase * lerp(0.55, 1.85, spool) * (1 + thr * 0.08);
     fund *= 1 + this.liveJit.pitch * 0.015;
+    // Prefs scale parked spool idle + fundamental low end
+    fund = this.applyIdleBandScale(fund, d.speed, thrRaw, rpmNorm);
     if (d.reverse) fund *= 0.9;
     this.hud.fundamentalHz = fund;
 
@@ -2452,6 +2519,7 @@ export class EngineSynthImpl implements EngineSynth {
 
     const core = Number(p.corePitch ?? 65);
     let fund = core * lerp(0.85, 2.4, spool) * (1 + thr * 0.12);
+    fund = this.applyIdleBandScale(fund, d.speed, thrRaw, rpmNorm);
     if (d.reverse) fund *= 0.9;
     this.hud.fundamentalHz = fund;
 
@@ -2679,7 +2747,9 @@ export class EngineSynthImpl implements EngineSynth {
       smooth(g.humGain.gain, idleAmt + (d.speed < 0.03 ? thrRaw * hum * 0.08 : 0), tc, ctx);
     }
     if (g.humOsc) {
-      smooth(g.humOsc.frequency, core * 0.85 * (1 + this.liveJit.pitch * 0.01), tc, ctx);
+      const humHz =
+        core * 0.85 * (this.idleBand.rpmMin / DEFAULT_IDLE_RPM_MIN) * (1 + this.liveJit.pitch * 0.01);
+      smooth(g.humOsc.frequency, humHz, tc, ctx);
     }
 
     // Wet/dry crossfade — default dry-leaning
@@ -2702,6 +2772,32 @@ export class EngineSynthImpl implements EngineSynth {
     else if (d.speed < 0.04 && thrRaw < 0.12) this.driveMood = 'idle';
     else if (open > 0.35) this.driveMood = 'cruise';
     else this.driveMood = 'idle';
+  }
+
+
+  /**
+   * Non-ICE packs: scale fundamental by idleRpm vs defaults when near idle.
+   * Defaults (700/900) → scale 1 (pack character unchanged). Living jitter may
+   * rise toward idleRpmMax/900 but not beyond (ceiling). Docs approx idleHz ≈
+   * rpm/60; ICE uses firing Hz (N·rpm/120) instead — see applyIceDriving.
+   */
+  private applyIdleBandScale(
+    fund: number,
+    speed: number,
+    throttle: number,
+    rpmNorm: number,
+  ): number {
+    const gate = idleGate(speed, throttle, rpmNorm);
+    if (gate <= 0.01) return fund;
+    const band = this.idleBand;
+    const scaleFloor = band.rpmMin / DEFAULT_IDLE_RPM_MIN;
+    const scaleCeil = band.rpmMax / DEFAULT_IDLE_RPM_MAX;
+    const jit = idleJitter01(this.liveJit.pitch);
+    const scale = Math.min(
+      scaleCeil,
+      scaleFloor + Math.max(0, scaleCeil - scaleFloor) * jit,
+    );
+    return lerp(fund, fund * scale, gate);
   }
 
 
