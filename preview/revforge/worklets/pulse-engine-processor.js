@@ -1,9 +1,15 @@
 /**
- * Pulse-train ICE AudioWorkletProcessor (organic v1 + PR cue sheet)
+ * Pulse-train ICE AudioWorkletProcessor (organic v1 + Physics Sim pulse/bus §2)
  * Buses: mechanical bed + soft combustion pulses + intake×throttle + exhaust waveguide.
  * V8 per-bank schedule 180°/90°/180°/270° + dual-collector L/R burble.
+ * RES / §2.3: firingFamily + firingMask + misfire so lope changes (no Wiebe).
  * Anti-digital: soft asymmetric envelopes, noise/body dominate — no saw/square lead.
  * Self-contained (no imports) for Tesla Chromium AudioWorklet constraints.
+ *
+ * firingMask convention (uint8 0–255):
+ *   bit i set  → cylinder/slot i DISABLED (skip that pulse event)
+ *   default 0  → all slots enabled (mask-none)
+ *   Dropping one bit MUST change lope intervals, not merely quieten.
  */
 class PulseEngineProcessor extends AudioWorkletProcessor {
   static get parameterDescriptors() {
@@ -22,25 +28,49 @@ class PulseEngineProcessor extends AudioWorkletProcessor {
       { name: 'intake', defaultValue: 0.45, minValue: 0, maxValue: 1, automationRate: 'k-rate' },
       { name: 'crackle', defaultValue: 0.35, minValue: 0, maxValue: 1, automationRate: 'k-rate' },
       { name: 'masterGain', defaultValue: 0.7, minValue: 0, maxValue: 1, automationRate: 'k-rate' },
+      { name: 'misfire', defaultValue: 0, minValue: 0, maxValue: 1, automationRate: 'k-rate' },
+      { name: 'firingFamily', defaultValue: 0, minValue: 0, maxValue: 3, automationRate: 'k-rate' },
+      // §2.3: bit i set = slot i disabled; 0 = all fire
+      { name: 'firingMask', defaultValue: 0, minValue: 0, maxValue: 255, automationRate: 'k-rate' },
     ];
   }
 
   constructor() {
     super();
-    this._phase = 0; // crank revolutions (mod 2 = 720° cycle)
-    this._nextJitter = new Float64Array(12);
-    this._ampJitter = new Float64Array(12);
-    for (let i = 0; i < 12; i++) {
-      this._nextJitter[i] = (Math.random() * 2 - 1) * 0.02;
-      this._ampJitter[i] = 0.85 + Math.random() * 0.3;
-    }
 
-    // Cross-plane V8: 8 fires / 720°. Per-bank intervals 180/90/180/270.
-    // L @ 0,180,270,450°  → intervals 180,90,180,270
-    // R @ 90,360,540,630° → intervals 270,180,90,180 (rotated)
-    // Overall still every 90° → 4th-order fundamental.
-    this._v8Deg = new Float64Array([0, 90, 180, 270, 360, 450, 540, 630]);
-    this._v8Bank = new Int8Array([0, 1, 0, 0, 1, 0, 1, 1]); // 0=L 1=R
+    // Explicit eventAnglesDeg per firingFamily (§2.1 / §2.2)
+    // Cross-plane V8: 8 fires / 720°. Bank A @ 0,180,270,450 → intervals 180/90/180/270.
+    // Overall still every 90° into common collector → 4th-order fundamental.
+    this._crossDeg = new Float64Array([0, 90, 180, 270, 360, 450, 540, 630]);
+    this._crossBank = new Int8Array([0, 1, 0, 0, 1, 0, 1, 1]); // 0=L 1=R
+    // Flat-plane V8: even 90° banks alternate
+    this._flatDeg = new Float64Array([0, 90, 180, 270, 360, 450, 540, 630]);
+    this._flatBank = new Int8Array([0, 1, 0, 1, 0, 1, 0, 1]);
+    // I6 even: 120° global (6 events / 720°)
+    this._i6Deg = new Float64Array([0, 120, 240, 360, 480, 600]);
+    this._i6Bank = new Int8Array([0, 1, 0, 1, 0, 1]);
+
+    // Scratch schedule buffers (filled per-block from family)
+    this._evtDeg = new Float64Array(12);
+    this._evtBank = new Int8Array(12);
+    this._evtN = 8;
+
+    // §2.1 crank-angle scheduler: integrate θ; nextPulse from event angles / degPerSec
+    this._theta = 0; // unwrapped crank degrees
+    this._nextTheta = 0; // absolute ° of next candidate event
+    this._evtIdx = 0;
+    this._schedInit = false;
+    this._lastFamily = -1;
+    this._lastCyl = -1;
+
+    // Active soft-pulse envelopes (sample-accurate starts)
+    const PMAX = 16;
+    this._pAge = new Float64Array(PMAX); // samples since start; -1 = free
+    this._pLen = new Float64Array(PMAX);
+    this._pBank = new Int8Array(PMAX);
+    this._pAmp = new Float64Array(PMAX);
+    for (let i = 0; i < PMAX; i++) this._pAge[i] = -1;
+    this._pMax = PMAX;
 
     const maxDelay = 4096;
     this._delay = new Float32Array(maxDelay);
@@ -88,7 +118,13 @@ class PulseEngineProcessor extends AudioWorkletProcessor {
     this.port.onmessage = (e) => {
       const d = e.data || {};
       if (d.type === 'reset') {
-        this._phase = 0;
+        this._theta = 0;
+        this._nextTheta = 0;
+        this._evtIdx = 0;
+        this._schedInit = false;
+        this._lastFamily = -1;
+        this._lastCyl = -1;
+        for (let i = 0; i < this._pMax; i++) this._pAge[i] = -1;
         this._delay.fill(0);
         this._delay2.fill(0);
         this._burble.fill(0);
@@ -135,6 +171,80 @@ class PulseEngineProcessor extends AudioWorkletProcessor {
     return Math.exp(-u * decay) * (1 - u * 0.1);
   }
 
+  /** Fill _evtDeg / _evtBank from firingFamily + cylinder count (§2.2). */
+  _buildSchedule(family, cylN) {
+    let n;
+    if (family === 1) {
+      n = 8;
+      for (let i = 0; i < n; i++) {
+        this._evtDeg[i] = this._crossDeg[i];
+        this._evtBank[i] = this._crossBank[i];
+      }
+    } else if (family === 2) {
+      n = 8;
+      for (let i = 0; i < n; i++) {
+        this._evtDeg[i] = this._flatDeg[i];
+        this._evtBank[i] = this._flatBank[i];
+      }
+    } else if (cylN === 6) {
+      n = 6;
+      for (let i = 0; i < n; i++) {
+        this._evtDeg[i] = this._i6Deg[i];
+        this._evtBank[i] = this._i6Bank[i];
+      }
+    } else {
+      n = cylN;
+      for (let i = 0; i < n; i++) {
+        this._evtDeg[i] = (i / cylN) * 720;
+        this._evtBank[i] = i % 2;
+      }
+    }
+    this._evtN = n;
+  }
+
+  _spawnPulse(bank, amp, pulseSamples) {
+    for (let i = 0; i < this._pMax; i++) {
+      if (this._pAge[i] < 0) {
+        this._pAge[i] = 0;
+        this._pLen[i] = pulseSamples;
+        this._pBank[i] = bank;
+        this._pAmp[i] = amp;
+        return;
+      }
+    }
+    // Steal oldest if saturated
+    let oldest = 0;
+    let maxAge = this._pAge[0];
+    for (let i = 1; i < this._pMax; i++) {
+      if (this._pAge[i] > maxAge) {
+        maxAge = this._pAge[i];
+        oldest = i;
+      }
+    }
+    this._pAge[oldest] = 0;
+    this._pLen[oldest] = pulseSamples;
+    this._pBank[oldest] = bank;
+    this._pAmp[oldest] = amp;
+  }
+
+  /**
+   * Advance scheduler to next event angle.
+   * nextPulseTime ≡ t0 + (θ_event − θ_now) / degPerSec  (§2.1)
+   * Jitter applied on θ: θ' = θ_event + U(-j,j)*intervalDeg, j ∈ [0, 0.03].
+   */
+  _armNextEvent(jit, rough) {
+    const n = this._evtN;
+    const slot = this._evtIdx % n;
+    const nextSlot = (this._evtIdx + 1) % n;
+    let deltaDeg = this._evtDeg[nextSlot] - this._evtDeg[slot];
+    if (deltaDeg <= 0) deltaDeg += 720;
+    // Map worklet pulseJitter (0..0.5) → spec fraction 0..0.03
+    const j = Math.min(0.03, Math.max(0, jit * 0.2));
+    const jitterDeg = (Math.random() * 2 - 1) * j * deltaDeg * (0.7 + rough * 0.6);
+    this._nextTheta += deltaDeg + jitterDeg;
+    this._evtIdx++;
+  }
+
   process(_inputs, outputs, parameters) {
     const out = outputs[0];
     if (!out || !out[0]) return true;
@@ -172,6 +282,12 @@ class PulseEngineProcessor extends AudioWorkletProcessor {
     const intake0 = intakeP.length === 1 ? intakeP[0] : 0.45;
     const crack0 = crackP.length === 1 ? crackP[0] : 0.35;
     const gain0 = gainP.length === 1 ? gainP[0] : 0.7;
+    const misP = parameters.misfire;
+    const famP = parameters.firingFamily;
+    const maskP = parameters.firingMask;
+    const mis0 = misP ? (misP.length === 1 ? misP[0] : misP[0]) : 0;
+    const fam0 = famP ? (famP.length === 1 ? famP[0] : famP[0]) : 0;
+    const mask0 = maskP ? (maskP.length === 1 ? maskP[0] : maskP[0]) : 0;
 
     const delayMs = 3 + exLen0 * 29;
     this._delaySamples = Math.max(10, Math.min(this._delayLen - 4, Math.floor((delayMs / 1000) * sr)));
@@ -182,7 +298,27 @@ class PulseEngineProcessor extends AudioWorkletProcessor {
       Math.min(this._burbleLen - 2, Math.floor((0.0009 + rough0 * 0.0016) * sr)),
     );
 
-    const isV8 = cylN === 8;
+    // 0=auto → crossplane@8 else even; 1=crossplane; 2=flatplane; 3=even/i6
+    let family = Math.round(fam0);
+    if (family === 0) family = cylN === 8 ? 1 : 3;
+
+    if (family !== this._lastFamily || cylN !== this._lastCyl) {
+      this._buildSchedule(family, cylN);
+      this._lastFamily = family;
+      this._lastCyl = cylN;
+      // Re-arm next event relative to current θ (preserve continuity)
+      if (this._schedInit) {
+        const slot = this._evtIdx % this._evtN;
+        const cycleBase = Math.floor(this._theta / 720) * 720;
+        let best = cycleBase + this._evtDeg[slot];
+        if (best <= this._theta) best += 720;
+        this._nextTheta = best;
+      }
+    }
+
+    const useBankGeom = family === 1 || family === 2;
+    // Cross/flat: keep 8-slot geometry; mute excess so drop-cyl via cylinders still changes lope
+    const activeSlots = useBankGeom ? Math.max(1, Math.min(8, cylN)) : this._evtN;
 
     for (let i = 0; i < n; i++) {
       const rpm = rpmP.length > 1 ? rpmP[i] : rpm0;
@@ -197,6 +333,9 @@ class PulseEngineProcessor extends AudioWorkletProcessor {
       const intakeAmt = intakeP.length > 1 ? intakeP[i] : intake0;
       const crackAmt = crackP.length > 1 ? crackP[i] : crack0;
       const master = gainP.length > 1 ? gainP[i] : gain0;
+      const misAmt = misP && misP.length > 1 ? misP[i] : mis0;
+      const maskRaw = maskP && maskP.length > 1 ? maskP[i] : mask0;
+      const firingMask = Math.max(0, Math.min(255, Math.round(maskRaw))) | 0;
 
       // Continuous micro-jitter on effective RPM / pulse timing
       this._rpmWander += (Math.random() * 2 - 1) * (0.00035 + jit * 0.0005);
@@ -207,64 +346,72 @@ class PulseEngineProcessor extends AudioWorkletProcessor {
         200,
         Math.min(9000, rpm * (1 + this._rpmWander * (0.6 + jit * 1.4))),
       );
-      const revsPerSample = (safeRpm / (60 * sr)) * (1 + this._timingWander);
-      this._phase += revsPerSample;
 
-      // Half-order mechanical AM lope (stronger at idle)
-      this._lopePhase += revsPerSample * Math.PI * (isV8 ? 1.0 : 2.0);
+      // §2.1: degPerSec = rpm * 6; integrate crankAngle
+      const degPerSec = safeRpm * 6 * (1 + this._timingWander);
+      const degPerSample = degPerSec / sr;
+
+      // Half-order mechanical AM lope (stronger at idle / cross-plane)
+      const revsPerSample = degPerSample / 360;
+      this._lopePhase += revsPerSample * Math.PI * (useBankGeom ? 1.0 : 2.0);
       const lopeAm = 0.6 + 0.4 * Math.sin(this._lopePhase);
       const lopeAm2 = 0.75 + 0.25 * Math.sin(this._lopePhase * 0.5 + 0.7);
-
-      // Crank degrees in 720° cycle
-      const cycleRev = this._phase % 2;
-      const crankDeg = cycleRev * 360; // 0..720
 
       const pulseSamples = Math.max(8, Math.floor((0.0024 + pw * 0.0058) * (1.18 - thr * 0.28) * sr));
       // Idle always has combustion energy
       const energy = 0.26 + thr * 0.58 + Math.max(0, load) * 0.14;
 
+      if (!this._schedInit) {
+        this._theta = 0;
+        this._evtIdx = 0;
+        this._nextTheta = this._evtDeg[0];
+        // Small initial jitter on first event
+        const j0 = Math.min(0.03, Math.max(0, jit * 0.2));
+        this._nextTheta += (Math.random() * 2 - 1) * j0 * (720 / this._evtN);
+        this._schedInit = true;
+      }
+
+      this._theta += degPerSample;
+
+      // While θ crosses next event angle → schedule soft pulse (or skip)
+      let guard = 0;
+      while (this._theta >= this._nextTheta && guard < 16) {
+        guard++;
+        const slot = this._evtIdx % this._evtN;
+        // uint8 mask: only slots 0–7; higher even-family slots use cylinders mute only
+        const disabledByMask = slot < 8 && (firingMask & (1 << slot)) !== 0;
+        const disabledByCyl = slot >= activeSlots;
+        // Stochastic misfire → living lope (RES north star)
+        const misfireSkip = misAmt > 0.001 && Math.random() < misAmt * 0.22;
+
+        if (!disabledByMask && !disabledByCyl && !misfireSkip) {
+          const bank = this._evtBank[slot];
+          const amp = 0.78 + Math.random() * (0.25 + rough * 0.25);
+          this._spawnPulse(bank, amp, pulseSamples);
+        }
+
+        this._armNextEvent(jit, rough);
+      }
+
+      // Render active pulse envelopes
       let pulseL = 0;
       let pulseR = 0;
-      const fireCount = isV8 ? 8 : cylN;
-
-      for (let c = 0; c < fireCount; c++) {
-        let fireDeg;
-        let bank = 0;
-        if (isV8) {
-          fireDeg = this._v8Deg[c];
-          bank = this._v8Bank[c];
-        } else {
-          // Even-fire I4/etc: equal spacing over 720°
-          fireDeg = (c / cylN) * 720;
-          bank = c % 2;
+      for (let p = 0; p < this._pMax; p++) {
+        if (this._pAge[p] < 0) continue;
+        const distSamp = this._pAge[p];
+        const len = this._pLen[p];
+        if (distSamp >= len) {
+          this._pAge[p] = -1;
+          continue;
         }
-
-        let distDeg = crankDeg - fireDeg - this._nextJitter[c] * 90; // jitter in degrees
-        if (distDeg < -360) distDeg += 720;
-        if (distDeg > 360) distDeg -= 720;
-        // Only forward side of pulse (just after fire)
-        if (distDeg < 0) distDeg += 720;
-        if (distDeg > 360) continue;
-
-        const degPerSample = (safeRpm / 60) * 360 / sr; // crank deg / sample
-        const distSamp = distDeg / Math.max(1e-6, degPerSample);
-
-        if (distSamp >= 0 && distSamp < pulseSamples) {
-          const t = distSamp / pulseSamples;
-          const env = this._softEnv(t, thr);
-          const noiseBite = this._pink() * (0.16 + jit * 0.4);
-          const amp = this._ampJitter[c];
-          const combustion = (0.72 + noiseBite) * env * energy * amp;
-          const p = combustion * (0.52 + growl * 0.48);
-          if (bank === 0) pulseL += p;
-          else pulseR += p;
-
-          if (distSamp < 2) {
-            // 0.5–3% timing noise + amplitude variance (PR cue)
-            this._nextJitter[c] = (Math.random() * 2 - 1) * jit * (0.45 + rough * 0.4);
-            this._ampJitter[c] = 0.78 + Math.random() * (0.25 + rough * 0.25);
-          }
-        }
+        const t = distSamp / len;
+        const env = this._softEnv(t, thr);
+        const noiseBite = this._pink() * (0.16 + jit * 0.4);
+        const combustion = (0.72 + noiseBite) * env * energy * this._pAmp[p];
+        const sig = combustion * (0.52 + growl * 0.48);
+        if (this._pBank[p] === 0) pulseL += sig;
+        else pulseR += sig;
+        this._pAge[p] += 1;
       }
 
       const pulse = pulseL + pulseR;
