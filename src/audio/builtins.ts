@@ -1,53 +1,67 @@
 import type { EngineKind, EnginePatch, EngineParams, ParamMeta } from './types';
+import { REVFORGE_PATCHES } from '../forge/catalog';
 
 export const V8_DEFAULTS: EngineParams = {
-  masterGain: 0.7,
-  stereoWidth: 0.42,
+  // Audio Physics ICE v1 + ice-pack-firing-schedules-v1 (crossPlane)
+  masterGain: 0.72,
+  stereoWidth: 0.48,
   limiterCeiling: 0.95,
   rpmIdle: 48,
   rpmRedline: 248,
   cylinders: 8,
-  roughness: 0.58,
-  growl: 0.68,
-  presence: 0.42,
-  intake: 0.62,
-  exhaust: 0.72,
-  ignitionNoise: 0.22,
-  muffling: 0.38,
+  roughness: 0.62,
+  growl: 0.72,
+  presence: 0.36,
+  intake: 0.58,
+  exhaust: 0.78,
+  ignitionNoise: 0.24,
+  muffling: 0.34,
   rpmCurve: 0.58,
-  pulseWidth: 0.44,
-  pulseJitter: 0.16,
-  exhaustLength: 0.58,
-  exhaustFeedback: 0.74,
-  crackle: 0.36,
-  misfire: 0.04,
+  // Asymmetric soft pulse (~4–5 ms feel on worklet 0–1 scale)
+  pulseWidth: 0.5,
+  // Living-drive ~2.0% → worklet scale
+  pulseJitter: 0.333,
+  exhaustLength: 0.62,
+  exhaustFeedback: 0.76,
+  crackle: 0.38,
+  misfire: 0.05,
   firingFamily: 1,
   firingMask: 0,
+  collectorDelayMs: 1.8,
+  bankOffsetDeg: 90,
+  tauManifold: 0.12,
+  tauExhaust: 0.22,
 };
 
 export const I4_DEFAULTS: EngineParams = {
+  // evenI4 (family 3) — snappy even-fire
   masterGain: 0.68,
-  stereoWidth: 0.28,
+  stereoWidth: 0.3,
   limiterCeiling: 0.95,
   rpmIdle: 70,
   rpmRedline: 320,
   cylinders: 4,
-  roughness: 0.22,
+  roughness: 0.2,
   growl: 0.28,
   presence: 0.62,
-  intake: 0.5,
-  exhaust: 0.35,
-  ignitionNoise: 0.2,
-  muffling: 0.22,
+  intake: 0.55,
+  exhaust: 0.38,
+  ignitionNoise: 0.18,
+  muffling: 0.2,
   rpmCurve: 0.48,
-  pulseWidth: 0.28,
-  pulseJitter: 0.06,
-  exhaustLength: 0.32,
-  exhaustFeedback: 0.68,
-  crackle: 0.22,
-  misfire: 0,
+  pulseWidth: 0.26,
+  // ~0.8% living-drive
+  pulseJitter: 0.133,
+  exhaustLength: 0.3,
+  exhaustFeedback: 0.66,
+  crackle: 0.2,
+  misfire: 0.01,
   firingFamily: 3,
   firingMask: 0,
+  collectorDelayMs: 0.4,
+  bankOffsetDeg: 0,
+  tauManifold: 0.07,
+  tauExhaust: 0.1,
 };
 
 export const EV_DEFAULTS: EngineParams = {
@@ -71,6 +85,7 @@ export const TIE_DEFAULTS: EngineParams = {
   pulseRate: 0.36,
   motorDetune: 0.55,
   motorMix: 0.58,
+  motorEnable: 1,
   resonance: 0.62,
   formantQ: 0.62,
   noiseBody: 0.62,
@@ -81,20 +96,56 @@ export const TIE_DEFAULTS: EngineParams = {
   wetDry: 0.2,
   stereoTwin: 0.35,
   spoolLag: 0.58,
+  // Formant howl (ref-A/F) — continuous hold, not gated phrases
   engineHowl: 0.9,
   formantHowl: 0.92,
+  howlMix: 0.92,
+  howlEnable: 1,
   formantSpread: 0.52,
   formantShift: 0.5,
   // Shallow slow phrase AM — breathe the bellow, never gate/chop the scream
   phraseRate: 0.28,
   phraseDepth: 0.18,
+  // Brighter scream burst (ref-C) — aggression accent, combinable
+  screamEnable: 1,
+  screamMix: 0.35,
+  screamBright: 0.55,
+  // Rising CF surge (ref-D) — throttle-spike gesture
+  surgeEnable: 1,
+  surgeMix: 0.7,
+  // Grit + air
   grit: 0.42,
+  gritMix: 0.42,
+  gritEnable: 1,
   wetHiss: 0.78,
   air: 0.78,
+  airMix: 0.78,
+  airEnable: 1,
   afterburn: 0.3,
   ionSpark: 0.3,
   hum: 0.42,
   ionHum: 0.42,
+};
+
+/** Optional full-stack preset (ref-E DNA): balanced combination defaults. */
+export const TIE_FULL_STACK: EngineParams = {
+  ...TIE_DEFAULTS,
+  motorMix: 0.55,
+  howlMix: 0.85,
+  formantHowl: 0.85,
+  screamMix: 0.45,
+  screamBright: 0.5,
+  surgeMix: 0.75,
+  airMix: 0.7,
+  wetHiss: 0.7,
+  air: 0.7,
+  gritMix: 0.48,
+  grit: 0.48,
+  formantSpread: 0.48,
+  formantShift: 0.52,
+  phraseDepth: 0.16,
+  body: 0.55,
+  wetDry: 0.22,
 };
 
 export const F14_DEFAULTS: EngineParams = {
@@ -115,28 +166,34 @@ export const F14_DEFAULTS: EngineParams = {
 };
 
 export const I6_DEFAULTS: EngineParams = {
+  // i6Even (family 3) — silk; distinguish from i4 via cylinders + eventAnglesDeg
   masterGain: 0.68,
-  stereoWidth: 0.32,
+  stereoWidth: 0.34,
   limiterCeiling: 0.95,
   rpmIdle: 62,
   rpmRedline: 280,
   cylinders: 6,
-  roughness: 0.18,
-  growl: 0.38,
-  presence: 0.52,
-  intake: 0.48,
-  exhaust: 0.55,
-  ignitionNoise: 0.14,
-  muffling: 0.28,
+  roughness: 0.16,
+  growl: 0.4,
+  presence: 0.5,
+  intake: 0.52,
+  exhaust: 0.52,
+  ignitionNoise: 0.12,
+  muffling: 0.26,
   rpmCurve: 0.5,
-  pulseWidth: 0.36,
-  pulseJitter: 0.05,
-  exhaustLength: 0.42,
+  pulseWidth: 0.34,
+  // ~0.7% living-drive
+  pulseJitter: 0.117,
+  exhaustLength: 0.4,
   exhaustFeedback: 0.7,
-  crackle: 0.18,
+  crackle: 0.16,
   misfire: 0,
   firingFamily: 3,
   firingMask: 0,
+  collectorDelayMs: 0.5,
+  bankOffsetDeg: 0,
+  tauManifold: 0.09,
+  tauExhaust: 0.14,
 };
 
 export const EV_CLIMB_DEFAULTS: EngineParams = {
@@ -189,7 +246,7 @@ export const BUILTIN_PATCHES: EnginePatch[] = [
     params: { ...V8_DEFAULTS } as Record<string, number | string>,
     meta: {
       blurb:
-        'Organic V8: soft combustion pulses + mechanical bed + intake + exhaust waveguide body. Cross-plane 180/90/180/270 bank lope; throttle opens character, not just pitch.',
+        'Organic V8 crossPlane: bank-A [0,180,270,450] potato lope + waveguide body. Throttle morphs intake/brightness — not pitch-only. Physics schedule τ_m 0.12 / τ_e 0.22.',
       tags: ['ice', 'v8', 'pulse', 'free'],
       author: 'DriveSynth',
     },
@@ -202,7 +259,7 @@ export const BUILTIN_PATCHES: EnginePatch[] = [
     topology: 'i4-zip',
     params: { ...I4_DEFAULTS } as Record<string, number | string>,
     meta: {
-      blurb: 'Even-fire four: tighter pulses, higher idle, snappier waveguide — all procedural.',
+      blurb: 'evenI4: [0,180,360,540] snappy pulses, higher idle, fast gas τ — all procedural.',
       tags: ['ice', 'i4', 'pulse', 'free'],
       author: 'DriveSynth',
     },
@@ -216,7 +273,7 @@ export const BUILTIN_PATCHES: EnginePatch[] = [
     params: { ...I6_DEFAULTS } as Record<string, number | string>,
     meta: {
       blurb:
-        'Straight-six silk: even-fire organic pulses on the V8 path — smoother lope, softer roughness, refined waveguide body.',
+        'i6Even silk: [0,120,…,600] smoother lope, soft roughness, refined waveguide. Family int 3 (same as i4; cyl + angles distinguish).',
       tags: ['ice', 'i6', 'pulse', 'free'],
       author: 'DriveSynth',
     },
@@ -304,6 +361,7 @@ export const BUILTIN_PATCHES: EnginePatch[] = [
       author: 'DriveSynth',
     },
   },
+  ...REVFORGE_PATCHES,
 ];
 
 export function defaultsForTopology(topology: string): EngineParams {
@@ -437,26 +495,42 @@ export function paramMetaForKind(kind: EnginePatch['kind']): ParamMeta[] {
     ];
   }
 
+  // Sci-fi / Ion Twin — grouped layer knobs (enable + mix + character)
   return [
     ...master,
+    // motorBed
+    { id: 'motorEnable', label: 'Motor On', min: 0, max: 1, step: 1, kind: 'segmented', options: [0, 1] },
+    { id: 'motorMix', label: 'Motor Mix', min: 0, max: 1, step: 0.01 },
     { id: 'corePitch', label: 'Motor Hz', min: 40, max: 200, step: 1, unit: 'Hz' },
     { id: 'pulseRate', label: 'Motor Rate', min: 0, max: 1, step: 0.01 },
     { id: 'motorDetune', label: 'Motor Detune', min: 0, max: 1, step: 0.01 },
-    { id: 'carrierBite', label: 'Motor Mix', min: 0, max: 1, step: 0.01 },
     { id: 'noiseBody', label: 'Motor Body', min: 0, max: 1, step: 0.01 },
     { id: 'body', label: 'Cabin Body', min: 0, max: 1, step: 0.01 },
-    { id: 'engineHowl', label: 'Howl', min: 0, max: 1, step: 0.01 },
-    { id: 'formantHowl', label: 'Formant Howl', min: 0, max: 1, step: 0.01 },
+    { id: 'spoolLag', label: 'Spool Lag', min: 0, max: 1, step: 0.01 },
+    { id: 'stereoTwin', label: 'Stereo Twin', min: 0, max: 1, step: 0.01 },
+    // formantHowl
+    { id: 'howlEnable', label: 'Howl On', min: 0, max: 1, step: 1, kind: 'segmented', options: [0, 1] },
+    { id: 'howlMix', label: 'Howl Mix', min: 0, max: 1, step: 0.01 },
     { id: 'formantShift', label: 'Formant Shift', min: 0, max: 1, step: 0.01 },
     { id: 'formantSpread', label: 'Formant Spread', min: 0, max: 1, step: 0.01 },
     { id: 'resonance', label: 'Formant Q', min: 0, max: 1, step: 0.01 },
     { id: 'phraseRate', label: 'Phrase Rate', min: 0, max: 1, step: 0.01 },
     { id: 'phraseDepth', label: 'Phrase Depth', min: 0, max: 1, step: 0.01 },
-    { id: 'grit', label: 'Grit', min: 0, max: 1, step: 0.01 },
-    { id: 'wetHiss', label: 'Air / Wet', min: 0, max: 1, step: 0.01 },
+    // screamBurst
+    { id: 'screamEnable', label: 'Scream On', min: 0, max: 1, step: 1, kind: 'segmented', options: [0, 1] },
+    { id: 'screamMix', label: 'Scream Mix', min: 0, max: 1, step: 0.01 },
+    { id: 'screamBright', label: 'Scream Bright', min: 0, max: 1, step: 0.01 },
+    // surge
+    { id: 'surgeEnable', label: 'Surge On', min: 0, max: 1, step: 1, kind: 'segmented', options: [0, 1] },
+    { id: 'surgeMix', label: 'Surge Mix', min: 0, max: 1, step: 0.01 },
+    // airSwoosh
+    { id: 'airEnable', label: 'Air On', min: 0, max: 1, step: 1, kind: 'segmented', options: [0, 1] },
+    { id: 'airMix', label: 'Air Mix', min: 0, max: 1, step: 0.01 },
     { id: 'wetDry', label: 'Wet/Dry', min: 0, max: 1, step: 0.01 },
-    { id: 'stereoTwin', label: 'Stereo Twin', min: 0, max: 1, step: 0.01 },
-    { id: 'spoolLag', label: 'Spool Lag', min: 0, max: 1, step: 0.01 },
+    // grit
+    { id: 'gritEnable', label: 'Grit On', min: 0, max: 1, step: 1, kind: 'segmented', options: [0, 1] },
+    { id: 'gritMix', label: 'Grit Mix', min: 0, max: 1, step: 0.01 },
+    // ion support
     { id: 'afterburn', label: 'Ion Spark', min: 0, max: 1, step: 0.01 },
     { id: 'hum', label: 'Ion Hum', min: 0, max: 1, step: 0.01 },
   ];

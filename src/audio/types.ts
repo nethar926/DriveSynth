@@ -96,6 +96,14 @@ export interface EngineParams {
   firingMask?: number;
   /** QA: drop this cylinder slot (0–7); Synth maps to firingMask bit */
   dropCyl?: number;
+  /** Dual-collector L/R delay ms (pack schedule). Synth may map to stereo delay. */
+  collectorDelayMs?: number;
+  /** Bank B offset degrees (typical 90 for V8). */
+  bankOffsetDeg?: number;
+  /** Manifold fill lag τ seconds (EngineState). */
+  tauManifold?: number;
+  /** Exhaust openness lag τ seconds (EngineState). */
+  tauExhaust?: number;
   // Sci-fi / Ion Twin
   corePitch?: number;
   pulseRate?: number;
@@ -140,6 +148,31 @@ export interface EngineParams {
   ionSpark?: number;
   /** Ion hum alias for hum */
   ionHum?: number;
+  // Ion Twin layer enables (0=off, 1=on) — combinable configs
+  /** Twin motor bed enable 0|1 */
+  motorEnable?: number;
+  /** Formant howl (ref-A/F) enable 0|1 */
+  howlEnable?: number;
+  /** Howl mix alias (maps onto formantHowl) 0..1 */
+  howlMix?: number;
+  /** Brighter scream burst (ref-C) enable 0|1 */
+  screamEnable?: number;
+  /** Scream burst mix 0..1 */
+  screamMix?: number;
+  /** Scream brightness / CF lift 0..1 */
+  screamBright?: number;
+  /** Rising CF surge gesture (ref-D) enable 0|1 */
+  surgeEnable?: number;
+  /** Surge gesture mix 0..1 */
+  surgeMix?: number;
+  /** Air / wet swoosh enable 0|1 */
+  airEnable?: number;
+  /** Air mix alias (maps onto wetHiss/air) 0..1 */
+  airMix?: number;
+  /** Grit bus enable 0|1 */
+  gritEnable?: number;
+  /** Grit mix alias 0..1 */
+  gritMix?: number;
   // EV
   whinePitch?: number;
   gearSteps?: number;
@@ -212,6 +245,18 @@ export interface SynthNodeDesc {
   y?: number;
 }
 
+/** Named Ion Twin / Pro Builder layer for save + combine. */
+export interface SoundLayer {
+  id: string;
+  name: string;
+  /** When false, layer contributes silence regardless of mix. */
+  enabled: boolean;
+  /** Layer bus gain 0..1 */
+  gain: number;
+  /** Optional character knobs merged into EngineParams when applied */
+  params?: Record<string, number>;
+}
+
 export interface EnginePatch {
   version: 0;
   id: EngineId;
@@ -220,6 +265,10 @@ export interface EnginePatch {
   topology: TopologyId;
   params: Record<string, number | string>;
   graph?: SynthNodeDesc[];
+  /** Optional stackable layers (Ion Twin configs, Sound Lab, etc.) */
+  layers?: SoundLayer[];
+  /** Original RevForge scene row (catalog); sakura left as legacy-only. */
+  revforge?: Record<string, unknown>;
   meta?: { author?: string; createdAt?: string; tags?: string[]; blurb?: string };
 }
 

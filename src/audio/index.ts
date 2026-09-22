@@ -39,12 +39,19 @@ export type { IdleBand } from './idleBand';
 
 export {
   EngineStateBridge,
+  ICE_PACK_SCHEDULES,
+  crossPlaneBankAAnglesDeg,
   estimateNextPulseDt,
   isSlotDisabled,
+  mapRevforgeFiringToFamily,
   nextEventAnglesDeg,
+  physicsJitterToWorklet,
+  resolveIcePackSchedule,
+  workletJitterToPhysics,
 } from './engineStateBridge';
 export type {
   EngineStatePackHints,
   EngineStateRawInput,
+  IcePackSchedule,
   WorkletParamPush,
 } from './engineStateBridge';
