@@ -21,6 +21,9 @@ export const V8_DEFAULTS: EngineParams = {
   exhaustLength: 0.58,
   exhaustFeedback: 0.74,
   crackle: 0.36,
+  misfire: 0.04,
+  firingFamily: 1,
+  firingMask: 0,
 };
 
 export const I4_DEFAULTS: EngineParams = {
@@ -43,6 +46,9 @@ export const I4_DEFAULTS: EngineParams = {
   exhaustLength: 0.32,
   exhaustFeedback: 0.68,
   crackle: 0.22,
+  misfire: 0,
+  firingFamily: 3,
+  firingMask: 0,
 };
 
 export const EV_DEFAULTS: EngineParams = {
@@ -129,6 +135,9 @@ export const I6_DEFAULTS: EngineParams = {
   exhaustLength: 0.42,
   exhaustFeedback: 0.7,
   crackle: 0.18,
+  misfire: 0,
+  firingFamily: 3,
+  firingMask: 0,
 };
 
 export const EV_CLIMB_DEFAULTS: EngineParams = {
@@ -383,6 +392,16 @@ export function paramMetaForKind(kind: EnginePatch['kind']): ParamMeta[] {
       { id: 'exhaustLength', label: 'Pipe Length', min: 0.05, max: 1, step: 0.01 },
       { id: 'exhaustFeedback', label: 'Pipe Feedback', min: 0.1, max: 0.97, step: 0.01 },
       { id: 'crackle', label: 'Crackle', min: 0, max: 1, step: 0.01 },
+      { id: 'misfire', label: 'Misfire', min: 0, max: 1, step: 0.01 },
+      {
+        id: 'firingFamily',
+        label: 'Firing Family',
+        min: 0,
+        max: 3,
+        kind: 'segmented',
+        options: [0, 1, 2, 3],
+      },
+      { id: 'firingMask', label: 'Firing Mask', min: 0, max: 255, step: 1 },
       { id: 'rpmCurve', label: 'RPM Curve', min: 0, max: 1, step: 0.01 },
     ];
   }
@@ -450,6 +469,16 @@ export function paramMetaForNodeType(type: string): ParamMeta[] {
         { id: 'pulseWidth', label: 'Width', min: 0.05, max: 1, step: 0.01 },
         { id: 'pulseJitter', label: 'Jitter', min: 0, max: 0.5, step: 0.01 },
         { id: 'roughness', label: 'Roughness', min: 0, max: 1, step: 0.01 },
+        { id: 'misfire', label: 'Misfire', min: 0, max: 1, step: 0.01 },
+        {
+          id: 'firingFamily',
+          label: 'Firing Family',
+          min: 0,
+          max: 3,
+          kind: 'segmented',
+          options: [0, 1, 2, 3],
+        },
+        { id: 'firingMask', label: 'Firing Mask', min: 0, max: 255, step: 1 },
       ];
     case 'ExhaustWaveguide':
       return [

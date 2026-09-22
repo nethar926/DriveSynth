@@ -33,6 +33,23 @@ export interface EngineDiag {
   workletError?: string;
 }
 
+/** ICE EngineState snapshot from Audio Physics bridge (HUD / QA). */
+export interface EngineStateSnapshot {
+  rpm: number;
+  throttle: number;
+  load: number;
+  /** bit i SET = slot i disabled */
+  firingMask: number;
+  misfireAmount: number;
+  firingFamily: number;
+  bankSchedule: string;
+  cylinders: number;
+  crankAngleDeg: number;
+  manifoldNorm: number;
+  exhaustOpenness: number;
+  pulseJitter: number;
+}
+
 export interface DrivingInput {
   /** Normalized vehicle speed 0..1 */
   speed: number;
@@ -80,7 +97,18 @@ export interface EngineParams {
   exhaustFeedback?: number;
   /** Overrun crackle amount 0..1 */
   crackle?: number;
-  // Sci-fi
+  /** Stochastic misfire amount 0..1 (RES: changes lope) */
+  misfire?: number;
+  /** 0=auto 1=crossplane 2=flatplane 3=even */
+  firingFamily?: number;
+  /**
+   * ICE drop-cyl bitfield 0–255 (worklet AudioParam).
+   * Convention: bit i set = slot i disabled; 0 = all enabled (mask-none).
+   */
+  firingMask?: number;
+  /** QA: drop this cylinder slot (0–7); Synth maps to firingMask bit */
+  dropCyl?: number;
+  // Sci-fi / Ion Twin
   corePitch?: number;
   pulseRate?: number;
   resonance?: number;
@@ -240,6 +268,15 @@ export interface EngineSynth {
 
   /** Frontend /diag snapshot — field names stable for iceMode consumers */
   getDiag(): EngineDiag;
+
+  /** Audio Physics ICE bridge snapshot (optional). */
+  getEngineState?(): EngineStateSnapshot;
+
+  /** QA / pack: set firingMask (bit SET = disabled). */
+  setFiringMask?(mask: number): void;
+
+  /** QA §2.5 drop-cylinder: disable slot (sets bit). */
+  dropCylinder?(slot: number): void;
 }
 
 export interface ParamMeta {
