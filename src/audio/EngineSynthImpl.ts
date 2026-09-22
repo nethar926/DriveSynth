@@ -1,4 +1,6 @@
+import { CharacterEngine } from './CharacterEngine';
 import { defaultsForTopology, getBuiltin } from './builtins';
+import { RevForgeSynth } from '../forge/RevForgeSynth';
 import type {
   DrivingInput,
   EngineDiag,
@@ -352,11 +354,18 @@ export class EngineSynthImpl implements EngineSynth {
 
   setDriving(d: DrivingInput): void {
     this.refreshIdleBandFromPrefs();
+    // Preserve Frontend rpmNorm/rpm when supplied (Forge rAF / GPS+Rev).
+    // Audio still dual-maps speed→fundamental + throttle→brightness when omitted.
     this.driving = {
       speed: clamp(d.speed),
       throttle: clamp(d.throttle),
       load: d.load !== undefined ? clamp(d.load, -1, 1) : this.driving.load,
       reverse: !!d.reverse,
+      rpm: d.rpm,
+      rpmNorm: d.rpmNorm,
+      acceleration: d.acceleration,
+      shifting: d.shifting,
+      overrun: d.overrun,
     };
     this.applyDriving(false);
   }
@@ -1940,12 +1949,17 @@ export class EngineSynthImpl implements EngineSynth {
     const tc = immediate ? 0.01 : 0.06;
     const kind = this.patchMeta.kind;
 
-    const curve = Number(p.rpmCurve ?? 0.55);
-    let rpmNorm = rpmCurve(d.speed, curve);
-    if (d.speed < 0.04) {
-      rpmNorm = Math.max(rpmNorm, d.throttle * 0.55);
+    // Prefer Frontend rpmNorm (GPS mph + Rev → simulation) when present.
+    // Fallback: dual map speed→rpm curve, throttle fills parked/low-speed revs
+    // without the old speed≥0.04 cliff that collapsed Hold-to-rev morph.
+    let rpmNorm: number;
+    if (d.rpmNorm !== undefined && Number.isFinite(d.rpmNorm)) {
+      rpmNorm = clamp(d.rpmNorm);
     } else {
-      rpmNorm = clamp(rpmNorm + d.throttle * 0.12);
+      const curve = Number(p.rpmCurve ?? 0.55);
+      const fromSpeed = rpmCurve(d.speed, curve);
+      const fromThr = d.throttle * (d.speed < 0.04 ? 0.55 : 0.35);
+      rpmNorm = clamp(Math.max(fromSpeed, fromThr) + (d.speed >= 0.04 ? d.throttle * 0.12 : 0));
     }
 
     const loadFeel = clamp(d.throttle * 0.7 + Math.abs(d.load ?? 0) * 0.3 + d.speed * 0.15);
@@ -3146,5 +3160,12 @@ function writeUpshiftSfxPref(enabled: boolean): void {
 }
 
 export function createEngineSynth(ctx: AudioContext, patch?: EnginePatch): EngineSynth {
-  return new EngineSynthImpl(ctx, patch);
+  // RevForge native packs → RevForgeSynth; DriveSynth packs → EngineSynthImpl.
+  // CharacterEngine always wraps so setDriving / soft-cues / layers keep forwarding.
+  const base = patch?.revforge
+    ? new RevForgeSynth(ctx, patch)
+    : new EngineSynthImpl(ctx, patch);
+  return new CharacterEngine(base, patch ?? base.toPatch(), (p) =>
+    createEngineSynth(ctx, { ...p, layers: [] }),
+  );
 }
