@@ -1,3 +1,5 @@
+import { AppearanceKnobs } from '../components/visuals/AppearanceKnobs';
+import { DriveDynamicsPanel } from '../components/visuals/DriveDynamicsPanel';
 import { Gauge } from '../components/Gauge';
 import type {
   UiPrefs,
@@ -207,6 +209,16 @@ export function CustomizePage({ prefs, update, reset }: Props) {
         <p className="help-text dim">
           Minimal hides the shared LOAD/REVS/ACCEL bar (skin-native gauges keep SPEED dominant).
         </p>
+      </section>
+
+      <section className="panel">
+        <h2 className="section-title">Appearance</h2>
+        <AppearanceKnobs prefs={prefs} update={update} />
+      </section>
+
+      <section className="panel">
+        <h2 className="section-title">Drive Dynamics</h2>
+        <DriveDynamicsPanel prefs={prefs} update={update} />
       </section>
 
       <section className="panel">

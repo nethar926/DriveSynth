@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { DEFAULT_GEAR_COUNT, DEFAULT_MAX_TOP_SPEED_MPH } from './gearLogic';
 
 export type ThemeId = 'night' | 'day' | 'neon' | 'mono';
 export type LayoutDensity = 'comfortable' | 'compact' | 'spacious';
@@ -53,6 +54,15 @@ export interface UiPrefs {
    * Latin / dual-ghost for Customize glanceability under cabin motion.
    */
   ionTwinSpeedScript: IonTwinSpeedScript;
+  /** Drive Dynamics — gear ladder + top speed (Visual prefs). */
+  gearCount: number;
+  maxTopSpeedMph: number;
+  idleRpmMin: number;
+  idleRpmMax: number;
+  bloomGlow: number;
+  scanlineStrength: number;
+  hudOpacity: number;
+  hudBezel: number;
 }
 
 const KEY = 'drivesynth.ui.v1';
@@ -93,7 +103,58 @@ export const DEFAULT_UI: UiPrefs = {
   ionTwinLockSfx: false,
   upshiftSfx: false,
   ionTwinSpeedScript: 'aurebesh',
+  gearCount: DEFAULT_GEAR_COUNT,
+  maxTopSpeedMph: DEFAULT_MAX_TOP_SPEED_MPH,
+  idleRpmMin: 700,
+  idleRpmMax: 900,
+  bloomGlow: 0.55,
+  scanlineStrength: 0.35,
+  hudOpacity: 1,
+  hudBezel: 0.45,
 };
+
+const DYNAMICS_KEYS = {
+  gearCount: 'revforge.dynamics.gearCount',
+  maxTopSpeedMph: 'revforge.dynamics.maxTopSpeedMph',
+  idleRpmMin: 'revforge.dynamics.idleRpmMin',
+  idleRpmMax: 'revforge.dynamics.idleRpmMax',
+} as const;
+
+function clampRange(n: number, lo: number, hi: number, fallback: number): number {
+  if (!Number.isFinite(n)) return fallback;
+  return Math.min(hi, Math.max(lo, n));
+}
+
+function readLegacyNumber(key: string): number | undefined {
+  try {
+    const v = localStorage.getItem(key);
+    if (v == null || v === '') return undefined;
+    const n = Number(v);
+    return Number.isFinite(n) ? n : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function normalizeDynamics(partial: Partial<UiPrefs>): Pick<
+  UiPrefs,
+  'gearCount' | 'maxTopSpeedMph' | 'idleRpmMin' | 'idleRpmMax' | 'bloomGlow' | 'scanlineStrength' | 'hudOpacity' | 'hudBezel'
+> {
+  let idleMin = clampRange(Number(partial.idleRpmMin), 400, 2000, DEFAULT_UI.idleRpmMin);
+  let idleMax = clampRange(Number(partial.idleRpmMax), 400, 2500, DEFAULT_UI.idleRpmMax);
+  if (idleMax < idleMin) idleMax = idleMin;
+  return {
+    gearCount: clampRange(Number(partial.gearCount), 4, 8, DEFAULT_UI.gearCount),
+    maxTopSpeedMph: clampRange(Number(partial.maxTopSpeedMph), 60, 300, DEFAULT_UI.maxTopSpeedMph),
+    idleRpmMin: idleMin,
+    idleRpmMax: idleMax,
+    bloomGlow: clampRange(Number(partial.bloomGlow), 0, 1, DEFAULT_UI.bloomGlow),
+    scanlineStrength: clampRange(Number(partial.scanlineStrength), 0, 1, DEFAULT_UI.scanlineStrength),
+    hudOpacity: clampRange(Number(partial.hudOpacity), 0.25, 1, DEFAULT_UI.hudOpacity),
+    hudBezel: clampRange(Number(partial.hudBezel), 0, 1, DEFAULT_UI.hudBezel),
+  };
+}
+
 
 const LEGACY_AUREBESH_KEY = 'drivesynth.ionTwin.aurebeshNumerals';
 
@@ -219,6 +280,16 @@ function load(): UiPrefs {
       merged.telemetryDensity = DEFAULT_UI.telemetryDensity;
     }
     merged.gaugeStyle = clusterToGaugeStyle(merged.gaugeCluster);
+    Object.assign(
+      merged,
+      normalizeDynamics({
+        ...merged,
+        gearCount: parsed.gearCount ?? readLegacyNumber(DYNAMICS_KEYS.gearCount),
+        maxTopSpeedMph: parsed.maxTopSpeedMph ?? readLegacyNumber(DYNAMICS_KEYS.maxTopSpeedMph),
+        idleRpmMin: parsed.idleRpmMin ?? readLegacyNumber(DYNAMICS_KEYS.idleRpmMin),
+        idleRpmMax: parsed.idleRpmMax ?? readLegacyNumber(DYNAMICS_KEYS.idleRpmMax),
+      }),
+    );
     return merged;
   } catch {
     return { ...DEFAULT_UI };
@@ -241,6 +312,18 @@ function applyCssTokens(prefs: UiPrefs) {
   root.style.setProperty('--bg-elev', surface);
   root.style.setProperty('--bg-card', surface);
   root.style.setProperty('--font', FONT_STACKS[prefs.fontFamily]);
+  root.style.setProperty('--rf-bloom', String(prefs.bloomGlow));
+  root.style.setProperty('--rf-scanline', String(prefs.scanlineStrength));
+  root.style.setProperty('--hud-opacity', String(prefs.hudOpacity));
+  root.style.setProperty('--rf-bezel', String(prefs.hudBezel));
+  try {
+    localStorage.setItem(DYNAMICS_KEYS.gearCount, String(prefs.gearCount));
+    localStorage.setItem(DYNAMICS_KEYS.maxTopSpeedMph, String(prefs.maxTopSpeedMph));
+    localStorage.setItem(DYNAMICS_KEYS.idleRpmMin, String(prefs.idleRpmMin));
+    localStorage.setItem(DYNAMICS_KEYS.idleRpmMax, String(prefs.idleRpmMax));
+  } catch {
+    /* ignore */
+  }
   root.style.setProperty('--accent-dim', `color-mix(in srgb, ${accent} 35%, transparent)`);
 }
 
@@ -261,6 +344,18 @@ export function useUiPrefs() {
   const update = useCallback((partial: Partial<UiPrefs>) => {
     setPrefs((p) => {
       const next = { ...p, ...partial };
+      if (
+        partial.gearCount != null ||
+        partial.maxTopSpeedMph != null ||
+        partial.idleRpmMin != null ||
+        partial.idleRpmMax != null ||
+        partial.bloomGlow != null ||
+        partial.scanlineStrength != null ||
+        partial.hudOpacity != null ||
+        partial.hudBezel != null
+      ) {
+        Object.assign(next, normalizeDynamics(next));
+      }
       if (partial.colors) {
         next.colors = { ...p.colors, ...partial.colors };
         if (partial.colors.accent) next.accent = partial.colors.accent;
