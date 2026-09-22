@@ -25,6 +25,11 @@ import {
   type IdleBand,
 } from './idleBand';
 import { clamp, createNoiseBuffer, lerp, makeShaper, rpmCurve, smooth, smoothstep } from './utils';
+import {
+  playEngineShutoff,
+  playEngineStarter,
+  shutoffDuration,
+} from './engineStartShutdown';
 import pulseWorkletUrl from './worklets/pulse-engine-processor.js?url';
 
 type Kind = EnginePatch['kind'];
@@ -228,6 +233,10 @@ export class EngineSynthImpl implements EngineSynth {
   onLockStageChange?: (stage: LockStage) => void;
   /** MANUAL upshift bark; default false; localStorage `ds-upshift-sfx`. */
   private upshiftSfxEnabled = false;
+  /** Keep output audible through a Frontend-cued shutoff tail (ctx time). */
+  private shutoffUntil = 0;
+  /** Debounce duplicate starter cues (ctx time). */
+  private lastStarterAt = -1;
   /** Drive Dynamics idle RPM band (localStorage or setIdleBand). */
   private idleBand: IdleBand = { ...DEFAULT_IDLE_BAND };
   /** When true, setIdleBand wins over localStorage refresh. */
@@ -298,7 +307,20 @@ export class EngineSynthImpl implements EngineSynth {
 
   stop(): void {
     this.started = false;
-    smooth(this.output.gain, 0, 0.12, this.context);
+    const now = this.context.currentTime;
+    const hold = Math.max(0, this.shutoffUntil - now);
+    if (hold > 0.05) {
+      // Let Frontend-cued shutoff tail finish, then fade — no hard gate.
+      try {
+        this.output.gain.cancelScheduledValues(now);
+        this.output.gain.setValueAtTime(Math.max(this.output.gain.value, 0.001), now);
+        this.output.gain.setTargetAtTime(0, now + hold * 0.55, 0.1);
+      } catch {
+        smooth(this.output.gain, 0, Math.min(0.45, hold), this.context);
+      }
+    } else {
+      smooth(this.output.gain, 0, 0.12, this.context);
+    }
   }
 
   dispose(): void {
@@ -425,14 +447,81 @@ export class EngineSynthImpl implements EngineSynth {
   }
 
   /**
-   * Soft UI cue. 'upshift' → short mechanical bark when enabled (ICE/aerospace;
-   * quieter EV; skip scifi). Does not touch setDriving / pitch stack.
+   * Soft UI cue. Does not touch setDriving / pitch stack.
+   * - 'upshift' → short mechanical bark when enabled (ICE/aerospace; quieter EV; skip scifi)
+   * - 'starter' | 'ignition' → per-engine Ignition one-shot from active pack params
+   * - 'shutdown' | 'shutoff' → per-engine Shutdown one-shot (call before stop() for full tail)
    */
-  triggerUiCue(cue: 'upshift' | string): void {
-    if (this.disposed || !this.started) return;
-    if (cue === 'upshift') {
+  triggerUiCue(cue: 'upshift' | 'starter' | 'shutdown' | 'shutoff' | string): void {
+    if (this.disposed) return;
+    const c = String(cue || '').toLowerCase();
+    if (c === 'starter' || c === 'ignition') {
+      if (!this.started) return;
+      this.playStarter();
+      return;
+    }
+    if (c === 'shutdown' || c === 'shutoff') {
+      // Allow after stop() flipped started — Frontend may cue then stop for the tail.
+      if (this.context.state === 'closed') return;
+      this.playShutoff();
+      return;
+    }
+    if (!this.started) return;
+    if (c === 'upshift') {
       if (!this.upshiftSfxEnabled) return;
       this.playUpshiftBark();
+    }
+  }
+
+  /** Procedural Ignition starter derived from active pack (same as triggerUiCue('starter')). */
+  playStarter(): void {
+    if (this.disposed || !this.started) return;
+    const now = this.context.currentTime;
+    if (this.lastStarterAt >= 0 && now - this.lastStarterAt < 0.45) return;
+    this.lastStarterAt = now;
+    try {
+      playEngineStarter({
+        ctx: this.context,
+        dest: this.output,
+        kind: this.patchMeta.kind,
+        params: this.params,
+        whiteBuf: this.whiteBuf,
+        pinkBuf: this.pinkBuf,
+      });
+    } catch {
+      /* never block drive path */
+    }
+  }
+
+  /** Procedural Shutdown shutoff derived from active pack (same as triggerUiCue('shutdown')). */
+  playShutoff(): void {
+    if (this.disposed) return;
+    if (this.context.state === 'closed') return;
+    const kind = this.patchMeta.kind;
+    const dur = shutoffDuration(kind);
+    const now = this.context.currentTime;
+    this.shutoffUntil = Math.max(this.shutoffUntil, now + dur);
+    // Hold master so stop()'s fade does not mute the tail immediately.
+    try {
+      const g = this.output.gain;
+      g.cancelScheduledValues(now);
+      const cur = Math.max(g.value, 0.001);
+      g.setValueAtTime(cur, now);
+      if (cur < 0.85) g.linearRampToValueAtTime(1, now + 0.02);
+    } catch {
+      /* ignore */
+    }
+    try {
+      playEngineShutoff({
+        ctx: this.context,
+        dest: this.output,
+        kind,
+        params: this.params,
+        whiteBuf: this.whiteBuf,
+        pinkBuf: this.pinkBuf,
+      });
+    } catch {
+      /* never block drive path */
     }
   }
 

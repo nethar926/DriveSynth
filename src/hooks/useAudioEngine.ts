@@ -112,8 +112,19 @@ export function useAudioEngine(initialId = 'v8-rumble') {
     }
   }, []);
 
-  const triggerUiCue = useCallback((cue: 'upshift' | string) => {
-    engineRef.current?.triggerUiCue?.(cue);
+  const triggerUiCue = useCallback(
+    (cue: 'upshift' | 'starter' | 'shutdown' | 'shutoff' | string) => {
+      engineRef.current?.triggerUiCue?.(cue);
+    },
+    [],
+  );
+
+  const playStarter = useCallback(() => {
+    engineRef.current?.playStarter?.();
+  }, []);
+
+  const playShutoff = useCallback(() => {
+    engineRef.current?.playShutoff?.();
   }, []);
 
   useEffect(() => {
@@ -138,6 +149,8 @@ export function useAudioEngine(initialId = 'v8-rumble') {
     setUpshiftSfxEnabled,
     getUpshiftSfxEnabled,
     triggerUiCue,
+    playStarter,
+    playShutoff,
     ready,
     running,
     engineId,

@@ -36,3 +36,10 @@ export {
 } from './idleBand';
 export type { IdleBand } from './idleBand';
 
+export {
+  playEngineStarter,
+  playEngineShutoff,
+  starterDuration,
+  shutoffDuration,
+} from './engineStartShutdown';
+

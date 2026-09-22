@@ -194,3 +194,14 @@ Full Product Research note: `/workspace/product-research/realenginesimulator-les
 ## Soft UI cues (Frontend contract)
 
 - **MANUAL upshift bark:** call `eng.triggerUiCue('upshift')` on paddle up when Customize toggle / `ds-upshift-sfx` is on (default off). Procedural noise+knock ~80–150ms; ICE/aerospace full, EV quieter, scifi skipped. Does not alter `setDriving`.
+
+- **Ignition starter:** call `eng.triggerUiCue('starter')` (alias `'ignition'`) or `eng.playStarter()` after `start()` / on Ignition. Procedural one-shot from the **active pack** (not a shared clip):
+  - ICE — irregular crank pulses → catch lope (`firingFamily`, cylinders, pulseJitter, roughness, growl)
+  - Aerospace — spool inertia climb + light igniter hiss (`spoolPitch`, `spoolInertia`, compressor)
+  - Ion Twin / scifi — twin-motor bed fade-in → formant breath (`motorMix`, `formantHowl`, `formantShift`)
+  - EV — inverter wake / contactor click (`whinePitch`, `inverterBuzz`)
+- **Shutdown shutoff:** call `eng.triggerUiCue('shutdown')` (alias `'shutoff'`) or `eng.playShutoff()` **before** `stop()` so the output bus holds for the tail:
+  - ICE — fuel-cut rundown + mechanical settle
+  - Aerospace — spool decay (no hard gate)
+  - Ion Twin — howl collapses into motor bed → silence
+  - EV — inverter spin-down
