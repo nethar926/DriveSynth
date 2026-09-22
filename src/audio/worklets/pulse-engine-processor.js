@@ -2,6 +2,7 @@
  * Pulse-train ICE AudioWorkletProcessor (organic v1 + Physics Sim pulse/bus §2)
  * Buses: mechanical bed + soft combustion pulses + intake×throttle + exhaust waveguide.
  * V8 per-bank schedule 180°/90°/180°/270° + dual-collector L/R burble.
+ * Family 4 rotary: eccentric chamber-pulse (chambersPerRotor × rotors / 360°).
  * RES / §2.3: firingFamily + firingMask + misfire so lope changes (no Wiebe).
  * Anti-digital: soft asymmetric envelopes, noise/body dominate — no saw/square lead.
  * Self-contained (no imports) for Tesla Chromium AudioWorklet constraints.
@@ -17,7 +18,7 @@ class PulseEngineProcessor extends AudioWorkletProcessor {
       { name: 'rpm', defaultValue: 800, minValue: 200, maxValue: 9000, automationRate: 'k-rate' },
       { name: 'throttle', defaultValue: 0, minValue: 0, maxValue: 1, automationRate: 'k-rate' },
       { name: 'load', defaultValue: 0, minValue: -1, maxValue: 1, automationRate: 'k-rate' },
-      { name: 'cylinders', defaultValue: 8, minValue: 4, maxValue: 12, automationRate: 'k-rate' },
+      { name: 'cylinders', defaultValue: 8, minValue: 3, maxValue: 12, automationRate: 'k-rate' },
       { name: 'pulseWidth', defaultValue: 0.35, minValue: 0.05, maxValue: 1, automationRate: 'k-rate' },
       { name: 'pulseJitter', defaultValue: 0.08, minValue: 0, maxValue: 0.5, automationRate: 'k-rate' },
       { name: 'roughness', defaultValue: 0.4, minValue: 0, maxValue: 1, automationRate: 'k-rate' },
@@ -29,11 +30,14 @@ class PulseEngineProcessor extends AudioWorkletProcessor {
       { name: 'crackle', defaultValue: 0.35, minValue: 0, maxValue: 1, automationRate: 'k-rate' },
       { name: 'masterGain', defaultValue: 0.7, minValue: 0, maxValue: 1, automationRate: 'k-rate' },
       { name: 'misfire', defaultValue: 0, minValue: 0, maxValue: 1, automationRate: 'k-rate' },
-      { name: 'firingFamily', defaultValue: 0, minValue: 0, maxValue: 3, automationRate: 'k-rate' },
-      // §2.3: bit i set = slot i disabled; 0 = all fire
+      { name: 'firingFamily', defaultValue: 0, minValue: 0, maxValue: 4, automationRate: 'k-rate' },
+      // §2.3: bit i set = slot i disabled; 0 = all fire (chamber mask for rotary)
       { name: 'firingMask', defaultValue: 0, minValue: 0, maxValue: 255, automationRate: 'k-rate' },
       // Dual-collector L/R burble delay (ms). Pack-driven; clamp 0.5–3 in process.
       { name: 'collectorDelayMs', defaultValue: 1.0, minValue: 0, maxValue: 5, automationRate: 'k-rate' },
+      // Rotary chamber-pulse: chambers/rotor (default 3) × rotors (1|2) → events/eccentric-rev
+      { name: 'chambersPerRotor', defaultValue: 3, minValue: 2, maxValue: 4, automationRate: 'k-rate' },
+      { name: 'rotors', defaultValue: 1, minValue: 1, maxValue: 2, automationRate: 'k-rate' },
     ];
   }
 
@@ -56,14 +60,18 @@ class PulseEngineProcessor extends AudioWorkletProcessor {
     this._evtDeg = new Float64Array(12);
     this._evtBank = new Int8Array(12);
     this._evtN = 8;
+    // Cycle length °: 720 for 4-stroke piston families; 360 for rotary eccentric shaft
+    this._cycleDeg = 720;
 
     // §2.1 crank-angle scheduler: integrate θ; nextPulse from event angles / degPerSec
-    this._theta = 0; // unwrapped crank degrees
+    this._theta = 0; // unwrapped crank/eccentric degrees
     this._nextTheta = 0; // absolute ° of next candidate event
     this._evtIdx = 0;
     this._schedInit = false;
     this._lastFamily = -1;
     this._lastCyl = -1;
+    this._lastChambers = -1;
+    this._lastRotors = -1;
 
     // Active soft-pulse envelopes (sample-accurate starts)
     const PMAX = 16;
@@ -126,6 +134,9 @@ class PulseEngineProcessor extends AudioWorkletProcessor {
         this._schedInit = false;
         this._lastFamily = -1;
         this._lastCyl = -1;
+        this._lastChambers = -1;
+        this._lastRotors = -1;
+        this._cycleDeg = 720;
         for (let i = 0; i < this._pMax; i++) this._pAge[i] = -1;
         this._delay.fill(0);
         this._delay2.fill(0);
@@ -173,33 +184,61 @@ class PulseEngineProcessor extends AudioWorkletProcessor {
     return Math.exp(-u * decay) * (1 - u * 0.1);
   }
 
-  /** Fill _evtDeg / _evtBank from firingFamily + cylinder count (§2.2). */
-  _buildSchedule(family, cylN) {
+  /**
+   * Fill _evtDeg / _evtBank from firingFamily + cylinder / rotary geometry.
+   * Family 4 (rotary): eccentric 360°; events = chambersPerRotor × rotors.
+   * 1 rotor → 3 even chamber pulses/rev; 2-rotor stacks with half-step offset.
+   */
+  _buildSchedule(family, cylN, chambersPerRotor, rotors) {
     let n;
-    if (family === 1) {
+    if (family === 4) {
+      const chambers = Math.max(2, Math.min(4, Math.round(chambersPerRotor) || 3));
+      const rot = Math.max(1, Math.min(2, Math.round(rotors) || 1));
+      const step = 360 / chambers;
+      const rotorOff = rot === 2 ? step * 0.5 : 0;
+      const raw = [];
+      for (let r = 0; r < rot; r++) {
+        for (let c = 0; c < chambers; c++) {
+          let deg = c * step + r * rotorOff;
+          while (deg >= 360) deg -= 360;
+          raw.push({ deg, bank: r & 1 });
+        }
+      }
+      raw.sort((a, b) => a.deg - b.deg);
+      n = raw.length;
+      for (let i = 0; i < n; i++) {
+        this._evtDeg[i] = raw[i].deg;
+        this._evtBank[i] = raw[i].bank;
+      }
+      this._cycleDeg = 360;
+    } else if (family === 1) {
       n = 8;
       for (let i = 0; i < n; i++) {
         this._evtDeg[i] = this._crossDeg[i];
         this._evtBank[i] = this._crossBank[i];
       }
+      this._cycleDeg = 720;
     } else if (family === 2) {
       n = 8;
       for (let i = 0; i < n; i++) {
         this._evtDeg[i] = this._flatDeg[i];
         this._evtBank[i] = this._flatBank[i];
       }
+      this._cycleDeg = 720;
     } else if (cylN === 6) {
       n = 6;
       for (let i = 0; i < n; i++) {
         this._evtDeg[i] = this._i6Deg[i];
         this._evtBank[i] = this._i6Bank[i];
       }
+      this._cycleDeg = 720;
     } else {
-      n = cylN;
+      n = Math.max(3, Math.min(12, cylN));
       for (let i = 0; i < n; i++) {
-        this._evtDeg[i] = (i / cylN) * 720;
+        this._evtDeg[i] = (i / n) * 720;
         this._evtBank[i] = i % 2;
       }
+      this._cycleDeg = 720;
     }
     this._evtN = n;
   }
@@ -236,10 +275,11 @@ class PulseEngineProcessor extends AudioWorkletProcessor {
    */
   _armNextEvent(jit, rough) {
     const n = this._evtN;
+    const cycle = this._cycleDeg || 720;
     const slot = this._evtIdx % n;
     const nextSlot = (this._evtIdx + 1) % n;
     let deltaDeg = this._evtDeg[nextSlot] - this._evtDeg[slot];
-    if (deltaDeg <= 0) deltaDeg += 720;
+    if (deltaDeg <= 0) deltaDeg += cycle;
     // Map worklet pulseJitter (0..0.5) → spec fraction 0..0.03
     const j = Math.min(0.03, Math.max(0, jit * 0.2));
     const jitterDeg = (Math.random() * 2 - 1) * j * deltaDeg * (0.7 + rough * 0.6);
@@ -273,7 +313,7 @@ class PulseEngineProcessor extends AudioWorkletProcessor {
     const rpm0 = rpmP.length === 1 ? rpmP[0] : 0;
     const thr0 = thrP.length === 1 ? thrP[0] : 0;
     const load0 = loadP.length === 1 ? loadP[0] : 0;
-    const cylN = Math.max(4, Math.min(12, Math.round(cylP.length === 1 ? cylP[0] : 8)));
+    const cylN = Math.max(3, Math.min(12, Math.round(cylP.length === 1 ? cylP[0] : 8)));
     const pw0 = pwP.length === 1 ? pwP[0] : 0.35;
     const jit0 = jitP.length === 1 ? jitP[0] : 0.08;
     const rough0 = roughP.length === 1 ? roughP[0] : 0.4;
@@ -290,6 +330,12 @@ class PulseEngineProcessor extends AudioWorkletProcessor {
     const mis0 = misP ? (misP.length === 1 ? misP[0] : misP[0]) : 0;
     const fam0 = famP ? (famP.length === 1 ? famP[0] : famP[0]) : 0;
     const mask0 = maskP ? (maskP.length === 1 ? maskP[0] : maskP[0]) : 0;
+    const chamP = parameters.chambersPerRotor;
+    const rotP = parameters.rotors;
+    const cham0 = chamP ? (chamP.length === 1 ? chamP[0] : chamP[0]) : 3;
+    const rot0 = rotP ? (rotP.length === 1 ? rotP[0] : rotP[0]) : 1;
+    const chambersN = Math.max(2, Math.min(4, Math.round(cham0) || 3));
+    const rotorsN = Math.max(1, Math.min(2, Math.round(rot0) || 1));
 
     const delayMs = 3 + exLen0 * 29;
     this._delaySamples = Math.max(10, Math.min(this._delayLen - 4, Math.floor((delayMs / 1000) * sr)));
@@ -306,27 +352,39 @@ class PulseEngineProcessor extends AudioWorkletProcessor {
       Math.min(this._burbleLen - 2, Math.floor((collectorMs * 0.001) * sr)),
     );
 
-    // 0=auto → crossplane@8 else even; 1=crossplane; 2=flatplane; 3=even/i6
+    // 0=auto → crossplane@8 else even; 1=cross; 2=flat; 3=even/i6; 4=rotary chamber-pulse
     let family = Math.round(fam0);
     if (family === 0) family = cylN === 8 ? 1 : 3;
 
-    if (family !== this._lastFamily || cylN !== this._lastCyl) {
-      this._buildSchedule(family, cylN);
+    if (
+      family !== this._lastFamily ||
+      cylN !== this._lastCyl ||
+      chambersN !== this._lastChambers ||
+      rotorsN !== this._lastRotors
+    ) {
+      this._buildSchedule(family, cylN, chambersN, rotorsN);
       this._lastFamily = family;
       this._lastCyl = cylN;
+      this._lastChambers = chambersN;
+      this._lastRotors = rotorsN;
       // Re-arm next event relative to current θ (preserve continuity)
       if (this._schedInit) {
+        const cycle = this._cycleDeg || 720;
         const slot = this._evtIdx % this._evtN;
-        const cycleBase = Math.floor(this._theta / 720) * 720;
+        const cycleBase = Math.floor(this._theta / cycle) * cycle;
         let best = cycleBase + this._evtDeg[slot];
-        if (best <= this._theta) best += 720;
+        if (best <= this._theta) best += cycle;
         this._nextTheta = best;
       }
     }
 
     const useBankGeom = family === 1 || family === 2;
+    const isRotary = family === 4;
     // Cross/flat: keep 8-slot geometry; mute excess so drop-cyl via cylinders still changes lope
-    const activeSlots = useBankGeom ? Math.max(1, Math.min(8, cylN)) : this._evtN;
+    // Rotary: all chamber slots active; firingMask drops chambers → lope MUST change
+    const activeSlots = useBankGeom
+      ? Math.max(1, Math.min(8, cylN))
+      : this._evtN;
 
     for (let i = 0; i < n; i++) {
       const rpm = rpmP.length > 1 ? rpmP[i] : rpm0;
@@ -361,7 +419,7 @@ class PulseEngineProcessor extends AudioWorkletProcessor {
 
       // Half-order mechanical AM lope (stronger at idle / cross-plane)
       const revsPerSample = degPerSample / 360;
-      this._lopePhase += revsPerSample * Math.PI * (useBankGeom ? 1.0 : 2.0);
+      this._lopePhase += revsPerSample * Math.PI * (useBankGeom ? 1.0 : isRotary ? 1.5 : 2.0);
       const lopeAm = 0.6 + 0.4 * Math.sin(this._lopePhase);
       const lopeAm2 = 0.75 + 0.25 * Math.sin(this._lopePhase * 0.5 + 0.7);
 
@@ -375,7 +433,7 @@ class PulseEngineProcessor extends AudioWorkletProcessor {
         this._nextTheta = this._evtDeg[0];
         // Small initial jitter on first event
         const j0 = Math.min(0.03, Math.max(0, jit * 0.2));
-        this._nextTheta += (Math.random() * 2 - 1) * j0 * (720 / this._evtN);
+        this._nextTheta += (Math.random() * 2 - 1) * j0 * ((this._cycleDeg || 720) / this._evtN);
         this._schedInit = true;
       }
 

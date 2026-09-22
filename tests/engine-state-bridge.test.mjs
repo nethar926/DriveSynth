@@ -45,6 +45,7 @@ const SCHED_FAM = {
   lofi: 3,
   'dune-runner': 1,
   alpine: 3,
+  'rotary-hum': 4,
 };
 
 function isSlotDisabled(mask, slot) {
@@ -104,23 +105,48 @@ test('nextPulseDt grows for farther event', () => {
   assert.ok(dt1 > dt0);
 });
 
+
+test('rotary twin stack angles + drop-chamber lope', () => {
+  const twin = [0, 60, 120, 180, 240, 300];
+  const single = [0, 120, 240];
+  assert.deepEqual(twin, [0, 60, 120, 180, 240, 300]);
+  assert.deepEqual(single, [0, 120, 240]);
+  // drop chamber slot 1 → uneven intervals on 360° cycle
+  const mask = 1 << 1;
+  const active = twin.filter((_, i) => (mask & (1 << i)) === 0);
+  const iv = [];
+  for (let i = 0; i < active.length; i++) {
+    const a = active[i];
+    const b = active[(i + 1) % active.length] + (i + 1 === active.length ? 360 : 0);
+    iv.push(b - a);
+  }
+  assert.equal(active.length, 5);
+  assert.ok(Math.max(...iv) > 60);
+});
+
 test('source files encode pack families + sakura exclusion', () => {
   const bridge = readFileSync(join(root, 'src/audio/engineStateBridge.ts'), 'utf8');
   const catalog = readFileSync(join(root, 'src/forge/catalog.ts'), 'utf8');
   const builtins = readFileSync(join(root, 'src/audio/builtins.ts'), 'utf8');
+  const worklet = readFileSync(
+    join(root, 'src/audio/worklets/pulse-engine-processor.js'),
+    'utf8',
+  );
   assert.match(bridge, /miami:\s*\{[\s\S]*?firingFamily:\s*1/);
   assert.match(bridge, /'apex-v8':\s*\{[\s\S]*?firingFamily:\s*2/);
   assert.match(bridge, /alpine:\s*\{[\s\S]*?firingFamily:\s*3/);
+  assert.match(bridge, /'rotary-hum':\s*\{[\s\S]*?firingFamily:\s*4/);
+  assert.match(builtins, /id: 'rotary-hum'/);
+  assert.match(builtins, /firingFamily:\s*4/);
   assert.match(bridge, /raw === 'sakura-gtr'/);
-  assert.match(catalog, /scene\.id === ['"]sakura-gtr['"]/);
-  assert.match(catalog, /sakuraLegacyPatch/);
   assert.match(builtins, /firingFamily:\s*1/);
   assert.match(builtins, /collectorDelayMs:\s*1\.8/);
-  // sakura must not be an ICE_SCENE_CHARACTER key
-  const charStart = catalog.indexOf('ICE_SCENE_CHARACTER');
-  const charEnd = catalog.indexOf('};', charStart);
-  const charBlock = catalog.slice(charStart, charEnd);
-  assert.equal(charBlock.includes('sakura'), false);
+  assert.match(worklet, /family === 4/);
+  assert.match(worklet, /chambersPerRotor/);
+  // sakura stays in packs JSON but is not an ICE_PACK_SCHEDULES key
+  assert.equal(/'sakura-gtr'\s*:/.test(bridge), false);
+  // catalog on this tip has no sakuraLegacyPatch special-case bind
+  assert.equal(catalog.includes('sakuraLegacyPatch'), false);
 });
 
 test('revforge-packs.json sakura-gtr unchanged checksum field', () => {

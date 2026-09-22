@@ -196,6 +196,41 @@ export const I6_DEFAULTS: EngineParams = {
   tauExhaust: 0.14,
 };
 
+
+export const ROTARY_DEFAULTS: EngineParams = {
+  // rotary chamber-pulse (family 4) — twin-rotor stack, 3 chambers each
+  masterGain: 0.7,
+  stereoWidth: 0.42,
+  limiterCeiling: 0.95,
+  rpmIdle: 55,
+  rpmRedline: 300,
+  // total chamber slots (= chambersPerRotor * rotors) for HUD / mask bits
+  cylinders: 6,
+  roughness: 0.28,
+  growl: 0.48,
+  presence: 0.55,
+  intake: 0.62,
+  exhaust: 0.58,
+  ignitionNoise: 0.16,
+  muffling: 0.22,
+  rpmCurve: 0.52,
+  pulseWidth: 0.32,
+  // ~1.2% living-drive
+  pulseJitter: 0.2,
+  exhaustLength: 0.36,
+  exhaustFeedback: 0.68,
+  crackle: 0.18,
+  misfire: 0.02,
+  firingFamily: 4,
+  firingMask: 0,
+  chambersPerRotor: 3,
+  rotors: 2,
+  collectorDelayMs: 0.7,
+  bankOffsetDeg: 60,
+  tauManifold: 0.08,
+  tauExhaust: 0.13,
+};
+
 export const EV_CLIMB_DEFAULTS: EngineParams = {
   masterGain: 0.68,
   stereoWidth: 0.38,
@@ -275,6 +310,20 @@ export const BUILTIN_PATCHES: EnginePatch[] = [
       blurb:
         'i6Even silk: [0,120,…,600] smoother lope, soft roughness, refined waveguide. Family int 3 (same as i4; cyl + angles distinguish).',
       tags: ['ice', 'i6', 'pulse', 'free'],
+      author: 'DriveSynth',
+    },
+  },
+  {
+    version: 0,
+    id: 'rotary-hum',
+    name: 'Rotary Hum',
+    kind: 'ice',
+    topology: 'rotary-hum',
+    params: { ...ROTARY_DEFAULTS } as Record<string, number | string>,
+    meta: {
+      blurb:
+        'Rotary chamber-pulse (family 4): 3 chambers × 2 rotors on eccentric 360° — stacked cadence + soft waveguide. Drop-chamber via firingMask changes lope. Original procedural — no samples.',
+      tags: ['ice', 'rotary', 'chamber-pulse', 'free'],
       author: 'DriveSynth',
     },
   },
@@ -370,6 +419,8 @@ export function defaultsForTopology(topology: string): EngineParams {
       return { ...I4_DEFAULTS };
     case 'i6-silk':
       return { ...I6_DEFAULTS };
+    case 'rotary-hum':
+      return { ...ROTARY_DEFAULTS };
     case 'ev-whine':
       return { ...EV_DEFAULTS };
     case 'ev-inverter-climb':
@@ -431,10 +482,10 @@ export function paramMetaForKind(kind: EnginePatch['kind']): ParamMeta[] {
       {
         id: 'cylinders',
         label: 'Cylinders',
-        min: 4,
+        min: 3,
         max: 12,
         kind: 'segmented',
-        options: [4, 6, 8, 10, 12],
+        options: [3, 4, 6, 8, 10, 12],
       },
       { id: 'roughness', label: 'Roughness', min: 0, max: 1, step: 0.01 },
       { id: 'growl', label: 'Growl', min: 0, max: 1, step: 0.01 },
@@ -453,9 +504,25 @@ export function paramMetaForKind(kind: EnginePatch['kind']): ParamMeta[] {
         id: 'firingFamily',
         label: 'Firing Family',
         min: 0,
-        max: 3,
+        max: 4,
         kind: 'segmented',
-        options: [0, 1, 2, 3],
+        options: [0, 1, 2, 3, 4],
+      },
+      {
+        id: 'chambersPerRotor',
+        label: 'Chambers/Rotor',
+        min: 2,
+        max: 4,
+        kind: 'segmented',
+        options: [2, 3, 4],
+      },
+      {
+        id: 'rotors',
+        label: 'Rotors',
+        min: 1,
+        max: 2,
+        kind: 'segmented',
+        options: [1, 2],
       },
       { id: 'firingMask', label: 'Firing Mask', min: 0, max: 255, step: 1 },
       { id: 'rpmCurve', label: 'RPM Curve', min: 0, max: 1, step: 0.01 },
@@ -545,7 +612,7 @@ export function paramMetaForNodeType(type: string): ParamMeta[] {
   switch (type) {
     case 'PulseTrain':
       return [
-        { id: 'cylinders', label: 'Cylinders', min: 4, max: 12, kind: 'segmented', options: [4, 6, 8, 10, 12] },
+        { id: 'cylinders', label: 'Cylinders', min: 3, max: 12, kind: 'segmented', options: [3, 4, 6, 8, 10, 12] },
         { id: 'pulseWidth', label: 'Width', min: 0.05, max: 1, step: 0.01 },
         { id: 'pulseJitter', label: 'Jitter', min: 0, max: 0.5, step: 0.01 },
         { id: 'roughness', label: 'Roughness', min: 0, max: 1, step: 0.01 },
@@ -554,9 +621,25 @@ export function paramMetaForNodeType(type: string): ParamMeta[] {
           id: 'firingFamily',
           label: 'Firing Family',
           min: 0,
-          max: 3,
+          max: 4,
           kind: 'segmented',
-          options: [0, 1, 2, 3],
+          options: [0, 1, 2, 3, 4],
+        },
+        {
+          id: 'chambersPerRotor',
+          label: 'Chambers/Rotor',
+          min: 2,
+          max: 4,
+          kind: 'segmented',
+          options: [2, 3, 4],
+        },
+        {
+          id: 'rotors',
+          label: 'Rotors',
+          min: 1,
+          max: 2,
+          kind: 'segmented',
+          options: [1, 2],
         },
         { id: 'firingMask', label: 'Firing Mask', min: 0, max: 255, step: 1 },
       ];
