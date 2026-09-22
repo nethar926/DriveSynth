@@ -4,6 +4,7 @@ import type {
   EngineDiag,
   EngineId,
   EngineParams,
+  EngineStateSnapshot,
   EnginePatch,
   EngineSynth,
   IceMode,
@@ -25,6 +26,7 @@ import {
   type IdleBand,
 } from './idleBand';
 import { clamp, createNoiseBuffer, lerp, makeShaper, rpmCurve, smooth, smoothstep } from './utils';
+import { EngineStateBridge } from './engineStateBridge';
 import pulseWorkletUrl from './worklets/pulse-engine-processor.js?url';
 
 type Kind = EnginePatch['kind'];
@@ -204,6 +206,8 @@ export class EngineSynthImpl implements EngineSynth {
   /** Living drive: lagged throttle/load (hysteresis) */
   private throttleLag = 0;
   private loadLag = 0;
+  /** Thin ICE EngineState bridge (firingMask / crank HUD). */
+  private engineState = new EngineStateBridge();
   /** Ion Twin flyby attack envelope (rpm/throttle jump) */
   private scifiFlyby = 0;
   private scifiPrevRpm = 0;
@@ -452,6 +456,28 @@ export class EngineSynthImpl implements EngineSynth {
     return diag;
   }
 
+  getEngineState(): EngineStateSnapshot {
+    return this.engineState.snapshot();
+  }
+
+  /** bit i SET = cylinder/slot i disabled. Pushes to worklet when live. */
+  setFiringMask(mask: number): void {
+    this.engineState.setFiringMask(mask);
+    this.params.firingMask = this.engineState.firingMask;
+    if (this.g.iceMode === 'worklet' && this.g.pulseNode) {
+      this.setWorkletParam('firingMask', this.engineState.firingMask, 0.02);
+    }
+  }
+
+  /** §2.5 drop-cylinder QA: disable slot (SET bit). Lope must change, not only level. */
+  dropCylinder(slot: number): void {
+    this.engineState.dropCylinder(slot);
+    this.params.firingMask = this.engineState.firingMask;
+    if (this.g.iceMode === 'worklet' && this.g.pulseNode) {
+      this.setWorkletParam('firingMask', this.engineState.firingMask, 0.02);
+    }
+  }
+
   /**
    * Short unmistakable confirmation through output → destination.
    * 1–2 combustion-ish pulses (or soft click) so silence after Start is diagnosable.
@@ -539,6 +565,8 @@ export class EngineSynthImpl implements EngineSynth {
           if (p.roughness !== undefined) mapped.roughness = Number(p.roughness);
           if (p.misfire !== undefined) mapped.misfire = Number(p.misfire);
           if (p.firingFamily !== undefined) mapped.firingFamily = Number(p.firingFamily);
+          if (p.firingMask !== undefined) mapped.firingMask = Number(p.firingMask) & 255;
+          if (p.dropCyl !== undefined) mapped.dropCyl = Number(p.dropCyl);
           break;
         case 'ExhaustWaveguide':
           if (p.exhaustLength !== undefined) mapped.exhaustLength = Number(p.exhaustLength);
@@ -1747,6 +1775,12 @@ export class EngineSynthImpl implements EngineSynth {
       this.setWorkletParam('masterGain', clamp(Number(p.masterGain ?? 0.7)), 0.05);
       this.setWorkletParam('misfire', Number(p.misfire ?? 0), 0.05);
       this.setWorkletParam('firingFamily', Number(p.firingFamily ?? 0), 0.05);
+      {
+        if (p.firingMask != null) this.engineState.setFiringMask(Number(p.firingMask));
+        if (p.dropCyl != null) this.engineState.dropCylinder(Number(p.dropCyl));
+        this.params.firingMask = this.engineState.firingMask;
+        this.setWorkletParam('firingMask', this.engineState.firingMask, 0.05);
+      }
     }
   }
 
@@ -2043,6 +2077,12 @@ export class EngineSynthImpl implements EngineSynth {
           topo === 'v8-rumble' ? 1 : topo === 'i6-silk' || topo === 'i4-zip' ? 3 : 0;
         this.setWorkletParam('firingFamily', Number(p.firingFamily ?? famDefault), tc);
         this.setWorkletParam('misfire', Number(p.misfire ?? 0), tc);
+        {
+          if (p.firingMask != null) this.engineState.setFiringMask(Number(p.firingMask));
+          if (p.dropCyl != null) this.engineState.dropCylinder(Number(p.dropCyl));
+          this.params.firingMask = this.engineState.firingMask;
+          this.setWorkletParam('firingMask', this.engineState.firingMask, tc);
+        }
       }
       this.setWorkletParam('pulseWidth', Number(p.pulseWidth ?? 0.35), tc);
       this.setWorkletParam(

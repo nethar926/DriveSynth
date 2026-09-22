@@ -1,6 +1,7 @@
 export type {
   DrivingInput,
   EngineDiag,
+  EngineStateSnapshot,
   EngineId,
   EngineKind,
   EngineParams,
@@ -36,3 +37,14 @@ export {
 } from './idleBand';
 export type { IdleBand } from './idleBand';
 
+export {
+  EngineStateBridge,
+  estimateNextPulseDt,
+  isSlotDisabled,
+  nextEventAnglesDeg,
+} from './engineStateBridge';
+export type {
+  EngineStatePackHints,
+  EngineStateRawInput,
+  WorkletParamPush,
+} from './engineStateBridge';

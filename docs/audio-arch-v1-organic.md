@@ -181,7 +181,7 @@ Public product claims from https://realenginesimulator.com/engines — **do not*
 **North star:** if dropping a cylinder doesn’t change the lope, we’re still in synth-demo land.
 
 ### Fold-in priorities
-1. **P0** Sample-accurate firing-order pulse trains (cross-plane vs flat-plane vs i6 even); expand pack families by geometry, not more osc leads. **Landed:** `firingFamily` + drop-cyl mutes V8 slots so lope changes; `misfire` stochastic skips.
+1. **P0** Sample-accurate firing-order pulse trains (cross-plane vs flat-plane vs i6 even); expand pack families by geometry, not more osc leads. **Landed:** `firingFamily` + crank-angle `nextPulseTime` schedule + `firingMask` (bit i set = slot i disabled; 0 = all fire) + cylinders mute; `misfire` stochastic skips.
 2. **P0** Exhaust = pulse → waveguide/resonator body (already on organic V8 path).
 3. **P1** Intake bus separate; misfire/lump first-class (living-drive + optional drop-cylinder control). **Landed:** `misfire` worklet param.
 4. **P1** Jets = spool inertia + broadband core + wet AB (Carrier Jet path).

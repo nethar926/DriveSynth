@@ -22,6 +22,7 @@ export const V8_DEFAULTS: EngineParams = {
   crackle: 0.36,
   misfire: 0.04,
   firingFamily: 1,
+  firingMask: 0,
 };
 
 export const I4_DEFAULTS: EngineParams = {
@@ -46,6 +47,7 @@ export const I4_DEFAULTS: EngineParams = {
   crackle: 0.22,
   misfire: 0,
   firingFamily: 3,
+  firingMask: 0,
 };
 
 export const EV_DEFAULTS: EngineParams = {
@@ -134,6 +136,7 @@ export const I6_DEFAULTS: EngineParams = {
   crackle: 0.18,
   misfire: 0,
   firingFamily: 3,
+  firingMask: 0,
 };
 
 export const EV_CLIMB_DEFAULTS: EngineParams = {
@@ -396,6 +399,7 @@ export function paramMetaForKind(kind: EnginePatch['kind']): ParamMeta[] {
         kind: 'segmented',
         options: [0, 1, 2, 3],
       },
+      { id: 'firingMask', label: 'Firing Mask', min: 0, max: 255, step: 1 },
       { id: 'rpmCurve', label: 'RPM Curve', min: 0, max: 1, step: 0.01 },
     ];
   }
@@ -480,6 +484,7 @@ export function paramMetaForNodeType(type: string): ParamMeta[] {
           kind: 'segmented',
           options: [0, 1, 2, 3],
         },
+        { id: 'firingMask', label: 'Firing Mask', min: 0, max: 255, step: 1 },
       ];
     case 'ExhaustWaveguide':
       return [
