@@ -240,15 +240,18 @@ export function ForgePage({
     setMutedBeforeHide(false);
     media.arm();
     if(source === "gps") onGpsEnabled(true);
-    void audio.start();
+    void audio.start().then(() => {
+      audio.playStarter?.();
+    });
   };
   const stop = () => {
     setPedal(0);
     setBrake(false);
+    audio.playShutoff?.();
     audio.stop();
     reset();
   };
-  const media = useVehicleMedia({blasters:patch?.kind==='scifi',fire:()=>audio.triggerUiCue('ion-cannon'),getMediaElement:audio.getMediaElement,enabled:mediaEnabled,running:audio.running,manual:mode==='manual' && config.gears>1,pauseShifts,name:audio.patchName,start:()=>{void audio.start();if(source==='gps')onGpsEnabled(true);},stop,shift});
+  const media = useVehicleMedia({blasters:patch?.kind==='scifi',fire:()=>audio.triggerUiCue('ion-cannon'),getMediaElement:audio.getMediaElement,enabled:mediaEnabled,running:audio.running,manual:mode==='manual' && config.gears>1,pauseShifts,name:audio.patchName,start:()=>{void audio.start().then(()=>audio.playStarter?.());if(source==='gps')onGpsEnabled(true);},stop,shift});
   const sourceChange = (next: "demo" | "gps") => {
     setSource(next);
     setPedal(0);

@@ -318,11 +318,18 @@ export interface EngineSynth {
   onLockStageChange?: (stage: LockStage) => void;
 
   /**
-   * Soft UI cue (Frontend-driven). For 'upshift': short procedural mechanical bark
-   * (noise burst + dull knock) — not a whole-stack pitch jump. Gated by setUpshiftSfxEnabled.
-   * Frontend: call eng.triggerUiCue('upshift') when MANUAL paddle up and toggle on.
+   * Soft UI cue (Frontend-driven). Does not alter setDriving.
+   * - 'upshift': short procedural mechanical bark (gated by setUpshiftSfxEnabled)
+   * - 'starter' | 'ignition': per-engine Ignition one-shot from active pack params
+   * - 'shutdown' | 'shutoff': per-engine Shutdown one-shot (call before stop() for full tail)
    */
-  triggerUiCue?(cue: 'upshift' | string): void;
+  triggerUiCue?(cue: 'upshift' | 'starter' | 'shutdown' | 'shutoff' | string): void;
+
+  /** Procedural Ignition starter from active pack (alias of triggerUiCue('starter')). */
+  playStarter?(): void;
+
+  /** Procedural Shutdown shutoff from active pack (alias of triggerUiCue('shutdown')). */
+  playShutoff?(): void;
 
   /** Optional MANUAL upshift bark; default false. Persists to localStorage `ds-upshift-sfx`. */
   setUpshiftSfxEnabled(enabled: boolean): void;

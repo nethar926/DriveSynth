@@ -69,8 +69,10 @@ interface EngineSynth {
   getParams(): EngineParams;
   toPatch(): EnginePatch;
   fromPatch(patch: EnginePatch): void;
-  /** MANUAL paddle up: eng.triggerUiCue('upshift') when Customize toggle on (default off). */
-  triggerUiCue?(cue: 'upshift' | string): void;
+  /** Soft UI cues: 'upshift' | 'starter' | 'shutdown' (see docs/frontend-starter-shutoff-cues.md). */
+  triggerUiCue?(cue: 'upshift' | 'starter' | 'shutdown' | string): void;
+  playStarter?(): void;
+  playShutoff?(): void;
   setUpshiftSfxEnabled(enabled: boolean): void;
   getUpshiftSfxEnabled(): boolean;
 }
@@ -79,6 +81,8 @@ interface EngineSynth {
 Frontend maps mph → `speed` 0..1 via `mphToSpeed`. Audio owns RPM curves and smoothing.
 
 **Frontend upshift cue:** when MANUAL paddle up and upshift SFX is on, call `eng.triggerUiCue('upshift')` (short mechanical bark; does not pitch-jump the drive stack). Pref key `ds-upshift-sfx` / Customize “MANUAL upshift bark”.
+
+**Ignition / Shutdown SFX:** call `eng.triggerUiCue('starter')` after Start and `eng.triggerUiCue('shutdown')` before Stop — procedural per active pack (ICE / jet / Ion Twin / EV). See `docs/frontend-starter-shutoff-cues.md`.
 
 ## Key files
 

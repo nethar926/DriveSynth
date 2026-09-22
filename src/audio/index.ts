@@ -55,3 +55,9 @@ export type {
   IcePackSchedule,
   WorkletParamPush,
 } from './engineStateBridge';
+export {
+  playEngineStarter,
+  playEngineShutoff,
+  starterDuration,
+  shutoffDuration,
+} from './engineStartShutdown';

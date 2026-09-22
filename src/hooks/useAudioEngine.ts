@@ -202,8 +202,19 @@ export function useAudioEngine(
     }
   }, []);
 
-  const triggerUiCue = useCallback((cue: "upshift" | string) => {
-    engineRef.current?.triggerUiCue?.(cue);
+  const triggerUiCue = useCallback(
+    (cue: 'upshift' | 'starter' | 'shutdown' | 'shutoff' | string) => {
+      engineRef.current?.triggerUiCue?.(cue);
+    },
+    [],
+  );
+
+  const playStarter = useCallback(() => {
+    engineRef.current?.playStarter?.();
+  }, []);
+
+  const playShutoff = useCallback(() => {
+    engineRef.current?.playShutoff?.();
   }, []);
 
   useEffect(() => {
@@ -241,6 +252,8 @@ export function useAudioEngine(
       setUpshiftSfxEnabled,
       getUpshiftSfxEnabled,
       triggerUiCue,
+      playStarter,
+      playShutoff,
       ready,
       running,
       engineId,
@@ -264,6 +277,8 @@ export function useAudioEngine(
       setUpshiftSfxEnabled,
       getUpshiftSfxEnabled,
       triggerUiCue,
+      playStarter,
+      playShutoff,
       ready,
       running,
       engineId,
