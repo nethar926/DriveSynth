@@ -10,6 +10,8 @@ import type { IonTwinSpeedScript, UiPrefs } from '../hooks/useUiPrefs';
 import { clusterToGaugeStyle, resolveGaugeCluster } from '../hooks/useUiPrefs';
 import {
   autoGearFromSpeed,
+  buildGearTables,
+  clampIndicatedGear,
   formatGear,
   manualAutoDown,
   shiftDown,
@@ -158,6 +160,11 @@ export function DrivePage({ audio, gps, prefs, update, onEnableGps }: Props) {
   const [gearMode, setGearMode] = useState<'auto' | 'manual'>('auto');
   const [indicatedGear, setIndicatedGear] = useState<IndicatedGear>('N');
   const indicatedGearRef = useRef<IndicatedGear>('N');
+  const gearTables = useMemo(
+    () => buildGearTables(prefs.gearCount, prefs.maxTopSpeedMph),
+    [prefs.gearCount, prefs.maxTopSpeedMph],
+  );
+  const topMph = gearTables.maxTopSpeedMph;
   const [accelFeel, setAccelFeel] = useState(0);
   const [chips, setChips] = useState<string[]>(['IDLE']);
   const [hintUsed, setHintUsed] = useState(() => loadBool(AUREBESH_HINT_KEY));
@@ -206,27 +213,35 @@ export function DrivePage({ audio, gps, prefs, update, onEnableGps }: Props) {
   }, [isIonTwin]);
 
   const gpsActive = gps.status === 'live' && !useManual;
-  const displayMph = gpsActive ? gps.mph : manualSpeed * 120;
+  const displayMph = gpsActive ? gps.mph : manualSpeed * topMph;
 
   useEffect(() => {
-    const mph = gpsActive ? gps.mph : manualSpeed * 120;
+    const mph = gpsActive ? gps.mph : manualSpeed * topMph;
     if (gearMode === 'auto') {
-      const next = autoGearFromSpeed(mph, indicatedGearRef.current);
+      const next = autoGearFromSpeed(mph, indicatedGearRef.current, gearTables);
       if (next !== indicatedGearRef.current) {
         indicatedGearRef.current = next;
         setIndicatedGear(next);
       }
     } else {
-      const next = manualAutoDown(mph, indicatedGearRef.current);
+      const next = manualAutoDown(mph, indicatedGearRef.current, gearTables);
       if (next !== indicatedGearRef.current) {
         indicatedGearRef.current = next;
         setIndicatedGear(next);
       }
     }
-  }, [gps.mph, gpsActive, manualSpeed, gearMode]);
+  }, [gps.mph, gpsActive, manualSpeed, gearMode, gearTables, topMph]);
+
+  useEffect(() => {
+    const next = clampIndicatedGear(indicatedGearRef.current, prefs.gearCount);
+    if (next !== indicatedGearRef.current) {
+      indicatedGearRef.current = next;
+      setIndicatedGear(next);
+    }
+  }, [prefs.gearCount]);
 
   const doShiftUp = () => {
-    const next = shiftUp(indicatedGearRef.current);
+    const next = shiftUp(indicatedGearRef.current, prefs.gearCount);
     if (next === indicatedGearRef.current) return;
     indicatedGearRef.current = next;
     setIndicatedGear(next);
