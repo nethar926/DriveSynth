@@ -456,7 +456,7 @@ function buildScifi(ctx, master) {
   pink.start();
   white.start();
 
-  // Spool lag state for offline render
+  // Spool lag state for offline render — continuous roar (match applyScifiDriving)
   let spool = 0;
   automate(ctx, (t, d) => {
     const rpm = Math.max(d.speed * 0.65 + d.throttle * (d.speed < 0.05 ? 0.55 : 0.2), 0);
@@ -466,13 +466,19 @@ function buildScifi(ctx, master) {
     const openSpool = smoothstep(spool, 0.12, 0.88);
     const fund = 62 * (0.85 + spool * 1.55);
 
-    const motorLead = Math.max(0, Math.min(1, (1 - openSpool * 0.72) * (0.55 + d.throttle * 0.2) + (1 - open) * 0.25));
-    const howlLead = Math.max(0, Math.min(1, 0.88 * 0.86 * openSpool * (0.85 + d.throttle * 0.35)));
-    const airLead = Math.max(0, Math.min(1, 0.82 * open * open * (0.5 + rpm * 0.55 + d.throttle * 0.4)));
+    const motorLead = Math.max(0, Math.min(1, 0.28 + (1 - openSpool) * 0.42 + d.throttle * 0.12 + (1 - open) * 0.18));
+    const howlHold = Math.max(0, Math.min(1, 0.92 * 0.9 * openSpool * (0.95 + d.throttle * 0.28)));
+    const howlLead = howlHold;
+    const airBed = 0.78 * open * (0.42 + rpm * 0.38 + d.throttle * 0.28);
+    const airLead = Math.max(0, Math.min(1, airBed));
 
     scheduleParam(c1.frequency, t, fund);
-    scheduleParam(cG.gain, t, motorLead * 0.042);
-    const motorBed = motorLead * 0.42 * (1.05 - howlLead * 0.45);
+    scheduleParam(cG.gain, t, motorLead * 0.045);
+    const motorScale = 0.42 * (0.75 + 0.58 * 0.5);
+    const motorBed = Math.max(
+      0.09 * motorScale * (0.45 + spool * 0.55),
+      motorLead * motorScale * (0.92 - howlLead * 0.22),
+    );
     scheduleParam(mGL.gain, t, motorBed);
     scheduleParam(mGR.gain, t, motorBed * 0.95);
     scheduleParam(mLpL.frequency, t, 70 + spool * 110 + d.throttle * 40);
@@ -483,19 +489,22 @@ function buildScifi(ctx, master) {
     scheduleParam(f2.frequency, t, 700 * shift);
     scheduleParam(f3.frequency, t, 900 * shift);
     scheduleParam(f4.frequency, t, (1300 + open * 80) * shift);
-    scheduleParam(howlG.gain, t, howlLead * (1.35 + d.throttle * 0.5));
-    scheduleParam(formantG.gain, t, 0.95 + 0.88 * 0.45 + openSpool * 0.3);
-    scheduleParam(phraseD.gain, t, howlLead * 0.58 * (0.35 + d.throttle * 0.4));
-    scheduleParam(phrase.frequency, t, 0.32 + open * 3.5 + d.throttle * 2.2);
+    const screamLead = howlLead * (1.28 + d.throttle * 0.42);
+    scheduleParam(howlG.gain, t, screamLead);
+    scheduleParam(formantG.gain, t, 0.95 + 0.92 * 0.45 + openSpool * 0.35);
+    // Shallow phrase breath — cap ~15% of scream (never gate)
+    const breath = Math.min(screamLead * 0.15, howlLead * 0.18 * (0.12 + d.throttle * 0.1));
+    scheduleParam(phraseD.gain, t, breath);
+    scheduleParam(phrase.frequency, t, 0.25 + 0.28 * 0.3 + open * d.throttle * 0.6);
 
     scheduleParam(gritG.gain, t, 0.42 * (d.throttle * 0.12 + open * d.throttle * 0.14));
-    scheduleParam(wetG.gain, t, airLead * 1.25);
-    scheduleParam(wetBodyG.gain, t, airLead * 0.85 + open * 0.82 * 0.28);
+    scheduleParam(wetG.gain, t, airLead * 1.15);
+    scheduleParam(wetBodyG.gain, t, airLead * 0.9 + open * 0.78 * 0.32);
     scheduleParam(wetF.frequency, t, 700 + open * 2200 + d.throttle * 1000);
     scheduleParam(wetBp.frequency, t, 2400 + open * 3400);
     scheduleParam(wetBody.frequency, t, 900 + open * 1500);
-    scheduleParam(afterG.gain, t, 0.32 * open * d.throttle * d.throttle * 0.35);
-    scheduleParam(humG.gain, t, Math.max(0, 1 - rpm * 2) * 0.4 * 0.2);
+    scheduleParam(afterG.gain, t, 0.3 * open * d.throttle * d.throttle * 0.35);
+    scheduleParam(humG.gain, t, Math.max(0, 1 - rpm * 2) * 0.42 * 0.2);
   });
 }
 

@@ -1275,6 +1275,8 @@ export class EngineSynthImpl implements EngineSynth {
     // ═══════════════════════════════════════════════════════════════════
     // Ion Twin v2 — procedural from twin-ion-ref-analysis.md (no samples)
     // Buses: twin motors · formant howl · grit · ion · air · body
+    // Continuous drive bed: motors never drop at cruise; howl is sustained
+    // bellow (shallow phrase breath, not gated bursts). Surge = throttle spikes.
     // Anti-digital: no saw/square lead; layer leadership morphs with throttle
     // ═══════════════════════════════════════════════════════════════════
 
@@ -1497,7 +1499,7 @@ export class EngineSynthImpl implements EngineSynth {
     formantGain.connect(howlShaper);
     howlShaper.connect(howlGain);
 
-    // Phrase AM — swell 0.3–0.6 Hz idle; flutter on aggression
+    // Phrase AM — shallow breath on the sustained bellow (never gate/chop)
     const howlPhraseLfo = ctx.createOscillator();
     howlPhraseLfo.type = 'sine';
     howlPhraseLfo.frequency.value = 0.45;
@@ -2523,8 +2525,8 @@ export class EngineSynthImpl implements EngineSynth {
     if (d.reverse) fund *= 0.9;
     this.hud.fundamentalHz = fund;
 
-    // ── Layer leadership (not pitch-only) ──
-    // Idle/taxi: motors lead · Climb: howl leads · High: air+howl dominate
+    // ── Layer leadership (not pitch-only) — continuous beds, surge on spikes ──
+    // Idle/taxi: motors lead · Climb/cruise: howl bellow holds · High: air+howl
     const motorMix = Number(p.carrierBite ?? p.motorMix ?? 0.42);
     const noiseBody = Number(p.noiseBody ?? 0.55);
     const howlKnob = Number(p.engineHowl ?? 0.85);
@@ -2536,17 +2538,24 @@ export class EngineSynthImpl implements EngineSynth {
     const res = Number(p.resonance ?? p.formantQ ?? 0.62);
     const spread = Number(p.formantSpread ?? 0.55);
     const formantShift = Number(p.formantShift ?? 0.5);
-    const phraseRateK = Number(p.phraseRate ?? 0.35);
-    const phraseDepthK = Number(p.phraseDepth ?? 0.55);
+    const phraseRateK = Number(p.phraseRate ?? 0.28);
+    const phraseDepthK = Number(p.phraseDepth ?? 0.18);
     const bodyAmt = Number(p.body ?? noiseBody);
     const wetDry = clamp(Number(p.wetDry ?? p.doppler ?? 0.22));
     const stereoTwin = Number(p.stereoTwin ?? 0.35);
     const hum = Number(p.hum ?? p.ionHum ?? 0.4);
     const ionSpark = Number(p.afterburn ?? p.ionSpark ?? 0.35);
 
-    const motorLead = clamp((1 - openSpool * 0.72) * (0.55 + thr * 0.2) + (1 - open) * 0.25);
-    const howlLead = clamp(formantHowl * howlKnob * openSpool * (0.85 + thr * 0.35) + flyby * 0.35);
-    const airLead = clamp(wetKnob * open * open * (0.5 + rpmNorm * 0.55 + thr * 0.4) + flyby * wetKnob * 0.7);
+    // Motors always present under the stack (never silence at cruise)
+    const motorLead = clamp(
+      0.28 + (1 - openSpool) * 0.42 + thr * 0.12 + (1 - open) * 0.18,
+    );
+    // Sustained howl bellow from spool — holds while driving; flyby only adds
+    const howlHold = clamp(formantHowl * howlKnob * openSpool * (0.95 + thr * 0.28));
+    const howlLead = clamp(howlHold + flyby * formantHowl * 0.28);
+    // Continuous air/swoosh bed; surge gestures ride on top of throttle spikes
+    const airBed = wetKnob * open * (0.42 + rpmNorm * 0.38 + thr * 0.28);
+    const airLead = clamp(airBed + flyby * wetKnob * 0.55);
 
     // Twin motor pulse rates + detune beat (0.5–3 Hz psychoacoustic)
     const motorRate = lerp(3.2, 14, pulse) * (0.55 + spool);
@@ -2576,9 +2585,12 @@ export class EngineSynthImpl implements EngineSynth {
       );
     }
 
-    // Motor bed levels — duck under howl at high rpm
-    const motorBed =
-      motorLead * (0.22 + noiseBody * 0.35) * (0.7 + motorMix * 0.5) * (1.05 - howlLead * 0.45);
+    // Motor bed — continuous floor under howl (never drop to silence at cruise)
+    const motorScale = (0.24 + noiseBody * 0.35) * (0.75 + motorMix * 0.5);
+    const motorBed = Math.max(
+      0.09 * motorScale * (0.45 + spool * 0.55),
+      motorLead * motorScale * (0.92 - howlLead * 0.22),
+    );
     if (g.motorGainL) smooth(g.motorGainL.gain, motorBed * (1 + this.liveJit.gain * 0.03), tc, ctx);
     if (g.motorGainR) {
       smooth(g.motorGainR.gain, motorBed * (0.92 + detune * 0.08), tc, ctx);
@@ -2610,31 +2622,30 @@ export class EngineSynthImpl implements EngineSynth {
       smooth(g.twinDelay.delayTime, 0.006 + stereoTwin * 0.018, tc, ctx);
     }
 
-    // Formant howl — intensity × smoothstep(rpmNorm); bellow at high
+    // Formant howl — sustained bellow × smoothstep(rpmNorm); holds while driving
     const howlAmt = howlLead;
-    const screamLead = howlAmt * (1.35 + thr * 0.5) + flyby * formantHowl * 0.45;
+    const screamLead = howlAmt * (1.28 + thr * 0.42) + flyby * formantHowl * 0.22;
     if (g.howlGain) smooth(g.howlGain.gain, screamLead, tc, ctx);
     if (g.formantGain) {
-      smooth(g.formantGain.gain, 0.95 + formantHowl * 0.45 + openSpool * 0.3, tc, ctx);
+      smooth(g.formantGain.gain, 0.95 + formantHowl * 0.45 + openSpool * 0.35, tc, ctx);
     }
     if (g.howlOscGain) {
       // Noise grit under formants × load
       smooth(g.howlOscGain.gain, (0.04 + howlAmt * 0.14 + thr * 0.05 + loadAbs * 0.04) * gritKnob, tc, ctx);
     }
     if (g.howlPhraseDepth) {
-      smooth(
-        g.howlPhraseDepth.gain,
-        howlAmt * phraseDepthK * (0.35 + thr * 0.4) + flyby * 0.2 + surge * 0.12,
-        tc,
-        ctx,
-      );
+      // Shallow breath only — cap ~15% of scream so AM never chops the bellow off
+      const breath =
+        howlAmt * phraseDepthK * (0.12 + thr * 0.1) + surge * 0.06 + flyby * 0.05;
+      const depthCap = screamLead * 0.15;
+      smooth(g.howlPhraseDepth.gain, Math.min(breath, depthCap), tc, ctx);
     }
     if (g.howlPhraseLfo) {
-      // Long howl ~0.3–0.6 Hz; aggression flutter 4–7 Hz
+      // Slow swell breath ~0.25–0.55 Hz; light open shimmer ≤~1.4 Hz (no 4–7 Hz gate)
       const phr =
-        lerp(0.32, 0.7, phraseRateK) * (1 - open * 0.35) +
-        open * lerp(2.5, 6.5, phraseRateK) * (0.4 + thr * 0.6) +
-        flyby * 3;
+        lerp(0.25, 0.55, phraseRateK) +
+        open * thr * lerp(0.35, 0.9, phraseRateK) +
+        flyby * 0.6;
       smooth(g.howlPhraseLfo.frequency, phr, tc, ctx);
     }
 
@@ -2686,10 +2697,10 @@ export class EngineSynthImpl implements EngineSynth {
       smooth(g.gritFilt.frequency, 2800 + thr * 1400 + open * 800, tc, ctx);
     }
 
-    // Air / wet swoosh — dominates at high rpm with formant bellow
+    // Air / wet swoosh — continuous bed; surge gestures on throttle spikes only
     const wetAmt = airLead;
     if (g.wetHissGain) {
-      const baseGain = wetAmt * 1.25;
+      const baseGain = wetAmt * 1.15;
       try {
         g.wetHissGain.gain.cancelScheduledValues(ctx.currentTime);
         g.wetHissGain.gain.setTargetAtTime(baseGain, ctx.currentTime, tc);
@@ -2698,19 +2709,26 @@ export class EngineSynthImpl implements EngineSynth {
       }
     }
     if (g.wetBodyGain) {
-      smooth(g.wetBodyGain.gain, wetAmt * 0.85 + open * wetKnob * 0.28, tc, ctx);
+      smooth(g.wetBodyGain.gain, wetAmt * 0.9 + open * wetKnob * 0.32, tc, ctx);
     }
     if (g.wetBodyFilt) {
       smooth(g.wetBodyFilt.frequency, 900 + open * 1500 + thr * 650 + rpmNorm * 450, tc, ctx);
     }
     if (g.wetFlybyGain) {
-      smooth(g.wetFlybyGain.gain, flyby * wetKnob * 0.85 + open * wetKnob * 0.06, Math.min(tc, 0.04), ctx);
+      // Continuous trickle + spike surge (not the whole air bed)
+      smooth(
+        g.wetFlybyGain.gain,
+        open * wetKnob * 0.1 + flyby * wetKnob * 0.9,
+        Math.min(tc, 0.04),
+        ctx,
+      );
     }
     if (g.wetAmDepth) {
-      smooth(g.wetAmDepth.gain, wetAmt * 0.35 + flyby * 0.18, tc, ctx);
+      // Gentle shimmer only — deep AM was chopping the continuous swoosh
+      smooth(g.wetAmDepth.gain, wetAmt * 0.1 + flyby * 0.12, tc, ctx);
     }
     if (g.wetAmLfo) {
-      smooth(g.wetAmLfo.frequency, 1.6 + rpmNorm * 4.5 + thr * 3 + flyby * 5, tc, ctx);
+      smooth(g.wetAmLfo.frequency, 1.2 + rpmNorm * 2.2 + thr * 1.4 + flyby * 2.5, tc, ctx);
     }
     if (g.wetHissFilt) {
       smooth(
