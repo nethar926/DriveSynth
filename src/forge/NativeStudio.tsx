@@ -44,7 +44,7 @@ export function NativeStudio({
   if (!isCustomEngine(patch))return <button onClick={()=>onChange(editableEngine(patch))}>Tune This Engine</button>;
   if (!patch.revforge)
     return (
-      <div className="forge-tune"><SourceMixer patch={patch} onChange={onChange}/><details><summary>Main engine and drivetrain tuning</summary><EngineSetup patch={patch} onChange={onChange}/><SoundCharacter patch={patch} onChange={onChange}/></details><details><summary>Advanced · audio nodes and routing</summary><LiveSoundGraph patch={patch} onChange={onChange}/></details><button onClick={()=>onSave({...patch,id:patch.id,name:patch.name})}>Save custom voice</button>
+      <div className="forge-tune"><label>Engine name<input aria-label="Engine name" value={name} onChange={e=>setName(e.target.value)}/></label><SourceMixer patch={patch} onChange={onChange}/><details><summary>Main engine and drivetrain tuning</summary><EngineSetup patch={patch} onChange={onChange}/><SoundCharacter patch={patch} onChange={onChange}/></details><details><summary>Advanced · audio nodes and routing</summary><LiveSoundGraph patch={patch} onChange={onChange}/></details><button onClick={()=>onSave({...patch,id:patch.id,name:name.trim()||patch.name})}>Save custom voice</button>
       </div>
     );
   const voice = patch.revforge;
