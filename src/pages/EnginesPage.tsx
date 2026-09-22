@@ -130,7 +130,7 @@ export function EnginesPage({
   return (
     <div className="page engines-page">
       <header className="page-head">
-        <h1>Engines</h1>
+        <h1>Garage</h1>
         <p className="page-sub">All packs unlocked · free forever · ICE · EV · Aerospace · SciFi</p>
       </header>
 

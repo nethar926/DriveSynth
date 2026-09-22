@@ -438,7 +438,7 @@ export function DrivePage({ audio, gps, prefs, update, onEnableGps }: Props) {
 
       {tabBackgrounded && (
         <div className="tab-warn" role="status">
-          Tab was backgrounded — audio/GPS may have paused. Keep DriveSynth in the foreground.
+          Tab was backgrounded — audio/GPS may have paused. Keep RevForge in the foreground.
         </div>
       )}
 
