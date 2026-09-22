@@ -68,7 +68,11 @@ export interface EngineParams {
   exhaustFeedback?: number;
   /** Overrun crackle amount 0..1 */
   crackle?: number;
-  // Sci-fi
+  /** Stochastic misfire amount 0..1 (RES: changes lope) */
+  misfire?: number;
+  /** 0=auto 1=crossplane 2=flatplane 3=even */
+  firingFamily?: number;
+  // Sci-fi / Ion Twin
   corePitch?: number;
   pulseRate?: number;
   resonance?: number;
@@ -80,10 +84,38 @@ export interface EngineParams {
   hum?: number;
   /** Multi-formant howl intensity 0..1 */
   formantHowl?: number;
-  /** Wet-road hiss layer 0..1 */
+  /** Wet-road / air hiss layer 0..1 */
   wetHiss?: number;
   /** Formant sweep rate / spread 0..1 */
   formantSpread?: number;
+  /** Twin motor detune / beat 0..1 */
+  motorDetune?: number;
+  /** Twin motor mix 0..1 */
+  motorMix?: number;
+  /** Formant CF scale 0..1 (~0.7–1.4×) */
+  formantShift?: number;
+  /** Formant Q alias 0..1 */
+  formantQ?: number;
+  /** Phrase AM rate 0..1 */
+  phraseRate?: number;
+  /** Phrase AM depth 0..1 */
+  phraseDepth?: number;
+  /** Grit / saturation × load 0..1 */
+  grit?: number;
+  /** Short cabin body 0..1 */
+  body?: number;
+  /** Wet vs dry crossfade 0..1 (dry-leaning default) */
+  wetDry?: number;
+  /** Subtle L/R twin motor delay 0..1 */
+  stereoTwin?: number;
+  /** Motor+howl spool inertia 0..1 */
+  spoolLag?: number;
+  /** Air / slipstream alias for wetHiss */
+  air?: number;
+  /** Ion spark alias for afterburn */
+  ionSpark?: number;
+  /** Ion hum alias for hum */
+  ionHum?: number;
   // EV
   whinePitch?: number;
   gearSteps?: number;

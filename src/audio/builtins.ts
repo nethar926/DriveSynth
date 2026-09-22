@@ -20,6 +20,8 @@ export const V8_DEFAULTS: EngineParams = {
   exhaustLength: 0.58,
   exhaustFeedback: 0.74,
   crackle: 0.36,
+  misfire: 0.04,
+  firingFamily: 1,
 };
 
 export const I4_DEFAULTS: EngineParams = {
@@ -42,6 +44,8 @@ export const I4_DEFAULTS: EngineParams = {
   exhaustLength: 0.32,
   exhaustFeedback: 0.68,
   crackle: 0.22,
+  misfire: 0,
+  firingFamily: 3,
 };
 
 export const EV_DEFAULTS: EngineParams = {
@@ -57,21 +61,37 @@ export const EV_DEFAULTS: EngineParams = {
 };
 
 export const TIE_DEFAULTS: EngineParams = {
-  masterGain: 0.74,
-  stereoWidth: 0.7,
+  masterGain: 0.72,
+  stereoWidth: 0.28,
   limiterCeiling: 0.95,
-  corePitch: 105,
-  pulseRate: 0.42,
-  resonance: 0.72,
-  noiseBody: 0.36,
-  carrierBite: 0.26,
-  doppler: 0.58,
-  engineHowl: 0.82,
-  afterburn: 0.58,
-  hum: 0.32,
-  formantHowl: 0.9,
-  wetHiss: 0.88,
-  formantSpread: 0.68,
+  // Twin motor bed ~50–70 Hz pole (ref-B DNA)
+  corePitch: 62,
+  pulseRate: 0.38,
+  motorDetune: 0.55,
+  motorMix: 0.48,
+  resonance: 0.62,
+  formantQ: 0.62,
+  noiseBody: 0.58,
+  body: 0.48,
+  carrierBite: 0.42,
+  // Dry-leaning wet/dry + subtle twin width
+  doppler: 0.22,
+  wetDry: 0.22,
+  stereoTwin: 0.35,
+  spoolLag: 0.55,
+  engineHowl: 0.86,
+  formantHowl: 0.88,
+  formantSpread: 0.52,
+  formantShift: 0.5,
+  phraseRate: 0.38,
+  phraseDepth: 0.58,
+  grit: 0.42,
+  wetHiss: 0.82,
+  air: 0.82,
+  afterburn: 0.32,
+  ionSpark: 0.32,
+  hum: 0.4,
+  ionHum: 0.4,
 };
 
 export const F14_DEFAULTS: EngineParams = {
@@ -111,6 +131,8 @@ export const I6_DEFAULTS: EngineParams = {
   exhaustLength: 0.42,
   exhaustFeedback: 0.7,
   crackle: 0.18,
+  misfire: 0,
+  firingFamily: 3,
 };
 
 export const EV_CLIMB_DEFAULTS: EngineParams = {
@@ -273,7 +295,7 @@ export const BUILTIN_PATCHES: EnginePatch[] = [
     params: { ...TIE_DEFAULTS } as Record<string, number | string>,
     meta: {
       blurb:
-        'Twin-ion pulsed carriers + multi-formant scream + wet-road hiss. Original synthesis only — no samples.',
+        'Ion Twin procedural: twin motor bed + 4-formant howl stacks + layer-lead morph (motor↔howl↔air) + grit×load. Original synthesis only — no samples.',
       tags: ['scifi', 'ion', 'formant', 'free'],
       author: 'DriveSynth',
     },
@@ -364,6 +386,15 @@ export function paramMetaForKind(kind: EnginePatch['kind']): ParamMeta[] {
       { id: 'exhaustLength', label: 'Pipe Length', min: 0.05, max: 1, step: 0.01 },
       { id: 'exhaustFeedback', label: 'Pipe Feedback', min: 0.1, max: 0.97, step: 0.01 },
       { id: 'crackle', label: 'Crackle', min: 0, max: 1, step: 0.01 },
+      { id: 'misfire', label: 'Misfire', min: 0, max: 1, step: 0.01 },
+      {
+        id: 'firingFamily',
+        label: 'Firing Family',
+        min: 0,
+        max: 3,
+        kind: 'segmented',
+        options: [0, 1, 2, 3],
+      },
       { id: 'rpmCurve', label: 'RPM Curve', min: 0, max: 1, step: 0.01 },
     ];
   }
@@ -403,18 +434,26 @@ export function paramMetaForKind(kind: EnginePatch['kind']): ParamMeta[] {
 
   return [
     ...master,
-    { id: 'corePitch', label: 'Core Hz', min: 40, max: 400, step: 1, unit: 'Hz' },
-    { id: 'pulseRate', label: 'Pulse', min: 0, max: 1, step: 0.01 },
-    { id: 'resonance', label: 'Resonance', min: 0, max: 1, step: 0.01 },
-    { id: 'noiseBody', label: 'Noise Body', min: 0, max: 1, step: 0.01 },
-    { id: 'carrierBite', label: 'Carrier Bite', min: 0, max: 1, step: 0.01 },
-    { id: 'doppler', label: 'Doppler', min: 0, max: 1, step: 0.01 },
+    { id: 'corePitch', label: 'Motor Hz', min: 40, max: 200, step: 1, unit: 'Hz' },
+    { id: 'pulseRate', label: 'Motor Rate', min: 0, max: 1, step: 0.01 },
+    { id: 'motorDetune', label: 'Motor Detune', min: 0, max: 1, step: 0.01 },
+    { id: 'carrierBite', label: 'Motor Mix', min: 0, max: 1, step: 0.01 },
+    { id: 'noiseBody', label: 'Motor Body', min: 0, max: 1, step: 0.01 },
+    { id: 'body', label: 'Cabin Body', min: 0, max: 1, step: 0.01 },
     { id: 'engineHowl', label: 'Howl', min: 0, max: 1, step: 0.01 },
     { id: 'formantHowl', label: 'Formant Howl', min: 0, max: 1, step: 0.01 },
+    { id: 'formantShift', label: 'Formant Shift', min: 0, max: 1, step: 0.01 },
     { id: 'formantSpread', label: 'Formant Spread', min: 0, max: 1, step: 0.01 },
-    { id: 'wetHiss', label: 'Wet Hiss', min: 0, max: 1, step: 0.01 },
-    { id: 'afterburn', label: 'Afterburn', min: 0, max: 1, step: 0.01 },
-    { id: 'hum', label: 'Idle Hum', min: 0, max: 1, step: 0.01 },
+    { id: 'resonance', label: 'Formant Q', min: 0, max: 1, step: 0.01 },
+    { id: 'phraseRate', label: 'Phrase Rate', min: 0, max: 1, step: 0.01 },
+    { id: 'phraseDepth', label: 'Phrase Depth', min: 0, max: 1, step: 0.01 },
+    { id: 'grit', label: 'Grit', min: 0, max: 1, step: 0.01 },
+    { id: 'wetHiss', label: 'Air / Wet', min: 0, max: 1, step: 0.01 },
+    { id: 'wetDry', label: 'Wet/Dry', min: 0, max: 1, step: 0.01 },
+    { id: 'stereoTwin', label: 'Stereo Twin', min: 0, max: 1, step: 0.01 },
+    { id: 'spoolLag', label: 'Spool Lag', min: 0, max: 1, step: 0.01 },
+    { id: 'afterburn', label: 'Ion Spark', min: 0, max: 1, step: 0.01 },
+    { id: 'hum', label: 'Ion Hum', min: 0, max: 1, step: 0.01 },
   ];
 }
 
@@ -431,6 +470,15 @@ export function paramMetaForNodeType(type: string): ParamMeta[] {
         { id: 'pulseWidth', label: 'Width', min: 0.05, max: 1, step: 0.01 },
         { id: 'pulseJitter', label: 'Jitter', min: 0, max: 0.5, step: 0.01 },
         { id: 'roughness', label: 'Roughness', min: 0, max: 1, step: 0.01 },
+        { id: 'misfire', label: 'Misfire', min: 0, max: 1, step: 0.01 },
+        {
+          id: 'firingFamily',
+          label: 'Firing Family',
+          min: 0,
+          max: 3,
+          kind: 'segmented',
+          options: [0, 1, 2, 3],
+        },
       ];
     case 'ExhaustWaveguide':
       return [
