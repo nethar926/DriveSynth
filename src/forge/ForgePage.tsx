@@ -18,6 +18,8 @@ import type { EnginePatch } from "../audio";
 import type { useAudioEngine } from "../hooks/useAudioEngine";
 import type { useGeolocation } from "../hooks/useGeolocation";
 import type { UiPrefs } from "../hooks/useUiPrefs";
+import { AppearanceKnobs } from "../components/visuals/AppearanceKnobs";
+import { DriveDynamicsPanel } from "../components/visuals/DriveDynamicsPanel";
 import { sceneForId, drivetrainFor } from "./catalog";
 import { ThemeStage } from "../themes/ThemeStage";
 import { ThemePicker } from "../themes/ThemePicker";
@@ -114,8 +116,8 @@ export function ForgePage({
   >(() => (searchParams.get("account") === "1" || new URLSearchParams(window.location.search).get("account") === "1") ? "account" : searchParams.get("studio") === "1" ? "studio" : null);
   const [ignited,setIgnited]=useState(false);
   const [scale,setScale]=useState(()=>{try{return Math.max(.65,Math.min(1.35,Number(localStorage.getItem("revforge.hudScale")??1)));}catch{return 1;}});
-  const [opacity,setOpacity]=useState(()=>{try{return Math.max(.25,Math.min(1,Number(localStorage.getItem("revforge.hudOpacity")??1)));}catch{return 1;}});
-  useEffect(()=>{try{localStorage.setItem("revforge.hudScale",String(scale));localStorage.setItem("revforge.hudOpacity",String(opacity));}catch{/* session only */}},[scale,opacity]);
+  const opacity = prefs.hudOpacity;
+  useEffect(()=>{try{localStorage.setItem("revforge.hudScale",String(scale));}catch{/* session only */}},[scale]);
   const [source, setSource] = useState<"demo" | "gps">(() => storedFlag("drivesynth.demo", true) ? "demo" : "gps");
   useEffect(()=>{onGpsEnabled(source==='gps');},[source,onGpsEnabled]);
   const [jitterEnabled,setJitterEnabled]=useState(()=>storedFlag("revforge.idleJitter",true));
@@ -136,7 +138,17 @@ export function ForgePage({
       getBuiltin(audio.engineId),
     [audio, userPatches, revision],
   );
-  const config = useMemo(() => ({...drivetrainFor(patch, sceneForId("road-66")),...(garage.active?{topSpeedMps:garage.active.topSpeedKph/3.6}:{})}), [patch,garage.active]);
+  const config = useMemo(() => {
+    const base = drivetrainFor(patch, sceneForId("road-66"));
+    const topFromGarage = garage.active ? garage.active.topSpeedKph / 3.6 : undefined;
+    const topFromPrefs = prefs.maxTopSpeedMph / 2.2369362920544; // mph → m/s
+    return {
+      ...base,
+      gears: prefs.gearCount,
+      idleRpm: prefs.idleRpmMin,
+      topSpeedMps: topFromGarage ?? topFromPrefs ?? base.topSpeedMps,
+    };
+  }, [patch, garage.active, prefs.gearCount, prefs.maxTopSpeedMph, prefs.idleRpmMin]);
   const { simulation, hud, shift, neutral, reset } = useDriveSimulation(
     audio,
     gps,
@@ -325,13 +337,13 @@ export function ForgePage({
               </button>
             </div>
             {panel==='tuner'&&<div className="tuner-menu">{([['tune','Options','Base UI, Demo mode and playback'],['themes','Visuals','Themes and Clusters'],['garage','Revs','Original engine collection'],['dashlab','Lab','DashLab and EngineForge'],['account','Account','Vehicles and saved configurations']] as const).map(([id,label,hint])=><button key={id} onClick={()=>setPanel(id)}><strong>{label}</strong><small>{hint}</small><span>↗</span></button>)}</div>}
-            {(panel==='themes'||panel==='scenes')&&<><div role="tablist" aria-label="Visuals tabs"><button role="tab" aria-selected={panel==='themes'} onClick={()=>setPanel('themes')}>Themes</button><button role="tab" aria-selected={panel==='scenes'} onClick={()=>setPanel('scenes')}>Clusters</button></div>{panel==='themes'?<ThemePicker key="atmosphere" mode="atmosphere" selected={themes.atmosphereId} onSelect={themes.selectAtmosphere}/>:<><button onClick={()=>themes.selectSkin(themes.atmosphereId)}>Simple RevForge HUD</button><ThemePicker key="cluster" mode="cluster" selected={themes.skinId} onSelect={themes.selectSkin}/></>}</>}
+            {(panel==='themes'||panel==='scenes')&&<><div role="tablist" aria-label="Visuals tabs"><button role="tab" aria-selected={panel==='themes'} onClick={()=>setPanel('themes')}>Themes</button><button role="tab" aria-selected={panel==='scenes'} onClick={()=>setPanel('scenes')}>Clusters</button></div>{panel==='themes'?<ThemePicker key="atmosphere" mode="atmosphere" selected={themes.atmosphereId} onSelect={themes.selectAtmosphere}/>:<><button onClick={()=>themes.selectSkin(themes.atmosphereId)}>Simple RevForge HUD</button><ThemePicker key="cluster" mode="cluster" selected={themes.skinId} onSelect={themes.selectSkin}/></>}<section className="theme-builder-panel" style={{marginTop:18}}><h2>Appearance</h2><AppearanceKnobs prefs={prefs} update={update}/></section><section className="theme-builder-panel"><h2>Drive Dynamics</h2><DriveDynamicsPanel prefs={prefs} update={update}/><p className="rf-frontend-note">Also on <code>/customize</code>. Frontend: fold under ☰ → Interface Options → Visuals when hamburger lands.</p></section></>}
             {panel==='garage'&&<><p>Choose an original engine. Create an editable copy with Tune This Engine.</p><details className="garage-colors"><summary>Garage appearance · recolor</summary><ThemeColors themes={themes}/></details><div className="forge-garage-list">{BUILTIN_PATCHES.map(p=><article className="rev-engine-card" key={p.id}><button aria-pressed={audio.engineId===p.id} onClick={()=>onSelectEngine(structuredClone(p))}><strong>{p.name}</strong><small>{{ice:"Combustion",scifi:"Sci-fi",aerospace:"Jet",'ev-whine':"Electric"}[p.kind]} · Original preset</small></button><button onClick={()=>tuneEngine(p)}>Tune This Engine<span className="sr-only"> · {p.name}</span></button></article>)}</div></>}
             {(panel==='studio'||panel==='dashlab')&&<><div role="tablist" aria-label="Lab tabs"><button role="tab" aria-selected={panel==='dashlab'} onClick={()=>setPanel('dashlab')}>DashLab</button><button role="tab" aria-selected={panel==='studio'} onClick={()=>setPanel('studio')}>EngineForge</button></div>{panel==='dashlab'?<Guide kind="dash"><ClusterBuilder widgets={themes.widgets} onChange={themes.saveWidgets} onUse={()=>{themes.selectSkin('custom-grid');setPanel(null);}}/></Guide>:<Guide kind="engine">{patch&&(!isCustomEngine(patch)?<section className="locked-engine"><h3>{patch.name}</h3><p>This is an original preset. Create a custom engine to tune its components.</p><button onClick={()=>tuneEngine(patch)}>Tune This Engine</button></section>:<><h3>{patch.name}</h3>{userPatches.length>0&&<label>Custom engine<select aria-label="Custom engine" value={patch.id} onChange={e=>{const p=userPatches.find(p=>p.id===e.target.value);if(p)onSelectEngine(p);}}>{userPatches.map(p=><option key={p.id} value={p.id}>{p.name}</option>)}</select></label>}<button disabled={audio.starting} onClick={audio.running?stop:start}>{audio.running?'Stop audition':'Audition sound'}</button><NativeStudio key={patch.id} patch={patch} onChange={next=>{onSelectEngine(next);setRevision(r=>r+1);}} onSave={onSavePatch}/></>)}</Guide>}</>}
             {panel==='account'&&<AccountPanel garage={garage} themes={themes} patch={patch} userPatches={userPatches} onEngine={onSavePatch} onLoad={id=>{const c=themes.combinations.find(c=>c.id===id);if(c){themes.loadAppearance(c);onSavePatch(c.sound);}}}/>}
             {panel === "tune" && (
               <div className="forge-tune">
-                <FontPicker value={themes.fonts[themes.skinId]??{numbers:"default",labels:"default"}} onChange={value=>themes.setFont(themes.skinId,value)}/><label>Dashboard scale · {Math.round(scale*100)}%<input aria-label="Dashboard scale" type="range" min=".65" max="1.35" step=".01" value={scale} onChange={e=>setScale(Number(e.target.value))}/></label><label>Instrument opacity<input aria-label="Instrument opacity" type="range" min=".25" max="1" step=".01" value={opacity} onChange={e=>setOpacity(Number(e.target.value))}/></label><label>Volume<input aria-label="Master volume" type="range" min="0" max="1" step=".01" value={prefs.masterVolume} onChange={e=>update({masterVolume:Number(e.target.value)})}/></label><label>Mute<input aria-label="Mute" type="checkbox" checked={prefs.masterMuted} onChange={e=>update({masterMuted:e.target.checked})}/></label>
+                <FontPicker value={themes.fonts[themes.skinId]??{numbers:"default",labels:"default"}} onChange={value=>themes.setFont(themes.skinId,value)}/><label>Dashboard scale · {Math.round(scale*100)}%<input aria-label="Dashboard scale" type="range" min=".65" max="1.35" step=".01" value={scale} onChange={e=>setScale(Number(e.target.value))}/></label><label>Instrument opacity<input aria-label="Instrument opacity" type="range" min=".25" max="1" step=".01" value={opacity} onChange={e=>update({hudOpacity:Number(e.target.value)})}/></label><label>Volume<input aria-label="Master volume" type="range" min="0" max="1" step=".01" value={prefs.masterVolume} onChange={e=>update({masterVolume:Number(e.target.value)})}/></label><label>Mute<input aria-label="Mute" type="checkbox" checked={prefs.masterMuted} onChange={e=>update({masterMuted:e.target.checked})}/></label>
                 <label>Background audio<input aria-label="Background audio" type="checkbox" checked={audio.background} onChange={e=>audio.setBackgroundEnabled(e.target.checked)}/></label><p role="status">{audio.backgroundStatus} · Audio context: {audio.getDiag().contextState}</p><label>Demo mode<input aria-label="Demo mode" type="checkbox" checked={source==='demo'} onChange={e=>sourceChange(e.target.checked?'demo':'gps')}/></label>
                 <p className="forge-control-hint">Turn Demo off to use browser GPS. Location permission is required.</p>{source==='gps'&&<div role="status"><p>{gpsLabel} · {gps.accuracy===null?'No fix':`Accuracy ±${Math.round(gps.accuracy)} m`}</p><p>{gps.errorMessage}</p><button onClick={gps.start}>Retry GPS</button></div>}
                 <label>Idle jitter<input aria-label="Idle jitter" type="checkbox" checked={jitterEnabled} onChange={e=>setJitterEnabled(e.target.checked)}/></label><label>Idle jitter intensity · {Math.round(jitterAmount*100)}%<input aria-label="Idle jitter intensity" type="range" min="0" max="1" step=".01" disabled={!jitterEnabled} value={jitterAmount} onChange={e=>setJitterAmount(Number(e.target.value))}/></label><p className="forge-control-hint">Adds subtle RPM wander at idle. Fades out as you accelerate.</p>

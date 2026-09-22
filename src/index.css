@@ -1131,3 +1131,67 @@ textarea {
   font-weight: 700;
   font-variant-numeric: tabular-nums;
 }
+
+/* RevForge Visual / Dynamics controls (Customize + Interface Options) */
+.rf-appearance-knobs,
+.rf-dynamics-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.rf-knob {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 48px;
+  padding: 10px 0;
+}
+.rf-knob-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  font-size: 14px;
+  color: var(--text, #e8eef4);
+}
+.rf-knob-head output {
+  color: var(--accent, #3dffb5);
+  font: 600 13px ui-monospace, monospace;
+}
+.rf-knob input[type='range'] {
+  width: 100%;
+  height: 28px;
+  min-height: 28px;
+  accent-color: var(--accent, #3dffb5);
+}
+.rf-subhead {
+  font-size: 13px;
+  margin: 8px 0 0;
+  color: var(--text-muted, #c5d0dc);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.rf-dynamics-detail {
+  margin-top: 8px;
+  color: var(--text-muted, #9aabba);
+  font-size: 12px;
+}
+.rf-dynamics-detail summary {
+  cursor: pointer;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+}
+.rf-frontend-note {
+  border: 1px dashed color-mix(in srgb, var(--text, #fff) 22%, transparent);
+  border-radius: 10px;
+  padding: 12px 14px;
+  font-size: 12px;
+  line-height: 1.55;
+  color: var(--text-muted, #aebbcd);
+  background: color-mix(in srgb, var(--bg, #0a1016) 90%, #000);
+  margin: 12px 0 0;
+}
+.rf-frontend-note code {
+  color: #e8bb85;
+}

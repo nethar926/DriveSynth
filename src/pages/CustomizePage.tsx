@@ -1,4 +1,6 @@
 import { Gauge } from '../components/Gauge';
+import { AppearanceKnobs } from '../components/visuals/AppearanceKnobs';
+import { DriveDynamicsPanel } from '../components/visuals/DriveDynamicsPanel';
 import type {
   UiPrefs,
   ThemeId,
@@ -9,6 +11,7 @@ import type {
   IonTwinSpeedScript,
 } from '../hooks/useUiPrefs';
 import { clusterToGaugeStyle } from '../hooks/useUiPrefs';
+import '../themes/themes.css';
 
 interface Props {
   prefs: UiPrefs;
@@ -27,9 +30,21 @@ export function CustomizePage({ prefs, update, reset }: Props) {
   return (
     <div className="page customize-page">
       <header className="page-head">
-        <h1>Customize</h1>
-        <p className="page-sub">Themes, gauge clusters, telemetry density & SFX — saved locally</p>
+        <h1>Interface Options</h1>
+        <p className="page-sub">
+          Themes, appearance, Drive Dynamics & SFX — saved locally (RevForge Visuals)
+        </p>
       </header>
+
+      <aside className="rf-frontend-note" role="note">
+        <strong>Frontend handoff:</strong> when ☰ hamburger IA merges, move{' '}
+        <em>Appearance</em> + <em>Drive Dynamics</em> under{' '}
+        <code>☰ → Interface Options → Visuals</code> (alongside Themes / Clusters).
+        Until then this panel lives on <code>/customize</code> (
+        <code>src/pages/CustomizePage.tsx</code>). Components:{' '}
+        <code>src/components/visuals/AppearanceKnobs.tsx</code>,{' '}
+        <code>src/components/visuals/DriveDynamicsPanel.tsx</code>.
+      </aside>
 
       <section className="panel">
         <h2 className="section-title">Theme</h2>
@@ -40,7 +55,7 @@ export function CustomizePage({ prefs, update, reset }: Props) {
               type="button"
               className={`theme-card ${prefs.theme === t.id ? 'selected' : ''}`}
               onClick={() => update({ theme: t.id, accent: t.accent })}
-              style={{ ['--card-accent' as string]: t.accent }}
+              style={{ ['--card-accent' as string]: t.accent, minHeight: 48 }}
             >
               <span className="theme-swatch" />
               {t.label}
@@ -56,6 +71,16 @@ export function CustomizePage({ prefs, update, reset }: Props) {
             aria-label="Accent color"
           />
         </label>
+      </section>
+
+      <section className="panel">
+        <h2 className="section-title">Appearance</h2>
+        <AppearanceKnobs prefs={prefs} update={update} />
+      </section>
+
+      <section className="panel">
+        <h2 className="section-title">Drive Dynamics</h2>
+        <DriveDynamicsPanel prefs={prefs} update={update} />
       </section>
 
       <section className="panel">
