@@ -32,6 +32,8 @@ class PulseEngineProcessor extends AudioWorkletProcessor {
       { name: 'firingFamily', defaultValue: 0, minValue: 0, maxValue: 3, automationRate: 'k-rate' },
       // §2.3: bit i set = slot i disabled; 0 = all fire
       { name: 'firingMask', defaultValue: 0, minValue: 0, maxValue: 255, automationRate: 'k-rate' },
+      // Dual-collector L/R burble delay (ms). Pack-driven; clamp 0.5–3 in process.
+      { name: 'collectorDelayMs', defaultValue: 1.0, minValue: 0, maxValue: 5, automationRate: 'k-rate' },
     ];
   }
 
@@ -82,7 +84,7 @@ class PulseEngineProcessor extends AudioWorkletProcessor {
     this._wPos2 = 0;
     this._delaySamples2 = 180;
 
-    // Dual-collector cross burble (~0.8–2.5 ms)
+    // Dual-collector cross burble (collectorDelayMs → 0.5–3 ms)
     this._burble = new Float32Array(256);
     this._burbleLen = 256;
     this._burblePos = 0;
@@ -292,10 +294,16 @@ class PulseEngineProcessor extends AudioWorkletProcessor {
     const delayMs = 3 + exLen0 * 29;
     this._delaySamples = Math.max(10, Math.min(this._delayLen - 4, Math.floor((delayMs / 1000) * sr)));
     this._delaySamples2 = Math.max(8, Math.min(this._delayLen - 4, Math.floor(this._delaySamples * 0.42)));
-    // Dual-collector burble delay scales mildly with roughness
+    // Dual-collector burble from pack collectorDelayMs (0.5–3 ms → samples @ sr)
+    const delayMsP = parameters.collectorDelayMs;
+    const delayMsRaw = delayMsP ? (delayMsP.length === 1 ? delayMsP[0] : delayMsP[0]) : 1.0;
+    // Clamp to audible dual-collector range; tiny roughness wobble ≤±8%
+    let collectorMs = Math.max(0.5, Math.min(3, delayMsRaw));
+    collectorMs *= 1 + (rough0 - 0.4) * 0.08;
+    collectorMs = Math.max(0.5, Math.min(3, collectorMs));
     this._burbleSamples = Math.max(
       8,
-      Math.min(this._burbleLen - 2, Math.floor((0.0009 + rough0 * 0.0016) * sr)),
+      Math.min(this._burbleLen - 2, Math.floor((collectorMs * 0.001) * sr)),
     );
 
     // 0=auto → crossplane@8 else even; 1=crossplane; 2=flatplane; 3=even/i6
