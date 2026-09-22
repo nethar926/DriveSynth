@@ -1,3 +1,4 @@
+import {isCustomEngine,editableEngine} from './engineDraft';
 import {SourceMixer} from './SourceMixer';
 import {LiveSoundGraph} from './LiveSoundGraph';
 import {EngineSetup} from './EngineSetup';
@@ -40,9 +41,10 @@ export function NativeStudio({
 }) {
   const [name, setName] = useState(patch.name);
   const [message, setMessage] = useState("");
+  if (!isCustomEngine(patch))return <button onClick={()=>onChange(editableEngine(patch))}>Tune This Engine</button>;
   if (!patch.revforge)
     return (
-      <div className="forge-tune"><EngineSetup patch={patch} onChange={onChange}/><SoundCharacter patch={patch} onChange={onChange}/><SourceMixer patch={patch} onChange={onChange}/><details><summary>Advanced · audio nodes and routing</summary><LiveSoundGraph patch={patch} onChange={onChange}/></details><button onClick={()=>onSave({...patch,id:`user-${crypto.randomUUID()}`,name:`${patch.name} custom`})}>Save custom voice</button>
+      <div className="forge-tune"><SourceMixer patch={patch} onChange={onChange}/><details><summary>Main engine and drivetrain tuning</summary><EngineSetup patch={patch} onChange={onChange}/><SoundCharacter patch={patch} onChange={onChange}/></details><details><summary>Advanced · audio nodes and routing</summary><LiveSoundGraph patch={patch} onChange={onChange}/></details><button onClick={()=>onSave({...patch,id:patch.id,name:patch.name})}>Save custom voice</button>
       </div>
     );
   const voice = patch.revforge;
@@ -62,7 +64,7 @@ export function NativeStudio({
   const save = () => {
     const saved = {
       ...patch,
-      id: `user-${crypto.randomUUID()}`,
+      id: patch.id,
       name: name.trim() || patch.name,
       meta: {
         ...patch.meta,
@@ -93,7 +95,7 @@ export function NativeStudio({
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   };
   return (
-    <div className="forge-native-studio"><EngineSetup patch={patch} onChange={onChange}/><SoundCharacter patch={patch} onChange={onChange}/><SourceMixer patch={patch} onChange={onChange}/><details><summary>Advanced · audio nodes and routing</summary><LiveSoundGraph patch={patch} onChange={onChange}/></details>
+    <div className="forge-native-studio"><SourceMixer patch={patch} onChange={onChange}/><details><summary>Main engine and drivetrain tuning</summary><EngineSetup patch={patch} onChange={onChange}/><SoundCharacter patch={patch} onChange={onChange}/></details><details><summary>Advanced · audio nodes and routing</summary><LiveSoundGraph patch={patch} onChange={onChange}/></details>
       <p className="forge-studio-description">
         RevForge synthesis. Shape the voice live, then save a personal preset.
       </p>

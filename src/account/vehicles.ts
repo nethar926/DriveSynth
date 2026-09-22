@@ -1,0 +1,2 @@
+export interface Vehicle {id:string;name:string;year:number;brand:string;model:string;topSpeedKph:number;unit:'mph'|'kph'}
+export function validVehicle(v:unknown):v is Vehicle {const x=v as Vehicle;return !!x&&typeof x.id==='string'&&typeof x.name==='string'&&typeof x.brand==='string'&&typeof x.model==='string'&&Number.isInteger(x.year)&&x.year>=1886&&x.year<=2100&&Number.isFinite(x.topSpeedKph)&&x.topSpeedKph>=40&&x.topSpeedKph<=500&&(x.unit==='mph'||x.unit==='kph');}

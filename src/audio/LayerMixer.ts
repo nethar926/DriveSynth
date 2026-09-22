@@ -1,6 +1,7 @@
+import {spatialPanner,setPosition} from './spatial.ts';
 import type {EnginePatch,EngineSynth,DrivingInput,SoundLayer} from './types';
 export class LayerMixer {
- private voices=new Map<string,{engine:EngineSynth;gain:GainNode;pan:StereoPannerNode;filter:BiquadFilterNode;layer:SoundLayer;signature:string}>();
+ private voices=new Map<string,{engine:EngineSynth;gain:GainNode;pan:PannerNode;filter:BiquadFilterNode;layer:SoundLayer;signature:string}>();
  private active=false; private disposed=false; private ctx:AudioContext; private destination:AudioNode; private factory:(p:EnginePatch)=>EngineSynth;
  constructor(ctx:AudioContext,destination:AudioNode,factory:(p:EnginePatch)=>EngineSynth){this.ctx=ctx;this.destination=destination;this.factory=factory;}
  configure(layers:SoundLayer[]){
@@ -9,11 +10,11 @@ export class LayerMixer {
   const solo=selected.some(l=>l.solo&&!l.muted);
   for(const layer of selected){
    let v=this.voices.get(layer.id);const signature=JSON.stringify(layer.patch);
-   if(!v){const engine=this.factory({...layer.patch,layers:[],params:{...layer.patch.params,lifecycleSounds:0}}),gain=this.ctx.createGain(),pan=this.ctx.createStereoPanner(),filter=this.ctx.createBiquadFilter();gain.gain.value=0;filter.type='lowpass';engine.output.disconnect();engine.output.connect(filter);filter.connect(pan);pan.connect(gain);gain.connect(this.destination);v={engine,gain,pan,filter,layer,signature};this.voices.set(layer.id,v);if(this.active)void engine.start().then(()=>{if(this.disposed||!this.active)engine.stop();}).catch(()=>engine.stop());}
+   if(!v){const engine=this.factory({...layer.patch,layers:[],params:{...layer.patch.params,lifecycleSounds:0}}),gain=this.ctx.createGain(),pan=spatialPanner(this.ctx),filter=this.ctx.createBiquadFilter();gain.gain.value=0;filter.type='lowpass';engine.output.disconnect();engine.output.connect(filter);filter.connect(pan);pan.connect(gain);gain.connect(this.destination);v={engine,gain,pan,filter,layer,signature};this.voices.set(layer.id,v);if(this.active)void engine.start().then(()=>{if(this.disposed||!this.active)engine.stop();}).catch(()=>engine.stop());}
    else if(v.signature!==signature)v.engine.fromPatch({...layer.patch,layers:[],params:{...layer.patch.params,lifecycleSounds:0}});
    v.layer=layer;v.signature=signature;
    v.gain.gain.setTargetAtTime(this.active&&!layer.muted&&(!solo||layer.solo)?Math.max(0,Math.min(1,layer.level))*.45:0,this.ctx.currentTime,.04);
-   v.pan.pan.setTargetAtTime(Math.max(-1,Math.min(1,layer.pan)),this.ctx.currentTime,.04);
+   setPosition(v.pan,layer.pan,layer.depth??0,this.ctx.currentTime);
    v.filter.frequency.setTargetAtTime(Math.max(80,Math.min(18000,layer.cutoff)),this.ctx.currentTime,.04);
   }
  }

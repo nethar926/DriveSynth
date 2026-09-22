@@ -16,7 +16,7 @@ export class ProceduralCharacter {
   this.roar.connect(this.warmth);this.warmth.connect(this.master);
   this.space=this.node(ctx.createGain());this.space.gain.value=.22;this.space.connect(this.master);
   for(const [time,pan] of [[.023,-.65],[.037,.65]]){const delay=this.node(ctx.createDelay(.1));delay.delayTime.value=time;const filter=this.node(ctx.createBiquadFilter());filter.type='lowpass';filter.frequency.value=2200;const panner=this.node(ctx.createStereoPanner());panner.pan.value=pan;this.warmth.connect(delay);delay.connect(filter);filter.connect(panner);panner.connect(this.space);}
-  this.banks=[[205,404,1066],[436,598,1400],[420,721,1254]].map((anchors,k)=>{const bus=this.node(ctx.createGain());bus.gain.value=0;bus.connect(this.roar);const tone=this.node(ctx.createGain());tone.gain.value=.24;const carrier=this.osc('sawtooth',[102,145,182][k],tone);const fm=this.node(ctx.createGain());fm.gain.value=18;const mod=this.osc('sine',71+k*17,fm);fm.connect(carrier.frequency);return {bus,anchors,carrier,mod,tone,filters:anchors.map((f,i)=>{const filter=this.node(ctx.createBiquadFilter());filter.type='bandpass';filter.frequency.value=f;filter.Q.value=1.2;const gain=this.node(ctx.createGain());gain.gain.value=[2.2,1.65,.95][i];const bed=this.node(ctx.createGain());bed.gain.value=.18;noise.connect(bed);bed.connect(filter);tone.connect(filter);filter.connect(gain);gain.connect(bus);return filter;})};});
+  this.banks=[[205,406,361,159,517,1063],[436,552,598,129,875,1402],[420,1314,377,1252,732,912]].map((anchors,k)=>{const bus=this.node(ctx.createGain());bus.gain.value=0;bus.connect(this.roar);const tone=this.node(ctx.createGain());tone.gain.value=.24;const carrier=this.osc('sawtooth',[102,145,140][k],tone);const fm=this.node(ctx.createGain());fm.gain.value=18;const mod=this.osc('sine',71+k*17,fm);fm.connect(carrier.frequency);return {bus,anchors,carrier,mod,tone,filters:anchors.map((f,i)=>{const filter=this.node(ctx.createBiquadFilter());filter.type='bandpass';filter.frequency.value=f;filter.Q.value=1.2;const gain=this.node(ctx.createGain());gain.gain.value=[1.55,.95,.6,.38,.3,.24][i];const bed=this.node(ctx.createGain());bed.gain.value=.18;noise.connect(bed);bed.connect(filter);tone.connect(filter);filter.connect(gain);gain.connect(bus);return filter;})};});
   this.body=this.node(ctx.createGain());this.body.gain.value=.23;this.body.connect(this.roar);
   this.sub=this.osc('sine',48,this.body);
   this.voices=[1,1.013,1.498,2.007].map((ratio,i)=>{const gain=this.node(ctx.createGain());gain.gain.value=[.13,.11,.055,.035][i];gain.connect(this.roar);const voice=this.osc('sine',92*ratio,gain);const drift=this.node(ctx.createGain());drift.gain.value=1.3+i*.4;this.osc('sine',.29+i*.17,drift);drift.connect(voice.frequency);return {voice,ratio};});
@@ -28,9 +28,10 @@ export class ProceduralCharacter {
   this.pulseDepth=this.node(ctx.createGain());this.pulseDepth.gain.value=0;this.pulse=this.osc('sine',2.3,this.pulseDepth);this.pulseDepth.connect(this.roar.gain);
   this.digital=this.node(ctx.createGain());this.digital.gain.value=0;this.digital.connect(this.master);this.digitalOsc=this.osc('triangle',180,this.digital);
   this.interior=this.node(ctx.createGain());this.interior.gain.value=0;this.interior.connect(this.master);
-  [54,108,129].forEach((f,i)=>{const gain=this.node(ctx.createGain());gain.gain.value=[.7,.12,.08][i];gain.connect(this.interior);this.osc('sine',f,gain);});
+  [57,118,186,231].forEach((f,i)=>{const gain=this.node(ctx.createGain());gain.gain.value=[.7,.18,.09,.055][i];gain.connect(this.interior);this.osc('sine',f,gain);});
   this.target=this.node(ctx.createGain());this.target.gain.value=0;this.target.connect(this.master);
   [1260,1502,2099].forEach((f,i)=>{const gain=this.node(ctx.createGain());gain.gain.value=[.45,.3,.08][i];gain.connect(this.target);this.osc('sine',f,gain);});
+  this.component=this.node(ctx.createGain());this.component.gain.value=0;this.component.connect(this.master);this.componentFilter=this.node(ctx.createBiquadFilter());this.componentFilter.type='lowpass';this.componentFilter.frequency.value=1600;this.componentFilter.connect(this.component);this.componentOsc=this.osc('triangle',100,this.componentFilter);
   this.targetPulse=this.node(ctx.createGain());this.targetPulse.gain.value=0;this.osc('sine',3.6,this.targetPulse);this.targetPulse.connect(this.target.gain);
  }
  node(n){this.nodes.push(n);return n;}
@@ -41,6 +42,7 @@ export class ProceduralCharacter {
  update(d){
   const p=this.params??{},ion=this.active&&this.kind==='scifi';
   const rpm=clip(d.rpmNorm??d.speed??0),thr=clip(d.throttle??0),now=this.ctx.currentTime;
+  const component=String(p.componentKind??''),compLevel=this.active&&component?clip(p.componentLevel??.5):0;this.smooth(this.component.gain,compLevel*(.1+thr*.4));this.componentOsc.type=component==='turbo'?'sine':component==='exhaust'?'sawtooth':'triangle';this.smooth(this.componentOsc.frequency,component==='turbo'?600+rpm*4600+thr*1100:Math.max(25,(d.rpm??800)/60*Number(p.componentCylinders??8)/2),.07);this.smooth(this.componentFilter.frequency,component==='exhaust'?300+thr*700:component==='turbo'?9000:1200+rpm*2600,.1);
   const intensity=ion&&p.tieSignature!==0?clip(p.roarLevel??.65):0;
   const mode=Math.round(clip(p.roarVariant??1,0,2)),pitch=clip(p.roarPitch??1,.5,1.8);
   const throat=clip(p.roarThroat??.6),rasp=clip(p.roarRasp??.3),flutter=clip(p.roarPulse??.4);
@@ -50,11 +52,11 @@ export class ProceduralCharacter {
   this.smooth(this.roar.gain,intensity*envelope,d.overrun?release:attack);
   this.smooth(this.pulseDepth.gain,intensity*envelope*flutter*.07);
   this.smooth(this.pulse.frequency,1.4+flutter*3+thr*1.5);
-  const shift=[.72,1,1.13][mode],sweep=pitch*shift*(.78+opened*.68+thr*.15)*(1+Math.sin(now*1.7)*.025*flutter);
+  const sweep=pitch*(.62+opened*.6+thr*.07)*(1+Math.sin(now*1.7)*.025*flutter);
   const explicit=[p.roarOne,p.roarTwo,p.roarThree].some(v=>v!==undefined);
   const levels=[p.roarOne,p.roarTwo,p.roarThree].map((v,i)=>explicit?clip(v??0):i===mode?1:0);
   const norm=Math.max(1,Math.sqrt(levels.reduce((a,v)=>a+v*v,0)));
-  this.banks.forEach((bank,k)=>{this.smooth(bank.bus.gain,levels[k]/norm,.12);this.smooth(bank.carrier.frequency,[102,145,182][k]*sweep,attack);this.smooth(bank.mod.frequency,(71+k*17)*sweep,attack);this.smooth(bank.tone.gain,clip(p.screamTone??.8)*.32);bank.filters.forEach((f,i)=>{this.smooth(f.frequency,clip(bank.anchors[i]*sweep,40,6500),attack);this.smooth(f.Q,1.3+throat*5+i*.12);});});
+  this.banks.forEach((bank,k)=>{this.smooth(bank.bus.gain,levels[k]/norm,.12);this.smooth(bank.carrier.frequency,[102,145,140][k]*sweep,attack);this.smooth(bank.mod.frequency,(71+k*17)*sweep,attack);this.smooth(bank.tone.gain,clip(p.screamTone??.8)*.32);bank.filters.forEach((f,i)=>{this.smooth(f.frequency,clip(bank.anchors[i]*sweep,40,6500),attack);this.smooth(f.Q,1.3+throat*5+i*.12);});});
   const core=76*pitch*(.72+opened*.8+thr*.1);
   this.voices.forEach(({voice,ratio})=>this.smooth(voice.frequency,core*ratio,attack));
   this.smooth(this.sub.frequency,clip(core*.52,28,130),.28);
@@ -71,7 +73,7 @@ export class ProceduralCharacter {
   if(ion&&d.overrun&&!this.previousOverrun&&p.gearingNoise!==0)this.cue('gearing');
   this.previousOverrun=!!d.overrun;
  }
- stop(immediate=false){const was=this.active;this.active=false;this.update({});if(immediate)for(const n of [this.roar,this.pulseDepth,this.interior,this.target,this.targetPulse,this.digital]){n.gain.cancelScheduledValues(this.ctx.currentTime);n.gain.setValueAtTime(0,this.ctx.currentTime);}this.cancelShots();if(was&&!immediate&&this.params?.lifecycleSounds!==0)this.cue('shutdown');}
+ stop(immediate=false){const was=this.active;this.active=false;this.update({});if(immediate)for(const n of [this.roar,this.pulseDepth,this.interior,this.target,this.targetPulse,this.digital,this.component]){n.gain.cancelScheduledValues(this.ctx.currentTime);n.gain.setValueAtTime(0,this.ctx.currentTime);}this.cancelShots();if(was&&!immediate&&this.params?.lifecycleSounds!==0)this.cue('shutdown');}
  cue(type){
   if(type==='ion-cannon'||type==='blaster'){this.cannon();return;}
   const p=this.params??{},ctx=this.ctx,now=ctx.currentTime;

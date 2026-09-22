@@ -1,3 +1,7 @@
+import {AccountPanel} from '../account/AccountPanel';
+import {useVehicleGarage} from '../account/useVehicleGarage';
+import {Guide} from './Guide';
+import {editableEngine,isCustomEngine} from './engineDraft';
 import {ClusterBuilder} from '../themes/ClusterBuilder';
 import {FontPicker} from '../themes/FontPicker';
 import {ThemeColors} from '../themes/ThemeColors';
@@ -8,7 +12,7 @@ import {
   type CSSProperties,
   type PointerEvent,
 } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
 import { BUILTIN_PATCHES, getBuiltin } from "../audio";
 import type { EnginePatch } from "../audio";
 import type { useAudioEngine } from "../hooks/useAudioEngine";
@@ -103,10 +107,11 @@ export function ForgePage({
   userPatches,
 }: Props) {
   const [searchParams] = useSearchParams();
+  const garage=useVehicleGarage();
   const theme = themeForId(themes.skinId);
   const [panel, setPanel] = useState<
-    "tuner" | "themes" | "scenes" | "garage" | "tune" | "studio" | null
-  >(() => searchParams.get("studio") === "1" ? "studio" : null);
+    "tuner" | "themes" | "scenes" | "garage" | "tune" | "studio" | "dashlab" | "account" | null
+  >(() => (searchParams.get("account") === "1" || new URLSearchParams(window.location.search).get("account") === "1") ? "account" : searchParams.get("studio") === "1" ? "studio" : null);
   const [ignited,setIgnited]=useState(false);
   const [scale,setScale]=useState(()=>{try{return Math.max(.65,Math.min(1.35,Number(localStorage.getItem("revforge.hudScale")??1)));}catch{return 1;}});
   const [opacity,setOpacity]=useState(()=>{try{return Math.max(.25,Math.min(1,Number(localStorage.getItem("revforge.hudOpacity")??1)));}catch{return 1;}});
@@ -131,7 +136,7 @@ export function ForgePage({
       getBuiltin(audio.engineId),
     [audio, userPatches, revision],
   );
-  const config = useMemo(() => drivetrainFor(patch, sceneForId("road-66")), [patch]);
+  const config = useMemo(() => ({...drivetrainFor(patch, sceneForId("road-66")),...(garage.active?{topSpeedMps:garage.active.topSpeedKph/3.6}:{})}), [patch,garage.active]);
   const { simulation, hud, shift, neutral, reset } = useDriveSimulation(
     audio,
     gps,
@@ -143,7 +148,7 @@ export function ForgePage({
     jitterEnabled?jitterAmount:0,
   );
   const revReady = audio.running && source === "demo";
-  const [tone, setTone] = useState<number | null>(null);
+
   useEffect(() => {try {localStorage.setItem("drivesynth.demo",String(source==='demo'));localStorage.setItem("drivesynth.motion",String(motion));localStorage.setItem("revforge.media.experimental",String(mediaEnabled));localStorage.setItem("drivesynth.pauseShifts",String(pauseShifts));}catch{/* preferences remain available this session */}},[source,motion,mediaEnabled,pauseShifts]);
   useEffect(() => {
     audio.setUpshiftSfxEnabled(prefs.upshiftSfx);
@@ -254,7 +259,8 @@ export function ForgePage({
         : gps.status === "stale"
           ? "GPS stale"
           : "Waiting for GPS";
-  const options = [...BUILTIN_PATCHES, ...userPatches];
+  const tuneEngine=(p:EnginePatch)=>{onSavePatch(editableEngine(p));setPanel("studio");};
+  const panelTitle=panel==='tuner'?'TUNE':panel==='tune'?'Options':panel==='themes'||panel==='scenes'?'Visuals':panel==='garage'?'Revs':panel==='account'?'Account':'Lab';
   return (
     <div
       className="forge"
@@ -264,8 +270,8 @@ export function ForgePage({
         <section className="rev-scene" aria-label="Full-screen dashboard">
           <ThemeStage maxSpeedMps={config.topSpeedMps} fonts={themes.fonts[themes.skinId]} widgets={themes.widgets} lockStage={audio.getLockStage()} onTimeJump={()=>audio.triggerUiCue('time-jump')} colors={themes.colors[themes.skinId]} sceneColors={themes.colors[themes.atmosphereId+'-scene']} atmosphereId={themeForId(themes.atmosphereId).sceneId} theme={theme} state={hud} simulation={simulation} warningRpm={config.warningRpm} redline={config.redline} unit={prefs.speedUnit} demo={source==='demo'} motion={motion} running={audio.running} gpsLabel={gpsLabel}/>
         </section>
-        <header className="rev-topbar"><div><strong>REVFORGE</strong>{ignited&&<small>{theme.name}</small>}</div><button className="rev-chip" onClick={()=>setPanel('tuner')}>Tuner <Icon name="tune" size={18}/></button></header>
-        {!ignited?<div className="rev-launch"><p>ENGINE SOUND · YOUR ATMOSPHERE</p><h1>RevForge</h1><button className="rev-ignite" disabled={audio.starting} onClick={start}>{audio.starting?'Starting…':'Ignition'}</button><small>Set up while parked</small></div>:<>
+        <header className="rev-topbar"><div><strong>REVFORGE</strong>{ignited&&<small>{garage.active?.name??theme.name}</small>}</div><button className="rev-chip" onClick={()=>setPanel('tuner')}>TUNE <Icon name="tune" size={18}/></button></header>
+        {!ignited?<div className="rev-launch"><Guide kind="welcome"><p>ENGINE SOUND · YOUR ATMOSPHERE</p><h1>RevForge</h1><button className="rev-ignite" disabled={audio.starting} onClick={start}>{audio.starting?'Starting…':'Ignition'}</button><small>Set up while parked</small></Guide></div>:<>
           {source==='demo'&&<label className="rev-throttle">Throttle <span>{Math.round(pedal*100)}%</span><input aria-label="Throttle" type="range" min="0" max="1" step=".01" disabled={!revReady} value={pedal} onChange={e=>setPedal(Number(e.target.value))}/></label>}
           <footer className="rev-dock" aria-label="Drive controls">
             <div className="rev-segment"><button aria-pressed={mode==='auto'} onClick={()=>setMode('auto')}>Auto</button><button aria-pressed={mode==='manual'} onClick={()=>setMode('manual')}>Manual</button></div>
@@ -283,15 +289,7 @@ export function ForgePage({
             className="forge-modal"
             role="dialog"
             aria-modal="true"
-            aria-label={
-              panel === "tuner" ? "Tuner" : panel === "themes" ? "Atmosphere themes" : panel === "scenes"
-                ? "Clusters"
-                : panel === "garage"
-                  ? "Engine garage"
-                  : panel === "studio"
-                    ? "SynthGarage"
-                    : "Sound and display"
-            }
+            aria-label={panelTitle}
             onClick={(e) => e.stopPropagation()}
             onKeyDown={(e) => {
               if (e.key === "Escape") setPanel(null);
@@ -315,16 +313,7 @@ export function ForgePage({
           >
             <div className="forge-modal-heading">
               <div>
-                <span className="forge-eyebrow">REVFORGE / TUNER</span>{panel!=="tuner"&&<button className="tuner-back" onClick={()=>setPanel("tuner")}>← All options</button>}
-                <h2>
-                  {panel === "tuner" ? "Tuner" : panel === "themes" ? "Themes / atmosphere" : panel === "scenes"
-                    ? "Clusters / instruments"
-                    : panel === "garage"
-                      ? "Your engine collection."
-                      : panel === "studio"
-                        ? "SynthGarage / sound builder"
-                        : "Display & controls"}
-                </h2>
+                <span className="forge-eyebrow">REVFORGE / TUNE</span>{panel!=="tuner"&&<button className="tuner-back" onClick={()=>setPanel("tuner")}>← TUNE</button>}<h2>{panelTitle}</h2>
               </div>
               <button
                 autoFocus
@@ -335,55 +324,14 @@ export function ForgePage({
                 <Icon name="close" />
               </button>
             </div>
-            {panel==='tuner'&&<div className="tuner-menu">{([['themes','Themes','Choose the atmosphere behind your dash'],['scenes','Clusters','Minimal, gauge clusters and cockpits'],['tune','Display','Scale, opacity, demo and driving controls'],['studio','SynthGarage','Engine voices, layers and live sound nodes']] as const).map(([id,label,hint])=><button key={id} onClick={()=>setPanel(id)}><strong>{label}</strong><small>{hint}</small><span>↗</span></button>)}<Link to="/builder">Saved combinations ↗</Link></div>}
-            {panel==='themes'&&<ThemePicker key="atmosphere" mode="atmosphere" selected={themes.atmosphereId} onSelect={themes.selectAtmosphere}/>}
-            {panel === "scenes" && <><details open={themes.skinId==='custom-grid'}><summary>Gauge cluster builder</summary><ClusterBuilder widgets={themes.widgets} onChange={themes.saveWidgets} onUse={()=>{themes.selectSkin('custom-grid');setPanel(null);}}/></details><button className="forge-text-button" onClick={()=>{themes.selectSkin(themes.atmosphereId);setPanel(null);}}>Simple RevForge HUD</button><ThemePicker key="cluster" mode="cluster" selected={themes.skinId} onSelect={(id)=>{themes.selectSkin(id);setPanel(null);}}/></>}
-            {panel === "garage" && (
-              <div className="forge-garage-list">
-                {options.map((p) => (
-                  <button
-                    key={p.id}
-                    aria-pressed={audio.engineId === p.id}
-                    onClick={() => {
-                      onSelectEngine(p);
-                      setPedal(0);
-                      setPanel(null);
-                    }}
-                  >
-                    <span className="forge-engine-monogram">
-                      {p.kind === "ice"
-                        ? `${p.params.cylinders ?? 8}`
-                        : p.kind === "aerospace"
-                          ? "JET"
-                          : p.kind === "scifi"
-                            ? "ION"
-                            : "EV"}
-                    </span>
-                    <span>
-                      <strong>{p.name}</strong>
-                      <small>{p.meta?.blurb}</small>
-                    </span>
-                    <span>{audio.engineId === p.id ? "●" : "↗"}</span>
-                  </button>
-                ))}
-              </div>
-            )}
-            {panel === "studio" && patch && (<><label className="tuner-sound-picker">Sound preset<select aria-label="Sound preset" value={patch.id} onChange={e=>{const next=options.find(p=>p.id===e.target.value);if(next)onSelectEngine(next);}}>{options.map(p=><option key={p.id} value={p.id}>{p.name}</option>)}</select></label><button className="rev-chip" disabled={audio.starting} onClick={audio.running?stop:start}>{audio.running?"Stop audition":"Audition sound"}</button>
-              <NativeStudio key={patch.id}
-                patch={patch}
-                onChange={(next) => {
-                  onSelectEngine(next);
-                  setRevision((r) => r + 1);
-                }}
-                onSave={(next) => {
-                  onSavePatch(next);
-                  setRevision((r) => r + 1);
-                }}
-              /></>
-            )}
+            {panel==='tuner'&&<div className="tuner-menu">{([['tune','Options','Base UI, Demo mode and playback'],['themes','Visuals','Themes and Clusters'],['garage','Revs','Original engine collection'],['dashlab','Lab','DashLab and EngineForge'],['account','Account','Vehicles and saved configurations']] as const).map(([id,label,hint])=><button key={id} onClick={()=>setPanel(id)}><strong>{label}</strong><small>{hint}</small><span>↗</span></button>)}</div>}
+            {(panel==='themes'||panel==='scenes')&&<><div role="tablist" aria-label="Visuals tabs"><button role="tab" aria-selected={panel==='themes'} onClick={()=>setPanel('themes')}>Themes</button><button role="tab" aria-selected={panel==='scenes'} onClick={()=>setPanel('scenes')}>Clusters</button></div>{panel==='themes'?<ThemePicker key="atmosphere" mode="atmosphere" selected={themes.atmosphereId} onSelect={themes.selectAtmosphere}/>:<><button onClick={()=>themes.selectSkin(themes.atmosphereId)}>Simple RevForge HUD</button><ThemePicker key="cluster" mode="cluster" selected={themes.skinId} onSelect={themes.selectSkin}/></>}</>}
+            {panel==='garage'&&<><p>Choose an original engine. Create an editable copy with Tune This Engine.</p><details className="garage-colors"><summary>Garage appearance · recolor</summary><ThemeColors themes={themes}/></details><div className="forge-garage-list">{BUILTIN_PATCHES.map(p=><article className="rev-engine-card" key={p.id}><button aria-pressed={audio.engineId===p.id} onClick={()=>onSelectEngine(structuredClone(p))}><strong>{p.name}</strong><small>{p.meta?.blurb}</small></button><button onClick={()=>tuneEngine(p)}>Tune This Engine<span className="sr-only"> · {p.name}</span></button></article>)}</div></>}
+            {(panel==='studio'||panel==='dashlab')&&<><div role="tablist" aria-label="Lab tabs"><button role="tab" aria-selected={panel==='dashlab'} onClick={()=>setPanel('dashlab')}>DashLab</button><button role="tab" aria-selected={panel==='studio'} onClick={()=>setPanel('studio')}>EngineForge</button></div>{panel==='dashlab'?<Guide kind="dash"><ClusterBuilder widgets={themes.widgets} onChange={themes.saveWidgets} onUse={()=>{themes.selectSkin('custom-grid');setPanel(null);}}/></Guide>:<Guide kind="engine">{patch&&(!isCustomEngine(patch)?<section className="locked-engine"><h3>{patch.name}</h3><p>This is an original preset. Create a custom engine to tune its components.</p><button onClick={()=>tuneEngine(patch)}>Tune This Engine</button></section>:<><h3>{patch.name}</h3>{userPatches.length>0&&<label>Custom engine<select aria-label="Custom engine" value={patch.id} onChange={e=>{const p=userPatches.find(p=>p.id===e.target.value);if(p)onSelectEngine(p);}}>{userPatches.map(p=><option key={p.id} value={p.id}>{p.name}</option>)}</select></label>}<button disabled={audio.starting} onClick={audio.running?stop:start}>{audio.running?'Stop audition':'Audition sound'}</button><NativeStudio key={patch.id} patch={patch} onChange={next=>{onSelectEngine(next);setRevision(r=>r+1);}} onSave={onSavePatch}/></>)}</Guide>}</>}
+            {panel==='account'&&<AccountPanel garage={garage} themes={themes} patch={patch} userPatches={userPatches} onEngine={onSavePatch} onLoad={id=>{const c=themes.combinations.find(c=>c.id===id);if(c){themes.loadAppearance(c);onSavePatch(c.sound);}}}/>}
             {panel === "tune" && (
               <div className="forge-tune">
-                <FontPicker value={themes.fonts[themes.skinId]??{numbers:"default",labels:"default"}} onChange={value=>themes.setFont(themes.skinId,value)}/><ThemeColors themes={themes}/><label>Dashboard scale · {Math.round(scale*100)}%<input aria-label="Dashboard scale" type="range" min=".65" max="1.35" step=".01" value={scale} onChange={e=>setScale(Number(e.target.value))}/></label><label>Instrument opacity<input aria-label="Instrument opacity" type="range" min=".25" max="1" step=".01" value={opacity} onChange={e=>setOpacity(Number(e.target.value))}/></label><label>Volume<input aria-label="Master volume" type="range" min="0" max="1" step=".01" value={prefs.masterVolume} onChange={e=>update({masterVolume:Number(e.target.value)})}/></label><label>Mute<input aria-label="Mute" type="checkbox" checked={prefs.masterMuted} onChange={e=>update({masterMuted:e.target.checked})}/></label>
+                <FontPicker value={themes.fonts[themes.skinId]??{numbers:"default",labels:"default"}} onChange={value=>themes.setFont(themes.skinId,value)}/><label>Dashboard scale · {Math.round(scale*100)}%<input aria-label="Dashboard scale" type="range" min=".65" max="1.35" step=".01" value={scale} onChange={e=>setScale(Number(e.target.value))}/></label><label>Instrument opacity<input aria-label="Instrument opacity" type="range" min=".25" max="1" step=".01" value={opacity} onChange={e=>setOpacity(Number(e.target.value))}/></label><label>Volume<input aria-label="Master volume" type="range" min="0" max="1" step=".01" value={prefs.masterVolume} onChange={e=>update({masterVolume:Number(e.target.value)})}/></label><label>Mute<input aria-label="Mute" type="checkbox" checked={prefs.masterMuted} onChange={e=>update({masterMuted:e.target.checked})}/></label>
                 <label>Background audio<input aria-label="Background audio" type="checkbox" checked={audio.background} onChange={e=>audio.setBackgroundEnabled(e.target.checked)}/></label><p role="status">{audio.backgroundStatus} · Audio context: {audio.getDiag().contextState}</p><label>Demo mode<input aria-label="Demo mode" type="checkbox" checked={source==='demo'} onChange={e=>sourceChange(e.target.checked?'demo':'gps')}/></label>
                 <p className="forge-control-hint">Turn Demo off to use browser GPS. Location permission is required.</p>{source==='gps'&&<div role="status"><p>{gpsLabel} · {gps.accuracy===null?'No fix':`Accuracy ±${Math.round(gps.accuracy)} m`}</p><p>{gps.errorMessage}</p><button onClick={gps.start}>Retry GPS</button></div>}
                 <label>Idle jitter<input aria-label="Idle jitter" type="checkbox" checked={jitterEnabled} onChange={e=>setJitterEnabled(e.target.checked)}/></label><label>Idle jitter intensity · {Math.round(jitterAmount*100)}%<input aria-label="Idle jitter intensity" type="range" min="0" max="1" step=".01" disabled={!jitterEnabled} value={jitterAmount} onChange={e=>setJitterAmount(Number(e.target.value))}/></label><p className="forge-control-hint">Adds subtle RPM wander at idle. Fades out as you accelerate.</p>
@@ -432,37 +380,6 @@ export function ForgePage({
                     }
                   />
                 </label>
-                <label>
-                  Tone / presence
-                  <input
-                    type="range"
-                    aria-label="Tone presence"
-                    min="0"
-                    max="1"
-                    step=".01"
-                    value={
-                      tone ??
-                      Number(audio.getEngine()?.getParams().presence ?? 0.5)
-                    }
-                    onChange={(e) => {
-                      const value = Number(e.target.value);
-                      setTone(value);
-                      audio.getEngine()?.setParams({ presence: value });
-                    }}
-                    disabled={!audio.ready}
-                  />
-                </label>
-                <p>
-                  For custom voices, signal graphs, and saved presets, open the
-                  full synth studio.
-                </p>
-                <button
-                  className="forge-studio-link"
-                  onClick={() => setPanel("studio")}
-                >
-                  Open synth studio <Icon name="arrow" />
-                </button>
-                <button onClick={()=>setPanel("scenes")}>Cluster appearance ↗</button>
               </div>
             )}
           </section>

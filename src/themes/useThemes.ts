@@ -3,7 +3,7 @@ import type {FontChoice} from './FontPicker';
 import { useCallback, useState } from 'react';
 import type { EnginePatch } from '../audio';
 import { DEFAULT_THEME, themeForId } from './catalog';
-export interface Combination { id: string; name: string; skinId: string; atmosphereId?:string; sound: EnginePatch; }
+export interface Combination { id: string; name: string; skinId: string; atmosphereId?:string; sound: EnginePatch; widgets?:ClusterWidget[];fonts?:Record<string,FontChoice>;colors?:Record<string,Record<string,string>>; }
 const THEME_KEY = 'drivesynth.theme.v2';
 const PAIRS_KEY = 'drivesynth.combinations.v1';
 export function useThemes() {
@@ -24,9 +24,11 @@ export function useThemes() {
   const selectSkin = useCallback((id:string)=>{const next=themeForId(id).id;setSkin(next);try{localStorage.setItem(THEME_KEY,next);setStorageError('');}catch{setStorageError('This browser could not save your theme.');}},[]);
   const saveCombination = (name:string,sound:EnginePatch) => {
     const id=crypto.randomUUID();
-    const next=[...combinations,{id,name:name.trim()||`${themeForId(skinId).name} + ${sound.name}`,skinId,atmosphereId,sound:{...structuredClone(sound),id:`user-combination-${id}`}}];
+    const next=[...combinations,{id,name:name.trim()||`${themeForId(skinId).name} + ${sound.name}`,skinId,atmosphereId,widgets:structuredClone(widgets),fonts:structuredClone(fonts),colors:structuredClone(colors),sound:{...structuredClone(sound),id:`user-combination-${id}`}}];
     setCombinations(next);try{localStorage.setItem(PAIRS_KEY,JSON.stringify(next));setStorageError('');}catch{setStorageError('Combination is available this session, but storage is full or blocked.');}
   };
   const removeCombination=(id:string)=>{const next=combinations.filter(c=>c.id!==id);setCombinations(next);try{localStorage.setItem(PAIRS_KEY,JSON.stringify(next));setStorageError('');}catch{setStorageError('Could not save this deletion.');}};
-  return {widgets,saveWidgets,fonts,setFont,colors,setColor,resetColors,skinId,selectSkin,atmosphereId,selectAtmosphere,combinations,saveCombination,removeCombination,storageError};
+  const loadAppearance=(c:Combination)=>{selectSkin(c.skinId);if(c.atmosphereId)selectAtmosphere(c.atmosphereId);if(c.widgets)saveWidgets(sanitizeCluster(c.widgets));if(c.colors)saveColors(c.colors);if(c.fonts){setFonts(c.fonts);try{localStorage.setItem("revforge.fonts",JSON.stringify(c.fonts));}catch{setStorageError("Fonts could not be saved.");}}};
+  const importCombinations=(items:unknown[])=>{const valid=items.filter((x):x is Combination=>!!x&&typeof x==='object'&&typeof (x as Combination).id==='string'&&typeof (x as Combination).name==='string'&&typeof (x as Combination).skinId==='string'&&!!(x as Combination).sound?.params);const next=[...new Map([...combinations,...valid].map(c=>[c.id,c])).values()];setCombinations(next);try{localStorage.setItem(PAIRS_KEY,JSON.stringify(next));}catch{setStorageError("Configurations could not be saved.");}};
+  return {loadAppearance,importCombinations,widgets,saveWidgets,fonts,setFont,colors,setColor,resetColors,skinId,selectSkin,atmosphereId,selectAtmosphere,combinations,saveCombination,removeCombination,storageError};
 }
