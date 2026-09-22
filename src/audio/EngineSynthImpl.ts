@@ -25,6 +25,7 @@ import {
   type IdleBand,
 } from './idleBand';
 import { clamp, createNoiseBuffer, lerp, makeShaper, rpmCurve, smooth, smoothstep } from './utils';
+import { applyIonTwinLayersToParams } from './ionTwinLayers';
 import pulseWorkletUrl from './worklets/pulse-engine-processor.js?url';
 
 type Kind = EnginePatch['kind'];
@@ -105,6 +106,12 @@ interface GraphHandles {
   motorBodyDelay?: DelayNode;
   motorBodyFb?: GainNode;
   motorBodyMix?: GainNode;
+  /** Brighter scream burst stack β ~470/1270/1480 (ref-C) */
+  screamFilt?: BiquadFilterNode;
+  screamFilt2?: BiquadFilterNode;
+  screamFilt3?: BiquadFilterNode;
+  screamGain?: GainNode;
+  screamShaper?: WaveShaperNode;
   /** Shared grit bus (2–5 kHz × load) */
   gritFilt?: BiquadFilterNode;
   gritGain?: GainNode;
@@ -252,6 +259,9 @@ export class EngineSynthImpl implements EngineSynth {
       ...defaultsForTopology(initial.topology),
       ...(initial.params as EngineParams),
     };
+    if (initial.ionLayers?.length) {
+      this.params = applyIonTwinLayersToParams(this.params, initial.ionLayers);
+    }
     if (this.customGraph?.length) {
       this.applyGraphToParams(this.customGraph);
     }
@@ -366,6 +376,10 @@ export class EngineSynthImpl implements EngineSynth {
       topology: this.patchMeta.topology,
       params: { ...this.params } as Record<string, number | string>,
       graph: this.customGraph ? [...this.customGraph] : undefined,
+      ionLayers: this.patchMeta.ionLayers?.map((l) => ({
+        ...l,
+        params: l.params ? { ...l.params } : undefined,
+      })),
       meta: {
         ...this.patchMeta.meta,
         createdAt: new Date().toISOString(),
@@ -383,6 +397,9 @@ export class EngineSynthImpl implements EngineSynth {
       ...defaultsForTopology(patch.topology),
       ...(patch.params as EngineParams),
     };
+    if (patch.ionLayers?.length) {
+      this.params = applyIonTwinLayersToParams(this.params, patch.ionLayers);
+    }
     if (this.customGraph?.length) {
       this.applyGraphToParams(this.customGraph);
     }
@@ -1512,6 +1529,36 @@ export class EngineSynthImpl implements EngineSynth {
     howlPhraseLfo.connect(howlPhraseDepth);
     howlPhraseDepth.connect(howlGain.gain);
 
+    // ── Scream burst stack β: ~470 / 1270 / 1480 Hz (ref-C aggression accent) ──
+    const screamFilt = ctx.createBiquadFilter();
+    screamFilt.type = 'bandpass';
+    screamFilt.frequency.value = 470;
+    screamFilt.Q.value = 7.0;
+    g.screamFilt = screamFilt;
+    const screamFilt2 = ctx.createBiquadFilter();
+    screamFilt2.type = 'bandpass';
+    screamFilt2.frequency.value = 1270;
+    screamFilt2.Q.value = 6.5;
+    g.screamFilt2 = screamFilt2;
+    const screamFilt3 = ctx.createBiquadFilter();
+    screamFilt3.type = 'bandpass';
+    screamFilt3.frequency.value = 1480;
+    screamFilt3.Q.value = 5.5;
+    g.screamFilt3 = screamFilt3;
+    const screamShaper = ctx.createWaveShaper();
+    screamShaper.curve = makeShaper(0.62) as Float32Array<ArrayBuffer>;
+    g.screamShaper = screamShaper;
+    const screamGain = ctx.createGain();
+    screamGain.gain.value = 0;
+    g.screamGain = screamGain;
+    g.pinkSrc!.connect(screamFilt);
+    g.noiseSrc!.connect(screamFilt2);
+    g.noiseSrc!.connect(screamFilt3);
+    screamFilt.connect(screamShaper);
+    screamFilt2.connect(screamShaper);
+    screamFilt3.connect(screamShaper);
+    screamShaper.connect(screamGain);
+
     // ── Shared grit bus (2–5 kHz × load) ──
     const gritFilt = ctx.createBiquadFilter();
     gritFilt.type = 'bandpass';
@@ -1628,6 +1675,7 @@ export class EngineSynthImpl implements EngineSynth {
     sum.gain.value = 1;
     bodyGain.connect(sum);
     howlGain.connect(sum);
+    screamGain.connect(sum);
     gritGain.connect(sum);
     afterGain.connect(sum);
     humGain.connect(sum);
@@ -2527,13 +2575,26 @@ export class EngineSynthImpl implements EngineSynth {
 
     // ── Layer leadership (not pitch-only) — continuous beds, surge on spikes ──
     // Idle/taxi: motors lead · Climb/cruise: howl bellow holds · High: air+howl
-    const motorMix = Number(p.carrierBite ?? p.motorMix ?? 0.42);
+    // Each layer is enable+mix; any subset can be combined (Ion Twin layers v1).
+    const on = (v: unknown, fb = 1) => (Number(v ?? fb) >= 0.5 ? 1 : 0);
+    const motorEnable = on(p.motorEnable, 1);
+    const howlEnable = on(p.howlEnable, 1);
+    const screamEnable = on(p.screamEnable, 1);
+    const surgeEnable = on(p.surgeEnable, 1);
+    const airEnable = on(p.airEnable, 1);
+    const gritEnable = on(p.gritEnable, 1);
+    const motorMix = Number(p.motorMix ?? p.carrierBite ?? 0.42) * motorEnable;
     const noiseBody = Number(p.noiseBody ?? 0.55);
-    const howlKnob = Number(p.engineHowl ?? 0.85);
-    const formantHowl = Number(p.formantHowl ?? howlKnob);
-    const wetKnob = Number(p.wetHiss ?? p.air ?? 0.82);
-    const gritKnob = Number(p.grit ?? 0.4);
+    const howlMix = Number(p.howlMix ?? p.formantHowl ?? p.engineHowl ?? 0.85) * howlEnable;
+    const formantHowl = howlMix;
+    const wetKnob = Number(p.airMix ?? p.wetHiss ?? p.air ?? 0.82) * airEnable;
+    const gritKnob = Number(p.gritMix ?? p.grit ?? 0.4) * gritEnable;
+    const screamMix = Number(p.screamMix ?? 0.35) * screamEnable;
+    const screamBright = Number(p.screamBright ?? 0.55);
+    const surgeMix = Number(p.surgeMix ?? 0.7) * surgeEnable;
     const detune = Number(p.motorDetune ?? 0.55);
+    const flybyAmt = flyby * surgeMix;
+    const surgeAmt = surge * surgeMix;
     const pulse = Number(p.pulseRate ?? 0.38);
     const res = Number(p.resonance ?? p.formantQ ?? 0.62);
     const spread = Number(p.formantSpread ?? 0.55);
@@ -2550,12 +2611,12 @@ export class EngineSynthImpl implements EngineSynth {
     const motorLead = clamp(
       0.28 + (1 - openSpool) * 0.42 + thr * 0.12 + (1 - open) * 0.18,
     );
-    // Sustained howl bellow from spool — holds while driving; flyby only adds
-    const howlHold = clamp(formantHowl * howlKnob * openSpool * (0.95 + thr * 0.28));
-    const howlLead = clamp(howlHold + flyby * formantHowl * 0.28);
-    // Continuous air/swoosh bed; surge gestures ride on top of throttle spikes
+    // Sustained howl bellow from spool — holds while driving; flybyAmt only adds
+    const howlHold = clamp(howlMix * openSpool * (0.95 + thr * 0.28));
+    const howlLead = clamp(howlHold + flybyAmt * howlMix * 0.28);
+    // Continuous air/swoosh bed; surgeAmt gestures ride on top of throttle spikes
     const airBed = wetKnob * open * (0.42 + rpmNorm * 0.38 + thr * 0.28);
-    const airLead = clamp(airBed + flyby * wetKnob * 0.55);
+    const airLead = clamp(airBed + flybyAmt * wetKnob * 0.55);
 
     // Twin motor pulse rates + detune beat (0.5–3 Hz psychoacoustic)
     const motorRate = lerp(3.2, 14, pulse) * (0.55 + spool);
@@ -2591,12 +2652,12 @@ export class EngineSynthImpl implements EngineSynth {
       0.09 * motorScale * (0.45 + spool * 0.55),
       motorLead * motorScale * (0.92 - howlLead * 0.22),
     );
-    if (g.motorGainL) smooth(g.motorGainL.gain, motorBed * (1 + this.liveJit.gain * 0.03), tc, ctx);
+    if (g.motorGainL) smooth(g.motorGainL.gain, motorEnable * motorBed * (1 + this.liveJit.gain * 0.03), tc, ctx);
     if (g.motorGainR) {
-      smooth(g.motorGainR.gain, motorBed * (0.92 + detune * 0.08), tc, ctx);
+      smooth(g.motorGainR.gain, motorEnable * motorBed * (0.92 + detune * 0.08), tc, ctx);
     }
     if (g.motorFiltL) {
-      smooth(g.motorFiltL.frequency, 70 + spool * 110 + thr * 40 + surge * 30, tc, ctx);
+      smooth(g.motorFiltL.frequency, 70 + spool * 110 + thr * 40 + surgeAmt * 30, tc, ctx);
     }
     if (g.motorFiltR) {
       smooth(g.motorFiltR.frequency, 78 + spool * 125 + thr * 45 + detune * 20, tc, ctx);
@@ -2624,8 +2685,8 @@ export class EngineSynthImpl implements EngineSynth {
 
     // Formant howl — sustained bellow × smoothstep(rpmNorm); holds while driving
     const howlAmt = howlLead;
-    const screamLead = howlAmt * (1.28 + thr * 0.42) + flyby * formantHowl * 0.22;
-    if (g.howlGain) smooth(g.howlGain.gain, screamLead, tc, ctx);
+    const screamLead = howlAmt * (1.28 + thr * 0.42) + flybyAmt * howlMix * 0.22;
+    if (g.howlGain) smooth(g.howlGain.gain, screamLead * howlEnable, tc, ctx);
     if (g.formantGain) {
       smooth(g.formantGain.gain, 0.95 + formantHowl * 0.45 + openSpool * 0.35, tc, ctx);
     }
@@ -2636,7 +2697,7 @@ export class EngineSynthImpl implements EngineSynth {
     if (g.howlPhraseDepth) {
       // Shallow breath only — cap ~15% of scream so AM never chops the bellow off
       const breath =
-        howlAmt * phraseDepthK * (0.12 + thr * 0.1) + surge * 0.06 + flyby * 0.05;
+        howlAmt * phraseDepthK * (0.12 + thr * 0.1) + surgeAmt * 0.06 + flybyAmt * 0.05;
       const depthCap = screamLead * 0.15;
       smooth(g.howlPhraseDepth.gain, Math.min(breath, depthCap), tc, ctx);
     }
@@ -2645,13 +2706,13 @@ export class EngineSynthImpl implements EngineSynth {
       const phr =
         lerp(0.25, 0.55, phraseRateK) +
         open * thr * lerp(0.35, 0.9, phraseRateK) +
-        flyby * 0.6;
+        flybyAmt * 0.6;
       smooth(g.howlPhraseLfo.frequency, phr, tc, ctx);
     }
 
     // Formant CF stack α + RPM/surge morph (0.7×–1.4×) + rising surge glide
     const shift = lerp(0.72, 1.38, formantShift * 0.5 + spool * 0.5);
-    const surgeLift = 1 + surge * 0.22;
+    const surgeLift = 1 + surgeAmt * 0.22;
     const f1 = (400 + spread * 80 + thr * 60) * shift * surgeLift;
     const f2 = (700 + spread * 120 + thr * 90) * shift * surgeLift;
     const f3 = (900 + spread * 160 + thr * 110) * shift * surgeLift;
@@ -2675,6 +2736,36 @@ export class EngineSynthImpl implements EngineSynth {
     }
     if (g.howlOsc) smooth(g.howlOsc.frequency, f1 * 0.45, tc, ctx);
     if (g.howlOsc2) smooth(g.howlOsc2.frequency, f2 * 0.4, tc, ctx);
+
+    // Scream burst β (ref-C) — brighter accent × throttle/flyby
+    const screamBurst =
+      screamMix * (thr * thr * (0.35 + open * 0.45) + flybyAmt * 0.85 + openSpool * thr * 0.25);
+    if (g.screamGain) smooth(g.screamGain.gain, screamBurst * (1.1 + thr * 0.35), tc, ctx);
+    const screamShift = lerp(0.95, 1.35, screamBright);
+    const screamSurge = 1 + surgeAmt * 0.18;
+    if (g.screamFilt) {
+      smooth(g.screamFilt.frequency, 470 * screamShift * screamSurge, tc, ctx);
+      g.screamFilt.Q.value = 5.5 + res * 3.5;
+    }
+    if (g.screamFilt2) {
+      smooth(g.screamFilt2.frequency, 1270 * screamShift * screamSurge, tc, ctx);
+      g.screamFilt2.Q.value = 5.0 + res * 3.2;
+    }
+    if (g.screamFilt3) {
+      smooth(
+        g.screamFilt3.frequency,
+        1480 * screamShift * screamSurge * (1 + screamBright * 0.08),
+        tc,
+        ctx,
+      );
+      g.screamFilt3.Q.value = 4.5 + res * 3.0;
+    }
+    if (g.screamShaper) {
+      g.screamShaper.curve = makeShaper(
+        clamp(0.4 + screamBright * 0.3 + thr * 0.2 + flybyAmt * 0.15, 0.25, 0.9),
+      ) as Float32Array<ArrayBuffer>;
+    }
+
     if (g.howlGritFilt) {
       smooth(g.howlGritFilt.frequency, 2600 + open * 1800 + thr * 900 + loadAbs * 400, tc, ctx);
     }
@@ -2718,22 +2809,22 @@ export class EngineSynthImpl implements EngineSynth {
       // Continuous trickle + spike surge (not the whole air bed)
       smooth(
         g.wetFlybyGain.gain,
-        open * wetKnob * 0.1 + flyby * wetKnob * 0.9,
+        open * wetKnob * 0.1 + flybyAmt * wetKnob * 0.9,
         Math.min(tc, 0.04),
         ctx,
       );
     }
     if (g.wetAmDepth) {
       // Gentle shimmer only — deep AM was chopping the continuous swoosh
-      smooth(g.wetAmDepth.gain, wetAmt * 0.1 + flyby * 0.12, tc, ctx);
+      smooth(g.wetAmDepth.gain, wetAmt * 0.1 + flybyAmt * 0.12, tc, ctx);
     }
     if (g.wetAmLfo) {
-      smooth(g.wetAmLfo.frequency, 1.2 + rpmNorm * 2.2 + thr * 1.4 + flyby * 2.5, tc, ctx);
+      smooth(g.wetAmLfo.frequency, 1.2 + rpmNorm * 2.2 + thr * 1.4 + flybyAmt * 2.5, tc, ctx);
     }
     if (g.wetHissFilt) {
       smooth(
         g.wetHissFilt.frequency,
-        700 + open * 2200 + thr * 1000 + rpmNorm * 800 + flyby * 700,
+        700 + open * 2200 + thr * 1000 + rpmNorm * 800 + flybyAmt * 700,
         tc,
         ctx,
       );
@@ -2753,7 +2844,7 @@ export class EngineSynthImpl implements EngineSynth {
     if (g.afterGain) {
       smooth(
         g.afterGain.gain,
-        ionSpark * open * thr * thr * 0.35 * (0.4 + loadAbs * 0.6) + flyby * ionSpark * 0.12,
+        ionSpark * open * thr * thr * 0.35 * (0.4 + loadAbs * 0.6) + flybyAmt * ionSpark * 0.12,
         tc,
         ctx,
       );

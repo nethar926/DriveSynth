@@ -389,6 +389,41 @@ function buildScifi(ctx, master) {
   howlShaper.connect(howlG);
   howlG.connect(master);
 
+  // Scream burst β ~470/1270/1480
+  const s1 = ctx.createBiquadFilter();
+  s1.type = 'bandpass';
+  s1.frequency.value = 470;
+  s1.Q.value = 7;
+  const s2 = ctx.createBiquadFilter();
+  s2.type = 'bandpass';
+  s2.frequency.value = 1270;
+  s2.Q.value = 6.5;
+  const s3 = ctx.createBiquadFilter();
+  s3.type = 'bandpass';
+  s3.frequency.value = 1480;
+  s3.Q.value = 5.5;
+  const screamSh = ctx.createWaveShaper();
+  {
+    const n = 256;
+    const curve = new Float32Array(n);
+    const k = 0.62 * 40;
+    for (let i = 0; i < n; i++) {
+      const x = (i * 2) / n - 1;
+      curve[i] = ((1 + k) * x) / (1 + k * Math.abs(x));
+    }
+    screamSh.curve = curve;
+  }
+  const screamG = ctx.createGain();
+  screamG.gain.value = 0;
+  pink.connect(s1);
+  white.connect(s2);
+  white.connect(s3);
+  s1.connect(screamSh);
+  s2.connect(screamSh);
+  s3.connect(screamSh);
+  screamSh.connect(screamG);
+  screamG.connect(master);
+
   const phrase = ctx.createOscillator();
   phrase.type = 'sine';
   phrase.frequency.value = 0.45;
@@ -492,6 +527,13 @@ function buildScifi(ctx, master) {
     const screamLead = howlLead * (1.28 + d.throttle * 0.42);
     scheduleParam(howlG.gain, t, screamLead);
     scheduleParam(formantG.gain, t, 0.95 + 0.92 * 0.45 + openSpool * 0.35);
+    // screamBurst mix 0.35 default — throttle accent
+    const screamBurst = 0.35 * (d.throttle * d.throttle * (0.35 + open * 0.45) + openSpool * d.throttle * 0.25);
+    scheduleParam(screamG.gain, t, screamBurst * (1.1 + d.throttle * 0.35));
+    const screamShift = 0.95 + 0.55 * 0.4;
+    scheduleParam(s1.frequency, t, 470 * screamShift);
+    scheduleParam(s2.frequency, t, 1270 * screamShift);
+    scheduleParam(s3.frequency, t, 1480 * screamShift);
     // Shallow phrase breath — cap ~15% of scream (never gate)
     const breath = Math.min(screamLead * 0.15, howlLead * 0.18 * (0.12 + d.throttle * 0.1));
     scheduleParam(phraseD.gain, t, breath);

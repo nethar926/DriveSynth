@@ -156,10 +156,25 @@ function nextId() {
 }
 
 const SCREAM_LABEL_OVERRIDE: Record<string, string> = {
-  formantHowl: 'Intensity',
-  corePitch: 'Pitch center',
-  carrierBite: 'Grit',
-  wetHiss: 'Wet/Dry',
+  // Legacy aliases
+  formantHowl: 'Howl intensity',
+  corePitch: 'Motor Hz',
+  carrierBite: 'Motor mix',
+  wetHiss: 'Air / wet',
+  // Layer enable + mix (combinable configs)
+  motorEnable: 'Motor on',
+  motorMix: 'Motor mix',
+  howlEnable: 'Howl on',
+  howlMix: 'Howl mix',
+  screamEnable: 'Scream on',
+  screamMix: 'Scream mix',
+  screamBright: 'Scream bright',
+  surgeEnable: 'Surge on',
+  surgeMix: 'Surge mix',
+  airEnable: 'Air on',
+  airMix: 'Air mix',
+  gritEnable: 'Grit on',
+  gritMix: 'Grit mix',
 };
 
 const SCREAM_PARAM_IDS = new Set(Object.keys(SCREAM_LABEL_OVERRIDE));

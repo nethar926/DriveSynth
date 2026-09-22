@@ -116,6 +116,31 @@ export interface EngineParams {
   ionSpark?: number;
   /** Ion hum alias for hum */
   ionHum?: number;
+  // Ion Twin layer enables (0=off, 1=on) — combinable configs
+  /** Twin motor bed enable 0|1 */
+  motorEnable?: number;
+  /** Formant howl (ref-A/F) enable 0|1 */
+  howlEnable?: number;
+  /** Howl mix alias (maps onto formantHowl) 0..1 */
+  howlMix?: number;
+  /** Brighter scream burst (ref-C) enable 0|1 */
+  screamEnable?: number;
+  /** Scream burst mix 0..1 */
+  screamMix?: number;
+  /** Scream brightness / CF lift 0..1 */
+  screamBright?: number;
+  /** Rising CF surge gesture (ref-D) enable 0|1 */
+  surgeEnable?: number;
+  /** Surge gesture mix 0..1 */
+  surgeMix?: number;
+  /** Air / wet swoosh enable 0|1 */
+  airEnable?: number;
+  /** Air mix alias (maps onto wetHiss/air) 0..1 */
+  airMix?: number;
+  /** Grit bus enable 0|1 */
+  gritEnable?: number;
+  /** Grit mix alias 0..1 */
+  gritMix?: number;
   // EV
   whinePitch?: number;
   gearSteps?: number;
@@ -188,6 +213,18 @@ export interface SynthNodeDesc {
   y?: number;
 }
 
+/** Ion Twin procedural layer config (enable + gain + character) for save/combine. */
+export interface IonTwinLayerConfig {
+  id: string;
+  name: string;
+  /** When false, layer contributes silence regardless of mix. */
+  enabled: boolean;
+  /** Layer bus gain 0..1 */
+  gain: number;
+  /** Optional character knobs merged into EngineParams when applied */
+  params?: Record<string, number>;
+}
+
 export interface EnginePatch {
   version: 0;
   id: EngineId;
@@ -196,6 +233,8 @@ export interface EnginePatch {
   topology: TopologyId;
   params: Record<string, number | string>;
   graph?: SynthNodeDesc[];
+  /** Ion Twin bus configs (motor/howl/scream/surge/air/grit) for save/combine */
+  ionLayers?: IonTwinLayerConfig[];
   meta?: { author?: string; createdAt?: string; tags?: string[]; blurb?: string };
 }
 
@@ -272,4 +311,6 @@ export interface ParamMeta {
   unit?: string;
   kind?: 'slider' | 'segmented';
   options?: number[];
+  /** Pro Builder group label (Ion Twin layers, etc.) */
+  group?: string;
 }

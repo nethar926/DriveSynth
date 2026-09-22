@@ -9,6 +9,7 @@ export type {
   IceMode,
   LockStage,
   ParamMeta,
+  IonTwinLayerConfig,
   SynthNodeDesc,
   SynthNodeType,
   TopologyId,
@@ -35,4 +36,15 @@ export {
   readIdleBandFromStorage,
 } from './idleBand';
 export type { IdleBand } from './idleBand';
+
+export {
+  ION_TWIN_LAYER_IDS,
+  applyIonTwinLayersToParams,
+  combineIonTwinLayers,
+  ionTwinContinuousLayers,
+  ionTwinFullStackLayers,
+  layerFromParams,
+} from './ionTwinLayers';
+export type { IonTwinLayerId } from './ionTwinLayers';
+export { TIE_FULL_STACK } from './builtins';
 
