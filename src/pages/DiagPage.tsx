@@ -14,6 +14,8 @@ interface Snapshot {
   innerH: number;
   geoStatus: string;
   geoAccuracy: string;
+  geoMph: string;
+  geoSpeedSource: string;
   geoFixAge: string;
   acState: string;
   sampleRate: string;
@@ -46,6 +48,8 @@ function readSnapshot(audio: Props['audio'], gps: Props['gps']): Snapshot {
     innerH: window.innerHeight,
     geoStatus: gps.status,
     geoAccuracy: gps.accuracy != null ? `±${Math.round(gps.accuracy)} m` : '—',
+    geoMph: `${gps.mph.toFixed(1)} mph`,
+    geoSpeedSource: gps.speedSource ?? '—',
     geoFixAge,
     acState: diag.contextState || ctx?.state || 'not started',
     sampleRate: ctx ? `${ctx.sampleRate} Hz` : '—',
@@ -78,6 +82,8 @@ export function DiagPage({ audio, gps }: Props) {
     { label: 'Viewport', value: `${snap.innerW}×${snap.innerH}` },
     { label: 'Geo status', value: snap.geoStatus },
     { label: 'Geo accuracy', value: snap.geoAccuracy },
+    { label: 'Geo mph', value: snap.geoMph },
+    { label: 'Geo speed source', value: snap.geoSpeedSource },
     { label: 'Geo fix age', value: snap.geoFixAge },
     { label: 'AudioContext.state', value: snap.acState },
     { label: 'sampleRate', value: snap.sampleRate },
