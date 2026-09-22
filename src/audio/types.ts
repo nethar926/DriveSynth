@@ -260,6 +260,18 @@ export interface SynthNodeDesc {
 }
 
 export interface SoundLayer {id:string;name:string;patch:EnginePatch;level:number;pitch:number;pan:number;depth?:number;cutoff:number;response:"load"|"rpm"|"steady";muted:boolean;solo:boolean;}
+/** Ion Twin procedural layer config (enable + gain + character) for save/combine. */
+export interface IonTwinLayerConfig {
+  id: string;
+  name: string;
+  /** When false, layer contributes silence regardless of mix. */
+  enabled: boolean;
+  /** Layer bus gain 0..1 */
+  gain: number;
+  /** Optional character knobs merged into EngineParams when applied */
+  params?: Record<string, number>;
+}
+
 export interface EnginePatch {
   version: 0;
   id: EngineId;
@@ -270,6 +282,8 @@ export interface EnginePatch {
   graph?: SynthNodeDesc[];
   /** Optional stackable layers (Sound Lab / character stacks) */
   layers?: SoundLayer[];
+  /** Ion Twin bus configs (motor/howl/scream/surge/air/grit) for save/combine */
+  ionLayers?: IonTwinLayerConfig[];
   /** Native RevForge parameters; persisted with custom presets. */
   revforge?: RevForgeVoiceConfig;
   meta?: { author?: string; createdAt?: string; tags?: string[]; blurb?: string };
@@ -357,4 +371,6 @@ export interface ParamMeta {
   unit?: string;
   kind?: 'slider' | 'segmented';
   options?: number[];
+  /** Pro Builder group label (Ion Twin layers, etc.) */
+  group?: string;
 }

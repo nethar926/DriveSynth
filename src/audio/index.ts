@@ -10,6 +10,7 @@ export type {
   IceMode,
   LockStage,
   ParamMeta,
+  IonTwinLayerConfig,
   SynthNodeDesc,
   SynthNodeType,
   TopologyId,
@@ -61,3 +62,14 @@ export {
   starterDuration,
   shutoffDuration,
 } from './engineStartShutdown';
+export {
+  ION_TWIN_LAYER_IDS,
+  applyIonTwinLayersToParams,
+  combineIonTwinLayers,
+  ionTwinContinuousLayers,
+  ionTwinFullStackLayers,
+  layerFromParams,
+} from './ionTwinLayers';
+export type { IonTwinLayerId } from './ionTwinLayers';
+export { TIE_FULL_STACK } from './builtins';
+

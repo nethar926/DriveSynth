@@ -32,6 +32,7 @@ import {
   playEngineStarter,
   shutoffDuration,
 } from './engineStartShutdown';
+import { applyIonTwinLayersToParams } from './ionTwinLayers';
 import pulseWorkletUrl from './worklets/pulse-engine-processor.js?url';
 
 type Kind = EnginePatch['kind'];
@@ -272,6 +273,9 @@ export class EngineSynthImpl implements EngineSynth {
       ...defaultsForTopology(initial.topology),
       ...(initial.params as EngineParams),
     };
+    if (initial.ionLayers?.length) {
+      this.params = applyIonTwinLayersToParams(this.params, initial.ionLayers);
+    }
     if (this.customGraph?.length) {
       this.applyGraphToParams(this.customGraph);
     }
@@ -400,6 +404,10 @@ export class EngineSynthImpl implements EngineSynth {
       params: { ...this.params } as Record<string, number | string>,
       graph: this.customGraph ? [...this.customGraph] : undefined,
       layers: this.patchMeta.layers ? this.patchMeta.layers.map((l) => ({ ...l })) : undefined,
+      ionLayers: this.patchMeta.ionLayers?.map((l) => ({
+        ...l,
+        params: l.params ? { ...l.params } : undefined,
+      })),
       meta: {
         ...this.patchMeta.meta,
         createdAt: new Date().toISOString(),
@@ -417,7 +425,11 @@ export class EngineSynthImpl implements EngineSynth {
       ...defaultsForTopology(patch.topology),
       ...(patch.params as EngineParams),
     };
+    if (patch.ionLayers?.length) {
+      this.params = applyIonTwinLayersToParams(this.params, patch.ionLayers);
+    }
     if (patch.layers?.length) {
+      /* Sound Lab stacks — applied by character engine when present */
     }
     if (this.customGraph?.length) {
       this.applyGraphToParams(this.customGraph);
@@ -1657,15 +1669,12 @@ export class EngineSynthImpl implements EngineSynth {
     screamFilt3.frequency.value = 1480;
     screamFilt3.Q.value = 5.5;
     g.screamFilt3 = screamFilt3;
-
     const screamShaper = ctx.createWaveShaper();
     screamShaper.curve = makeShaper(0.62) as Float32Array<ArrayBuffer>;
     g.screamShaper = screamShaper;
-
     const screamGain = ctx.createGain();
     screamGain.gain.value = 0;
     g.screamGain = screamGain;
-
     g.pinkSrc!.connect(screamFilt);
     g.noiseSrc!.connect(screamFilt2);
     g.noiseSrc!.connect(screamFilt3);
@@ -2761,25 +2770,26 @@ export class EngineSynthImpl implements EngineSynth {
 
     // ── Layer leadership (not pitch-only) — continuous beds, surge on spikes ──
     // Idle/taxi: motors lead · Climb/cruise: howl bellow holds · High: air+howl
-    // Each layer is a separate enable+mix config; any subset can be combined.
-    const on = (v: unknown, fallback = 1) => (Number(v ?? fallback) >= 0.5 ? 1 : 0);
+    // Each layer is enable+mix; any subset can be combined (Ion Twin layers v1).
+    const on = (v: unknown, fb = 1) => (Number(v ?? fb) >= 0.5 ? 1 : 0);
     const motorEnable = on(p.motorEnable, 1);
     const howlEnable = on(p.howlEnable, 1);
     const screamEnable = on(p.screamEnable, 1);
     const surgeEnable = on(p.surgeEnable, 1);
     const airEnable = on(p.airEnable, 1);
     const gritEnable = on(p.gritEnable, 1);
-
     const motorMix = Number(p.motorMix ?? p.carrierBite ?? 0.42) * motorEnable;
     const noiseBody = Number(p.noiseBody ?? 0.55);
-    const howlKnob = Number(p.howlMix ?? p.formantHowl ?? p.engineHowl ?? 0.85) * howlEnable;
-    const formantHowl = howlKnob;
+    const howlMix = Number(p.howlMix ?? p.formantHowl ?? p.engineHowl ?? 0.85) * howlEnable;
+    const formantHowl = howlMix;
     const wetKnob = Number(p.airMix ?? p.wetHiss ?? p.air ?? 0.82) * airEnable;
     const gritKnob = Number(p.gritMix ?? p.grit ?? 0.4) * gritEnable;
     const screamMix = Number(p.screamMix ?? 0.35) * screamEnable;
     const screamBright = Number(p.screamBright ?? 0.55);
     const surgeMix = Number(p.surgeMix ?? 0.7) * surgeEnable;
     const detune = Number(p.motorDetune ?? 0.55);
+    const flybyAmt = flyby * surgeMix;
+    const surgeAmt = surge * surgeMix;
     const pulse = Number(p.pulseRate ?? 0.38);
     const res = Number(p.resonance ?? p.formantQ ?? 0.62);
     const spread = Number(p.formantSpread ?? 0.55);
@@ -2792,18 +2802,14 @@ export class EngineSynthImpl implements EngineSynth {
     const hum = Number(p.hum ?? p.ionHum ?? 0.4);
     const ionSpark = Number(p.afterburn ?? p.ionSpark ?? 0.35);
 
-    // Surge/flyby amount gated by surgeEnable×surgeMix (ref-D gesture)
-    const flybyAmt = flyby * surgeMix;
-    const surgeAmt = surge * surgeMix;
-
     // Motors always present under the stack (never silence at cruise) when enabled
     const motorLead = clamp(
       motorEnable * (0.28 + (1 - openSpool) * 0.42 + thr * 0.12 + (1 - open) * 0.18),
     );
-    // Sustained howl bellow from spool — holds while driving; flyby only adds
-    const howlHold = clamp(formantHowl * openSpool * (0.95 + thr * 0.28));
-    const howlLead = clamp(howlHold + flybyAmt * formantHowl * 0.28);
-    // Continuous air/swoosh bed; surge gestures ride on top of throttle spikes
+    // Sustained howl bellow from spool — holds while driving; flybyAmt only adds
+    const howlHold = clamp(howlMix * openSpool * (0.95 + thr * 0.28));
+    const howlLead = clamp(howlHold + flybyAmt * howlMix * 0.28);
+    // Continuous air/swoosh bed; surgeAmt gestures ride on top of throttle spikes
     const airBed = wetKnob * open * (0.42 + rpmNorm * 0.38 + thr * 0.28);
     const airLead = clamp(airBed + flybyAmt * wetKnob * 0.55);
 
@@ -2846,7 +2852,7 @@ export class EngineSynthImpl implements EngineSynth {
       smooth(g.motorGainR.gain, motorEnable * motorBed * (0.92 + detune * 0.08), tc, ctx);
     }
     if (g.motorFiltL) {
-      smooth(g.motorFiltL.frequency, 70 + spool * 110 + thr * 40 + surge * 30, tc, ctx);
+      smooth(g.motorFiltL.frequency, 70 + spool * 110 + thr * 40 + surgeAmt * 30, tc, ctx);
     }
     if (g.motorFiltR) {
       smooth(g.motorFiltR.frequency, 78 + spool * 125 + thr * 45 + detune * 20, tc, ctx);
@@ -2874,8 +2880,8 @@ export class EngineSynthImpl implements EngineSynth {
 
     // Formant howl — sustained bellow × smoothstep(rpmNorm); holds while driving
     const howlAmt = howlLead;
-    const howlOut = howlAmt * (1.28 + thr * 0.42) + flybyAmt * formantHowl * 0.22;
-    if (g.howlGain) smooth(g.howlGain.gain, howlOut, tc, ctx);
+    const howlOut = howlAmt * (1.28 + thr * 0.42) + flybyAmt * howlMix * 0.22;
+    if (g.howlGain) smooth(g.howlGain.gain, howlOut * howlEnable, tc, ctx);
     if (g.formantGain) {
       smooth(g.formantGain.gain, howlEnable * (0.95 + formantHowl * 0.45 + openSpool * 0.35), tc, ctx);
     }
@@ -2951,6 +2957,8 @@ export class EngineSynthImpl implements EngineSynth {
     }
     if (g.howlOsc) smooth(g.howlOsc.frequency, f1 * 0.45, tc, ctx);
     if (g.howlOsc2) smooth(g.howlOsc2.frequency, f2 * 0.4, tc, ctx);
+
+
     if (g.howlGritFilt) {
       smooth(g.howlGritFilt.frequency, 2600 + open * 1800 + thr * 900 + loadAbs * 400, tc, ctx);
     }
