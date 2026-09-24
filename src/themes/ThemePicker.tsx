@@ -169,6 +169,18 @@ function ThumbPreview({layout, accent, secondary, uid}: {layout: ThemeLayout; ac
         </svg>
       );
       break;
+    case 'gradient-macro':
+      body = (
+        <svg viewBox="0 0 120 78" style={common} aria-hidden="true">
+          <rect width="120" height="78" rx="6" fill="#070b10"/>
+          <circle cx="60" cy="42" r="30" fill="#123a94"/>
+          <path d="M60 42 L60 14 A30 30 0 0 1 84 26 Z" fill="#e8f6ff" opacity="0.95"/>
+          <rect x="78" y="30" width="10" height="4" rx="2" fill="none" stroke="#ff8a3c" strokeWidth="1.5" transform="rotate(35 83 32)"/>
+          <rect x="80" y="42" width="10" height="4" rx="2" fill="none" stroke="#ff8a3c" strokeWidth="1.5" transform="rotate(60 85 44)"/>
+          <text x="60" y="64" textAnchor="middle" fill="#0a1830" fontSize="16" fontFamily="ui-monospace,monospace">74</text>
+        </svg>
+      );
+      break;
     case 'custom':
     default:
       body = (

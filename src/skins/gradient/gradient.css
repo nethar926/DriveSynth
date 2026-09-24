@@ -1,6 +1,7 @@
-/* RF Gradient Sweep — conic light-sweep gauge cluster.
-   Transform/opacity-only motion; no per-frame blur. Values arrive via inline
-   style rotation on the same render path as every other cluster. */
+/* RF Gradient Sweep + RF Gradient Macro — light-sweep gauge clusters.
+   Faithful to the design mockups: no hubs, no tip dots, no decorative extras.
+   Transform-only motion; values arrive via inline rotation on the same render
+   path as every other cluster. Nothing here animates on its own. */
 
 .grad-cluster {
   display: flex;
@@ -18,10 +19,10 @@
   max-width: 1060px;
   padding: clamp(18px, 3vw, 38px) clamp(16px, 3vw, 44px);
   border-radius: 56px;
-  background: linear-gradient(165deg, var(--glass-bg, #0e1830), #070c18 72%);
-  border: 1px solid var(--glass-border, #1d2c4d);
+  background: linear-gradient(165deg, #0e1830, #070c18 72%);
+  border: 1px solid #1d2c4d;
   box-shadow:
-    inset 0 1px 0 var(--glass-highlight, rgba(255, 255, 255, 0.07)),
+    inset 0 1px 0 rgba(255, 255, 255, 0.07),
     inset 0 -18px 44px rgba(4, 8, 18, 0.55),
     0 24px 70px rgba(0, 0, 0, 0.55);
 }
@@ -41,26 +42,54 @@
   position: absolute;
   inset: 0;
   border-radius: 50%;
-  background: radial-gradient(circle at 50% 40%, #133165 0%, #0b1d47 48%, #060c22 100%);
+  background: radial-gradient(circle at 50% 42%, #16489f 0%, #0e2c7d 48%, #081744 100%);
   box-shadow:
-    inset 0 0 0 1px rgba(120, 170, 255, 0.1),
-    inset 0 18px 50px rgba(20, 60, 160, 0.25),
+    inset 0 0 0 1px rgba(120, 170, 255, 0.12),
+    inset 0 18px 50px rgba(10, 30, 90, 0.35),
     0 10px 34px rgba(0, 0, 0, 0.5);
 }
 
-/* Right (speed) dial: static red wash over the top, blue below. */
-.grad-dial-split {
+/* MPH dial: rotating beam — hard sharp leading edge at the needle, soft trail behind. */
+.grad-beam {
+  position: absolute;
+  inset: 0;
+  will-change: transform;
+}
+
+.grad-beam-wedge {
   position: absolute;
   inset: 0;
   border-radius: 50%;
-  background: linear-gradient(
-    to bottom,
-    rgba(255, 64, 52, 0.44) 0%,
-    rgba(255, 64, 52, 0.16) 36%,
-    transparent 60%
+  background: conic-gradient(
+    from 0deg at 50% 50%,
+    rgba(242, 251, 255, 0.98) 0deg,
+    rgba(190, 235, 255, 0.78) 30deg,
+    rgba(130, 200, 255, 0.4) 70deg,
+    rgba(70, 140, 230, 0.15) 120deg,
+    transparent 170deg,
+    transparent 360deg
   );
 }
 
+/* RPM dial: static wash — red over the top, fading to blue at the bottom. */
+.grad-dial-wash {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: conic-gradient(
+    from 0deg at 50% 50%,
+    rgba(255, 64, 52, 0.55) 0deg,
+    rgba(255, 64, 52, 0.38) 65deg,
+    rgba(255, 64, 52, 0.12) 110deg,
+    transparent 150deg,
+    transparent 210deg,
+    rgba(255, 64, 52, 0.12) 250deg,
+    rgba(255, 64, 52, 0.38) 295deg,
+    rgba(255, 64, 52, 0.55) 360deg
+  );
+}
+
+/* Etched ticks — quiet, no glow. */
 .grad-ticks {
   position: absolute;
   inset: 0;
@@ -69,139 +98,43 @@
 }
 
 .grad-tick {
-  stroke: rgba(150, 185, 255, 0.16);
-  stroke-width: 1.4;
+  stroke: rgba(140, 170, 220, 0.16);
+  stroke-width: 1.2;
   stroke-linecap: round;
 }
 
 .grad-tick.major {
-  stroke: rgba(150, 185, 255, 0.3);
+  stroke: rgba(140, 170, 220, 0.3);
   stroke-width: 2;
 }
 
-/* Rotating light beam. Hot core sits at the needle (local 0° = up); the glow
-   trails counter-clockwise. mix-blend-mode: screen keeps it luminous. */
-.grad-sweep {
-  position: absolute;
-  inset: 0;
-  will-change: transform;
-}
-
-.grad-wedge {
-  position: absolute;
-  inset: 0;
-  border-radius: 50%;
-  background: conic-gradient(
-    from 0deg at 50% 50%,
-    rgba(238, 249, 255, 0.95) 0deg,
-    transparent 48deg,
-    transparent 312deg,
-    rgba(50, 110, 230, 0.1) 326deg,
-    rgba(90, 160, 255, 0.3) 340deg,
-    rgba(170, 220, 255, 0.6) 352deg,
-    rgba(238, 249, 255, 0.95) 360deg
-  );
-  mix-blend-mode: screen;
-  animation: grad-breathe 3.4s ease-in-out infinite;
-}
-
-/* Speed dial beam runs red-orange to match its needle. */
-.grad-dial--speed .grad-wedge {
-  background: conic-gradient(
-    from 0deg at 50% 50%,
-    rgba(255, 236, 220, 0.9) 0deg,
-    transparent 40deg,
-    transparent 316deg,
-    rgba(200, 60, 30, 0.12) 330deg,
-    rgba(255, 110, 60, 0.35) 343deg,
-    rgba(255, 170, 120, 0.65) 353deg,
-    rgba(255, 236, 220, 0.9) 360deg
-  );
-}
-
-@keyframes grad-breathe {
-  0%,
-  100% {
-    opacity: 0.92;
-  }
-  50% {
-    opacity: 1;
-  }
-}
-
-/* Slim needle riding the beam's leading edge. */
+/* Slim needle — dark navy rounded bar with a thin bright edge. No tip, no hub. */
 .grad-needle {
   position: absolute;
   inset: 0;
   will-change: transform;
 }
 
-.grad-needle-line {
+.grad-needle-bar {
   position: absolute;
-  left: calc(50% - 1.5px);
-  top: 50%;
-  width: 3px;
+  left: 50%;
+  top: 9%;
+  width: 7px;
   height: 42%;
-  transform: translateY(-100%);
-  border-radius: 2px;
-  background: linear-gradient(to top, #0a101f 25%, #8fd8ff 100%);
-  box-shadow: 0 0 5px 1px rgba(140, 225, 255, 0.85);
-  transition: background 0.25s ease, box-shadow 0.25s ease;
-}
-
-.grad-needle-tip {
-  position: absolute;
-  left: 50%;
-  top: 8.5%;
-  width: 9px;
-  height: 9px;
-  transform: translate(-50%, -50%);
-  border-radius: 50%;
-  background: #e8f8ff;
-  box-shadow: 0 0 12px 3px rgba(140, 225, 255, 0.9);
-  transition: background 0.25s ease, box-shadow 0.25s ease;
-}
-
-.grad-dial--speed .grad-needle-line {
-  background: linear-gradient(to top, #5c0f0f 20%, #ff6a45 100%);
-  box-shadow: 0 0 7px 1px rgba(255, 100, 60, 0.85);
-}
-
-.grad-dial--speed .grad-needle-tip {
-  background: #ffe9d9;
-  box-shadow: 0 0 12px 3px rgba(255, 120, 60, 0.9);
-}
-
-/* Small orange pill markers at fixed dial angles (cf. macro shots). */
-.grad-marker {
-  position: absolute;
-  inset: 0;
-}
-
-.grad-marker i {
-  position: absolute;
-  top: 5.5%;
-  left: 50%;
   transform: translateX(-50%);
-  width: 7%;
-  aspect-ratio: 2.6 / 1;
   border-radius: 999px;
-  background: #ff9a3c;
-  box-shadow: 0 0 8px rgba(255, 154, 60, 0.75);
+  background: linear-gradient(to bottom, #0d1526, #060a16);
+  box-shadow:
+    0 0 0 1.5px rgba(140, 225, 255, 0.85),
+    0 0 10px rgba(140, 225, 255, 0.45);
+  transition: background 0.25s ease, box-shadow 0.25s ease;
 }
 
-.grad-hub {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  width: 9%;
-  aspect-ratio: 1 / 1;
-  transform: translate(-50%, -50%);
-  border-radius: 50%;
-  background: radial-gradient(circle at 35% 30%, #22365f, #0a1226 70%);
+/* RPM needle rests dark with a subtle glow until redline. */
+.grad-dial--rpm .grad-needle-bar {
   box-shadow:
-    0 0 0 2px rgba(140, 180, 255, 0.15),
-    0 4px 14px rgba(0, 0, 0, 0.6);
+    0 0 0 1px rgba(150, 180, 220, 0.35),
+    0 0 8px rgba(150, 180, 220, 0.25);
 }
 
 /* ---------- center stack ---------- */
@@ -287,7 +220,14 @@
   transition: color 0.25s ease, text-shadow 0.25s ease;
 }
 
-/* ---------- redline: needle + numerals flip to red (90% of redline) ---------- */
+/* ---------- redline: RPM needle + numerals flip to red (90% of redline) ---------- */
+
+.at-redline .grad-dial--rpm .grad-needle-bar {
+  background: linear-gradient(to bottom, #3d0f0d, #180707);
+  box-shadow:
+    0 0 0 1.5px rgba(255, 120, 70, 0.9),
+    0 0 12px rgba(255, 100, 60, 0.6);
+}
 
 .at-redline .grad-speed strong {
   color: #ff5a5a;
@@ -310,30 +250,137 @@
   text-shadow: 0 0 10px rgba(255, 80, 80, 0.5);
 }
 
-.at-redline .grad-dial--rpm .grad-needle-line {
-  background: linear-gradient(to top, #5c0f0f 20%, #ff6a45 100%);
-  box-shadow: 0 0 7px 1px rgba(255, 100, 60, 0.85);
+/* ---------- RF Gradient Macro — single close-up beam gauge ---------- */
+
+.grad-macro {
+  position: relative;
+  width: min(92vw, 620px);
+  aspect-ratio: 1 / 1;
+  margin: 0 auto;
+  border-radius: 50%;
+  overflow: hidden;
+  font-family: 'Avenir Next', 'Helvetica Neue', system-ui, sans-serif;
 }
 
-.at-redline .grad-dial--rpm .grad-needle-tip {
-  background: #ffe9d9;
-  box-shadow: 0 0 12px 3px rgba(255, 120, 60, 0.9);
+.grad-macro-face {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: radial-gradient(circle at 50% 42%, #1b53c4 0%, #123a94 48%, #0a2158 100%);
+  box-shadow:
+    inset 0 0 0 1px rgba(140, 190, 255, 0.14),
+    inset 0 24px 70px rgba(8, 25, 80, 0.4),
+    0 24px 70px rgba(0, 0, 0, 0.55);
 }
 
-/* ---------- responsive + reduced motion ---------- */
+.grad-macro-beam {
+  position: absolute;
+  inset: 0;
+  will-change: transform;
+}
+
+.grad-macro-wedge {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: conic-gradient(
+    from 0deg at 50% 50%,
+    rgba(245, 252, 255, 1) 0deg,
+    rgba(200, 240, 255, 0.85) 35deg,
+    rgba(140, 205, 255, 0.45) 75deg,
+    rgba(80, 150, 235, 0.16) 130deg,
+    transparent 180deg,
+    transparent 360deg
+  );
+}
+
+.grad-macro-ticks {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.grad-macro-ticks .grad-tick {
+  stroke: rgba(8, 18, 38, 0.55);
+  stroke-width: 2;
+}
+
+.grad-macro-ticks .grad-tick.major {
+  stroke: rgba(8, 18, 38, 0.7);
+  stroke-width: 2.6;
+}
+
+/* Hollow orange pill outlines, fixed on the right side. */
+.grad-macro-marker {
+  position: absolute;
+  inset: 0;
+}
+
+.grad-macro-marker i {
+  position: absolute;
+  top: 6%;
+  left: 50%;
+  width: 34px;
+  height: 13px;
+  transform: translateX(-50%);
+  border: 2.5px solid #ff8a3c;
+  border-radius: 999px;
+  background: transparent;
+  box-shadow: 0 0 8px rgba(255, 138, 60, 0.5);
+}
+
+/* Dark navy numerals sitting on the bright beam, lower-center. */
+.grad-macro-readout {
+  position: absolute;
+  left: 50%;
+  top: 63%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.grad-macro-readout strong {
+  font-size: clamp(72px, 18vw, 128px);
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  color: #0a1830;
+}
+
+.grad-macro-readout small {
+  font-size: clamp(14px, 3.4vw, 20px);
+  font-weight: 800;
+  letter-spacing: 0.18em;
+  color: #0a1830;
+}
+
+/* ---------- compact (portrait phones) ---------- */
 
 @media (max-width: 640px) {
   .grad-housing {
+    flex-wrap: wrap;
     border-radius: 36px;
-    gap: 10px;
+    gap: 12px;
     padding: 16px 12px;
   }
+  .grad-dial {
+    flex: 1 1 40%;
+    max-width: none;
+  }
   .grad-center {
-    min-width: 104px;
-    gap: 8px;
+    flex: 1 1 100%;
+    order: 3;
+    flex-direction: row;
+    justify-content: center;
+    align-items: center;
+    min-width: 0;
+    gap: 10px;
   }
   .grad-speed {
-    padding: 8px 14px 7px;
+    padding: 8px 16px 7px;
     border-radius: 16px;
   }
   .grad-speed strong {
@@ -352,10 +399,9 @@
   .grad-rpm-pill span {
     font-size: 11px;
   }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .grad-wedge {
-    animation: none;
+  .grad-macro-marker i {
+    width: 26px;
+    height: 10px;
+    border-width: 2px;
   }
 }

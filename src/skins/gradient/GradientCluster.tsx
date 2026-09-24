@@ -1,12 +1,12 @@
 import type { CSSProperties } from 'react';
 
 /**
- * Dial assignment for the Gradient cluster — swap 'rpm' / 'speed' to reassign.
+ * Dial assignment for the Gradient cluster — LEFT = MPH (speed), RIGHT = RPM.
  * (Named constant so the mapping is trivial to change later.)
  */
 export const GRADIENT_DIAL_MAP: { left: 'rpm' | 'speed'; right: 'rpm' | 'speed' } = {
-  left: 'rpm',
-  right: 'speed',
+  left: 'speed',
+  right: 'rpm',
 };
 
 export interface GradientClusterProps {
@@ -28,35 +28,42 @@ export interface GradientClusterProps {
 
 const clamp01 = (v: number) => Math.max(0, Math.min(1, Number.isFinite(v) ? v : 0));
 
-/** 0° = 12 o'clock, clockwise positive — same convention as the classic Dial. */
+/** 0° = 12 o'clock, clockwise positive. */
 const pctToDeg = (pct: number) => -135 + clamp01(pct) * 270;
 
-/** Etched tick ring — built once at module level like the Ion Twin scope. */
+/** Etched tick ring — quiet, no glow. */
 const TICKS: { deg: number; major: boolean }[] = Array.from({ length: 60 }, (_, i) => ({
   deg: i * 6,
   major: i % 5 === 0,
 }));
 
-/** Small orange pill markers (cf. macro shots) at fixed dial angles. */
-const MARKER_DEGS = [75, 102];
-
-function SweepDial({
+function Dial({
   pct,
   tone,
   label,
 }: {
   pct: number;
-  tone: 'rpm' | 'speed';
+  tone: 'speed' | 'rpm';
   label: string;
 }) {
   const deg = pctToDeg(pct);
   const rotate = { transform: `rotate(${deg}deg)` } as CSSProperties;
   return (
-    <div className={`grad-dial grad-dial--${tone}`} role="img" aria-label={`${label} ${Math.round(clamp01(pct) * 100)} percent`}>
+    <div
+      className={`grad-dial grad-dial--${tone}`}
+      role="img"
+      aria-label={`${label} ${Math.round(clamp01(pct) * 100)} percent`}
+    >
       <div className="grad-dial-face" aria-hidden />
-      {tone === 'speed' && <div className="grad-dial-split" aria-hidden />}
-
-      {/* Etched ticks sit UNDER the sweep so the beam brightens them as it passes. */}
+      {tone === 'rpm' ? (
+        /* Static wash — red over the top, fading to blue at the bottom. Never rotates. */
+        <div className="grad-dial-wash" aria-hidden />
+      ) : (
+        /* Rotating beam — hard sharp leading edge at the needle, soft trail behind. */
+        <div className="grad-beam" style={rotate} aria-hidden>
+          <div className="grad-beam-wedge" />
+        </div>
+      )}
       <svg className="grad-ticks" viewBox="0 0 200 200" aria-hidden>
         {TICKS.map(({ deg: d, major }) => (
           <line
@@ -64,40 +71,25 @@ function SweepDial({
             className={`grad-tick${major ? ' major' : ''}`}
             transform={`rotate(${d} 100 100)`}
             x1="100"
-            y1={major ? 7 : 10}
+            y1={major ? 8 : 11}
             x2="100"
-            y2="14"
+            y2="15"
           />
         ))}
       </svg>
-
-      {/* Rotating light beam — hot core at the needle, trailing glow behind. */}
-      <div className="grad-sweep" style={rotate} aria-hidden>
-        <div className="grad-wedge" />
-      </div>
-
-      {/* Slim needle riding the beam's leading edge. */}
+      {/* Slim dark needle with a thin bright edge. No tip dot, no hub. */}
       <div className="grad-needle" style={rotate} aria-hidden>
-        <i className="grad-needle-line" />
-        <i className="grad-needle-tip" />
+        <i className="grad-needle-bar" />
       </div>
-
-      {MARKER_DEGS.map((d) => (
-        <div key={d} className="grad-marker" style={{ transform: `rotate(${d}deg)` }} aria-hidden>
-          <i />
-        </div>
-      ))}
-
-      <div className="grad-hub" aria-hidden />
     </div>
   );
 }
 
 /**
- * RF Gradient Sweep — dual conic light-sweep dials around a glowing center stack.
- * Live values drive the beam/needle angle on the same render path as every other
- * cluster (no extra per-frame work): parent re-renders with new props, we set
- * rotation via inline style (transform-only, GPU friendly).
+ * RF Gradient Sweep — twin light-sweep dials (MPH left, RPM right) around a
+ * glowing center stack. Live values drive beam/needle rotation on the same
+ * render path as every other cluster: the parent re-renders with new props,
+ * we set rotation via inline style (transform-only, GPU friendly).
  */
 export function GradientCluster({
   rpmNorm,
@@ -106,37 +98,30 @@ export function GradientCluster({
   speed,
   unit = 'mph',
   gear,
-  load,
-  throttle,
 }: GradientClusterProps) {
   const rpmPct = clamp01(rpmNorm);
   const speedPct = clamp01(speedNorm);
 
-  // Absolute readouts when provided (ThemeStage path); graceful fallback for
-  // normalized-only callers (e.g. the DriveSkinSlot registry stub).
   const rpmShow = rpm != null ? Math.round(rpm).toLocaleString() : `${Math.round(rpmPct * 100)}%`;
   const speedShow = speed != null ? Math.round(speed) : Math.round(speedPct * 160);
   const gearShow = gear === 0 ? 'N' : (gear ?? '–');
   const unitShow = unit === 'kph' ? 'KM/H' : 'MPH';
 
-  const leftPct = GRADIENT_DIAL_MAP.left === 'rpm' ? rpmPct : speedPct;
-  const rightPct = GRADIENT_DIAL_MAP.right === 'rpm' ? rpmPct : speedPct;
+  const leftTone = GRADIENT_DIAL_MAP.left;
+  const rightTone = GRADIENT_DIAL_MAP.right;
 
   return (
     <div
       className="grad-cluster"
       role="img"
       aria-label={`Gradient cluster: ${speedShow} ${unitShow}, ${rpmShow} RPM, gear ${gearShow}`}
-      style={
-        {
-          ['--grad-rpm' as string]: rpmPct,
-          ['--grad-speed' as string]: speedPct,
-          ['--grad-load' as string]: load ?? throttle ?? 0,
-        } as CSSProperties
-      }
     >
       <div className="grad-housing">
-        <SweepDial pct={leftPct} tone="rpm" label="Engine RPM" />
+        <Dial
+          pct={leftTone === 'rpm' ? rpmPct : speedPct}
+          tone={leftTone}
+          label={leftTone === 'rpm' ? 'Engine RPM' : 'Speed'}
+        />
         <div className="grad-center">
           <div className="grad-gear">
             <span>{gearShow}</span>
@@ -149,7 +134,11 @@ export function GradientCluster({
             <span>{rpmShow} RPM</span>
           </div>
         </div>
-        <SweepDial pct={rightPct} tone="speed" label="Speed" />
+        <Dial
+          pct={rightTone === 'rpm' ? rpmPct : speedPct}
+          tone={rightTone}
+          label={rightTone === 'rpm' ? 'Engine RPM' : 'Speed'}
+        />
       </div>
     </div>
   );
