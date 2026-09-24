@@ -146,6 +146,7 @@
   border-radius: 2px;
   background: linear-gradient(to top, #0a101f 25%, #8fd8ff 100%);
   box-shadow: 0 0 5px 1px rgba(140, 225, 255, 0.85);
+  transition: background 0.25s ease, box-shadow 0.25s ease;
 }
 
 .grad-needle-tip {
@@ -158,6 +159,7 @@
   border-radius: 50%;
   background: #e8f8ff;
   box-shadow: 0 0 12px 3px rgba(140, 225, 255, 0.9);
+  transition: background 0.25s ease, box-shadow 0.25s ease;
 }
 
 .grad-dial--speed .grad-needle-line {
@@ -250,35 +252,72 @@
   line-height: 1;
   letter-spacing: -0.02em;
   font-variant-numeric: tabular-nums;
+  color: #eaf4ff;
+  text-shadow:
+    0 0 16px rgba(140, 200, 255, 0.35),
+    0 0 40px rgba(140, 200, 255, 0.15);
+  transition: color 0.25s ease, text-shadow 0.25s ease;
+}
+
+.grad-speed small {
+  display: block;
+  margin-top: 6px;
+  color: #8fa8cf;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.35em;
+  transition: color 0.25s ease;
+}
+
+.grad-rpm-pill {
+  padding: 8px 22px;
+  border-radius: 999px;
+  background: rgba(10, 16, 30, 0.6);
+  border: 1px solid rgba(140, 180, 255, 0.18);
+  transition: background-color 0.25s ease, border-color 0.25s ease;
+}
+
+.grad-rpm-pill span {
+  color: #9fb8dd;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  font-variant-numeric: tabular-nums;
+  text-shadow: 0 0 10px rgba(140, 180, 255, 0.25);
+  transition: color 0.25s ease, text-shadow 0.25s ease;
+}
+
+/* ---------- redline: needle + numerals flip to red (90% of redline) ---------- */
+
+.at-redline .grad-speed strong {
   color: #ff5a5a;
   text-shadow:
     0 0 18px rgba(255, 60, 60, 0.65),
     0 0 46px rgba(255, 60, 60, 0.3);
 }
 
-.grad-speed small {
-  display: block;
-  margin-top: 6px;
+.at-redline .grad-speed small {
   color: #ff7a7a;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.35em;
 }
 
-.grad-rpm-pill {
-  padding: 8px 22px;
-  border-radius: 999px;
+.at-redline .grad-rpm-pill {
   background: rgba(120, 20, 20, 0.32);
-  border: 1px solid rgba(255, 90, 90, 0.35);
+  border-color: rgba(255, 90, 90, 0.35);
 }
 
-.grad-rpm-pill span {
+.at-redline .grad-rpm-pill span {
   color: #ff6b6b;
-  font-size: 14px;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  font-variant-numeric: tabular-nums;
   text-shadow: 0 0 10px rgba(255, 80, 80, 0.5);
+}
+
+.at-redline .grad-dial--rpm .grad-needle-line {
+  background: linear-gradient(to top, #5c0f0f 20%, #ff6a45 100%);
+  box-shadow: 0 0 7px 1px rgba(255, 100, 60, 0.85);
+}
+
+.at-redline .grad-dial--rpm .grad-needle-tip {
+  background: #ffe9d9;
+  box-shadow: 0 0 12px 3px rgba(255, 120, 60, 0.9);
 }
 
 /* ---------- responsive + reduced motion ---------- */
