@@ -1,5 +1,5 @@
 export type ThemeFamily = 'Minimal' | 'Gauge Cluster' | 'Cockpit' | 'RoadView';
-export type ThemeLayout = 'numerical' | 'arc' | 'line' | 'bar' | 'digital' | 'analog' | 'driver' | 'scanner' | 'time' | 'jet' | 'space' | 'road' | 'custom';
+export type ThemeLayout = 'numerical' | 'arc' | 'line' | 'bar' | 'digital' | 'analog' | 'driver' | 'scanner' | 'time' | 'jet' | 'space' | 'road' | 'custom' | 'gradient';
 export interface ThemePreset { id: string; name: string; family: ThemeFamily; group: string; layout: ThemeLayout; accent: string; secondary: string; description: string; feature: string; sceneId?: string; }
 const skin = (id: string, name: string, family: ThemeFamily, group: string, layout: ThemeLayout, accent: string, secondary: string, description: string, feature: string): ThemePreset => ({id,name,family,group,layout,accent,secondary,description,feature});
 export const THEMES: ThemePreset[] = [
@@ -23,6 +23,7 @@ export const THEMES: ThemePreset[] = [
   skin('tt','RF Splitline','Gauge Cluster','Modern','driver','#dce7f1','#ed5958','Balanced digital instruments flanking a live driving horizon.','Dual information panes'),
   skin('time-machine','RF Chrono Banks','Gauge Cluster','PopCulture','time','#efbd64','#7cdda2','Destination, present and departure time circuits with a physical-style date keypad.','88 MPH temporal transition'),
   skin('night-rider','RF Crimson Sweep','Gauge Cluster','PopCulture','scanner','#ff5353','#ffc16a','A red scanner sweep, LED telemetry banks and a dark command console.','Scanner sweep'),
+  skin('gradient','RF Gradient Sweep','Gauge Cluster','Modern','gradient','#ff5353','#4da6ff','Twin conic light-sweep dials — RPM left, speed right — around a glowing center stack.','Conic light sweep'),
   skin('f22','RF Peregrine','Cockpit','Jet','jet','#8eeeb0','#c8eabe','Angular HUD, paired engine-load tapes and a restrained radar panel.','Engine-load HUD'),
   skin('f35','RF Glasswing','Cockpit','Jet','jet','#9ee6df','#dbecf3','A panoramic glass panel with three live instrument windows.','Panoramic instrumentation'),
   skin('f14','RF Swingwing','Cockpit','Jet','analog','#97e6b0','#efa85e','Round engine instruments, green phosphor and a sweep display.','Original jet HUD + radar sweep'),
