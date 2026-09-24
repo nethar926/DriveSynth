@@ -71,24 +71,6 @@
   );
 }
 
-/* RPM dial: static wash — red over the top, fading to blue at the bottom. */
-.grad-dial-wash {
-  position: absolute;
-  inset: 0;
-  border-radius: 50%;
-  background: conic-gradient(
-    from 0deg at 50% 50%,
-    rgba(255, 64, 52, 0.55) 0deg,
-    rgba(255, 64, 52, 0.38) 65deg,
-    rgba(255, 64, 52, 0.12) 110deg,
-    transparent 150deg,
-    transparent 210deg,
-    rgba(255, 64, 52, 0.12) 250deg,
-    rgba(255, 64, 52, 0.38) 295deg,
-    rgba(255, 64, 52, 0.55) 360deg
-  );
-}
-
 /* Etched ticks — quiet, no glow. */
 .grad-ticks {
   position: absolute;
@@ -220,7 +202,19 @@
   transition: color 0.25s ease, text-shadow 0.25s ease;
 }
 
-/* ---------- redline: RPM needle + numerals flip to red (90% of redline) ---------- */
+/* ---------- redline: RPM needle + numerals + beam bloom flip to red (90% of redline) ---------- */
+
+.at-redline .grad-dial--rpm .grad-beam-wedge {
+  background: conic-gradient(
+    from 0deg at 50% 50%,
+    rgba(255, 244, 238, 0.98) 0deg,
+    rgba(255, 200, 170, 0.78) 30deg,
+    rgba(255, 140, 110, 0.4) 70deg,
+    rgba(230, 90, 70, 0.15) 120deg,
+    transparent 170deg,
+    transparent 360deg
+  );
+}
 
 .at-redline .grad-dial--rpm .grad-needle-bar {
   background: linear-gradient(to bottom, #3d0f0d, #180707);

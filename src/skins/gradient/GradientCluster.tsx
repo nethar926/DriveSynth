@@ -55,15 +55,11 @@ function Dial({
       aria-label={`${label} ${Math.round(clamp01(pct) * 100)} percent`}
     >
       <div className="grad-dial-face" aria-hidden />
-      {tone === 'rpm' ? (
-        /* Static wash — red over the top, fading to blue at the bottom. Never rotates. */
-        <div className="grad-dial-wash" aria-hidden />
-      ) : (
-        /* Rotating beam — hard sharp leading edge at the needle, soft trail behind. */
-        <div className="grad-beam" style={rotate} aria-hidden>
-          <div className="grad-beam-wedge" />
-        </div>
-      )}
+      {/* Rotating beam — hard sharp leading edge at the needle, soft trail behind.
+          Both dials share the same blue-to-light-blue gradient. */}
+      <div className="grad-beam" style={rotate} aria-hidden>
+        <div className="grad-beam-wedge" />
+      </div>
       <svg className="grad-ticks" viewBox="0 0 200 200" aria-hidden>
         {TICKS.map(({ deg: d, major }) => (
           <line
