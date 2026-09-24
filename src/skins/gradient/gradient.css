@@ -153,11 +153,12 @@
   text-align: center;
   padding: 12px 30px 10px;
   border-radius: 22px;
-  background: rgba(12, 7, 9, 0.72);
-  border: 1px solid rgba(255, 80, 80, 0.25);
+  background: rgba(13, 22, 44, 0.85);
+  border: 1px solid rgba(120, 170, 255, 0.22);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.05),
     0 8px 28px rgba(0, 0, 0, 0.5);
+  transition: background-color 0.25s ease, border-color 0.25s ease;
 }
 
 .grad-speed strong {
@@ -207,13 +208,18 @@
 .at-redline .grad-dial--rpm .grad-beam-wedge {
   background: conic-gradient(
     from 0deg at 50% 50%,
-    rgba(255, 244, 238, 0.98) 0deg,
-    rgba(255, 200, 170, 0.78) 30deg,
-    rgba(255, 140, 110, 0.4) 70deg,
-    rgba(230, 90, 70, 0.15) 120deg,
+    rgba(255, 250, 245, 1) 0deg,
+    rgba(255, 170, 140, 0.95) 30deg,
+    rgba(255, 90, 70, 0.6) 70deg,
+    rgba(220, 40, 30, 0.28) 120deg,
     transparent 170deg,
     transparent 360deg
   );
+}
+
+.at-redline .grad-speed {
+  background: rgba(66, 10, 10, 0.88);
+  border-color: rgba(255, 80, 80, 0.4);
 }
 
 .at-redline .grad-dial--rpm .grad-needle-bar {
