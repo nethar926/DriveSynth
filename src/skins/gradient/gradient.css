@@ -389,6 +389,7 @@
   letter-spacing: -0.02em;
   font-variant-numeric: tabular-nums;
   color: #0a1830;
+  transition: color 0.25s ease, text-shadow 0.25s ease;
 }
 
 .grad-macro-readout small {
@@ -396,6 +397,32 @@
   font-weight: 800;
   letter-spacing: 0.18em;
   color: #0a1830;
+  transition: color 0.25s ease, text-shadow 0.25s ease;
+}
+
+/* ---------- redline: macro beam blooms red, numerals flip to red ---------- */
+
+.at-redline .grad-macro-wedge {
+  background: conic-gradient(
+    from 0deg at 50% 50%,
+    #ffffff 0deg,
+    rgba(255, 110, 90, 0.95) 30deg,
+    rgba(255, 30, 25, 0.75) 68deg,
+    rgba(190, 10, 10, 0.4) 125deg,
+    transparent 180deg,
+    transparent 360deg
+  );
+}
+
+.at-redline .grad-macro-readout strong {
+  color: #ff4d4d;
+  text-shadow:
+    0 0 18px rgba(255, 60, 60, 0.6),
+    0 0 44px rgba(255, 60, 60, 0.3);
+}
+
+.at-redline .grad-macro-readout small {
+  color: #ff7a7a;
 }
 
 /* ---------- compact (portrait phones) ---------- */
