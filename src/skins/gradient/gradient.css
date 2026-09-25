@@ -222,16 +222,33 @@
 /* RPM needle bounces against the limiter at redline. The `rotate` property
    composes on top of the inline `transform`, so the base angle is preserved. */
 .at-redline .grad-dial--rpm .grad-needle {
-  animation: grad-needle-jitter 0.14s linear infinite;
+  animation: grad-needle-jitter 0.32s linear infinite;
 }
 
 @keyframes grad-needle-jitter {
-  0%,
-  100% {
-    rotate: -1.4deg;
+  0% {
+    rotate: -0.4deg;
   }
-  50% {
-    rotate: 1.4deg;
+  14% {
+    rotate: 0.65deg;
+  }
+  29% {
+    rotate: -0.25deg;
+  }
+  43% {
+    rotate: 0.45deg;
+  }
+  57% {
+    rotate: -0.7deg;
+  }
+  71% {
+    rotate: 0.3deg;
+  }
+  86% {
+    rotate: -0.5deg;
+  }
+  100% {
+    rotate: 0.4deg;
   }
 }
 
