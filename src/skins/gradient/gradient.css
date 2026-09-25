@@ -208,13 +208,35 @@
 .at-redline .grad-dial--rpm .grad-beam-wedge {
   background: conic-gradient(
     from 0deg at 50% 50%,
-    rgba(255, 250, 245, 1) 0deg,
-    rgba(255, 170, 140, 0.95) 30deg,
-    rgba(255, 90, 70, 0.6) 70deg,
-    rgba(220, 40, 30, 0.28) 120deg,
-    transparent 170deg,
+    #ffffff 0deg,
+    rgba(255, 110, 90, 0.95) 28deg,
+    rgba(255, 30, 25, 0.7) 65deg,
+    rgba(190, 10, 10, 0.35) 115deg,
+    transparent 165deg,
     transparent 360deg
   );
+}
+
+/* RPM needle bounces against the limiter at redline. The `rotate` property
+   composes on top of the inline `transform`, so the base angle is preserved. */
+.at-redline .grad-dial--rpm .grad-needle {
+  animation: grad-needle-jitter 0.14s linear infinite;
+}
+
+@keyframes grad-needle-jitter {
+  0%,
+  100% {
+    rotate: -1.4deg;
+  }
+  50% {
+    rotate: 1.4deg;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .at-redline .grad-dial--rpm .grad-needle {
+    animation: none;
+  }
 }
 
 .at-redline .grad-speed {
@@ -225,8 +247,8 @@
 .at-redline .grad-dial--rpm .grad-needle-bar {
   background: linear-gradient(to bottom, #3d0f0d, #180707);
   box-shadow:
-    0 0 0 1.5px rgba(255, 120, 70, 0.9),
-    0 0 12px rgba(255, 100, 60, 0.6);
+    0 0 0 1.5px rgba(255, 70, 55, 0.95),
+    0 0 12px rgba(255, 50, 40, 0.65);
 }
 
 .at-redline .grad-speed strong {
