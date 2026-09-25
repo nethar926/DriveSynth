@@ -195,7 +195,7 @@
   position: absolute;
   left: 50%;
   top: 10%;
-  width: 88%;
+  height: 66%;
   aspect-ratio: 1 / 1;
   transform: translateX(-50%);
 }
@@ -300,5 +300,65 @@
 @media (prefers-reduced-motion: reduce) {
   .ent-rings {
     animation: none;
+  }
+}
+
+/* ---------- drive view arrangements ----------
+   16:9 landscape: 3-column + strip (base rules above).
+   5:4 (Tesla): tall left hero; rings over a wide orange block on the right.
+   Portrait phones: speed mass + rings side by side, orange bar, strip. */
+
+@media (max-aspect-ratio: 16/10) {
+  .rev-scene .theme-stage.is-fullscreen .ent-main {
+    display: grid;
+    grid-template-columns: 1.25fr 1fr;
+    grid-template-rows: minmax(0, 1fr) auto;
+    grid-template-areas:
+      "left rings"
+      "left center";
+    justify-content: normal;
+  }
+  .rev-scene .theme-stage.is-fullscreen .ent-left {
+    grid-area: left;
+    aspect-ratio: auto;
+    min-height: 0;
+  }
+  .rev-scene .theme-stage.is-fullscreen .ent-right {
+    grid-area: rings;
+    min-height: 0;
+  }
+  .rev-scene .theme-stage.is-fullscreen .ent-center {
+    grid-area: center;
+    align-self: stretch;
+    aspect-ratio: 31 / 13;
+  }
+}
+
+@media (max-aspect-ratio: 1/1) {
+  .rev-scene .theme-stage.is-fullscreen .ent {
+    justify-content: center;
+  }
+  .rev-scene .theme-stage.is-fullscreen .ent-main {
+    flex: 0 0 auto;
+    width: 100%;
+    display: grid;
+    grid-template-columns: 11fr 9fr;
+    grid-template-rows: auto auto;
+    grid-template-areas:
+      "left rings"
+      "center center";
+    justify-content: normal;
+  }
+  .rev-scene .theme-stage.is-fullscreen .ent-left {
+    grid-area: left;
+    aspect-ratio: 48 / 54;
+  }
+  .rev-scene .theme-stage.is-fullscreen .ent-right {
+    grid-area: rings;
+  }
+  .rev-scene .theme-stage.is-fullscreen .ent-center {
+    grid-area: center;
+    align-self: stretch;
+    aspect-ratio: 31 / 9;
   }
 }
