@@ -106,3 +106,6 @@
   margin:12px 0 0;
 }
 .rf-frontend-note code{color:#e8bb85}
+/* Full Screen themes: no card container, no heading chrome — the skin owns the stage. */
+.theme-stage.is-fullscreen{background:#000;border-radius:0}
+.theme-stage.is-fullscreen .skin-body{display:flex;flex-direction:column;justify-content:center;min-height:480px;padding:0;background:none;border:0;border-radius:0;box-shadow:none}

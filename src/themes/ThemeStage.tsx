@@ -38,14 +38,15 @@ export function ThemeStage({maxSpeedMps,fonts,widgets=defaultCluster,theme,state
  const speed=state.speedMps*(unit==='kph'?3.6:2.236936), rpm=running?state.rpm:0;
  const rev=Math.max(0,Math.min(1,rpm/redline)), speedPct=Math.min(1,speed/speedScale(maxSpeedMps,unit));
  const spaceFont=theme.id==='galactic-enforcer';
+ const fullscreen=theme.family==='Full Screen';
  const style={...(fonts?.numbers!=='default'&&fontCss[fonts?.numbers??'']?{'--number-font':fontCss[fonts!.numbers]}:{}),...(fonts?.labels!=='default'&&fontCss[fonts?.labels??'']?{'--label-font':fontCss[fonts!.labels]}:{}),...Object.fromEntries(Object.entries(palette).map(([k,v])=>['--skin-'+k,v])),'--rev':rev,'--speed':speedPct,'--flow-time':`${Math.max(.4,3-state.speedMps/25)}s`} as CSSProperties;
  const hero=<div className="skin-speed"><strong className="skin-number" data-testid="speed" aria-label={`${Math.round(speed)} ${unit}`}>{Math.round(speed).toString().padStart(2,'0')}</strong><span className="skin-descriptor">{unit==='kph'?'KM/H':'MPH'}</span><small className={`skin-source ${demo?'is-demo':''}`}>{demo?'DEMO':gpsLabel}</small></div>;
  const telemetry=<div className="skin-telemetry"><div><small className="skin-descriptor">ENGINE RPM</small><b className="skin-number" data-testid="rpm">{Math.round(rpm).toLocaleString()}</b></div><div><small className="skin-descriptor">GEAR</small><b className="skin-number" data-testid="gear">{state.gear===0?'N':state.gear}</b></div><div><small className="skin-descriptor">LOAD</small><b className="skin-number">{Math.round(state.load*100)}<em>%</em></b></div></div>;
  const radar=<div className="skin-radar" aria-hidden="true"><i/><b/><span/></div>;
- return <div className={`theme-stage layout-${theme.layout} theme-${theme.id} ${spaceFont?'galactic-type':''} ${!motion?'motion-off':''} ${running&&rpm>=(warningRpm??redline*.9)?'at-redline':''}`} style={style} data-theme-id={theme.id} data-skin={theme.id==='f14'?'aerospace-f14':undefined}>
+ return <div className={`theme-stage layout-${theme.layout} theme-${theme.id} ${spaceFont?'galactic-type':''} ${fullscreen?'is-fullscreen':''} ${!motion?'motion-off':''} ${running&&rpm>=(warningRpm??redline*.9)?'at-redline':''}`} style={style} data-theme-id={theme.id} data-skin={theme.id==='f14'?'aerospace-f14':undefined}>
   {(theme.layout==='road'||atmosphereId)&&<><SceneCanvas scene={scene} simulation={simulation} motion={motion}/><div className="road-atmosphere"/>{['neon-drive','miami','alpine'].includes(atmosphereId??theme.sceneId!)&&<div className={`road-weather ${(atmosphereId??theme.sceneId)==='alpine'?'snow':''}`} aria-hidden="true"/>}<div className="road-stream" aria-hidden="true"/></>}
-  <div className="skin-ambient" aria-hidden="true"/>
-  <div className="skin-heading"><small>{theme.family} / {theme.group}</small><h2>{theme.name}</h2><span className="skin-descriptor">{theme.feature}</span></div>
+  {!fullscreen&&<div className="skin-ambient" aria-hidden="true"/>}
+  {!fullscreen&&<div className="skin-heading"><small>{theme.family} / {theme.group}</small><h2>{theme.name}</h2><span className="skin-descriptor">{theme.feature}</span></div>}
   <div className="skin-body">
    {theme.layout==='custom'&&<CustomCluster widgets={widgets} state={state} unit={unit} maxSpeed={speedScale(maxSpeedMps,unit)} redline={redline} demo={demo} gpsLabel={gpsLabel} lockStage={lockStage} running={running}/>}
    {['numerical','road'].includes(theme.layout)&&<>{hero}{telemetry}<Rail value={rev} label="RPM"/></>}

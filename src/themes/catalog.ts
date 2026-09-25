@@ -1,4 +1,4 @@
-export type ThemeFamily = 'Minimal' | 'Gauge Cluster' | 'Cockpit' | 'RoadView';
+export type ThemeFamily = 'Minimal' | 'Gauge Cluster' | 'Cockpit' | 'RoadView' | 'Full Screen';
 export type ThemeLayout = 'numerical' | 'arc' | 'line' | 'bar' | 'digital' | 'analog' | 'driver' | 'scanner' | 'time' | 'jet' | 'space' | 'road' | 'custom' | 'new-worlds' | 'enterprise';
 export interface ThemePreset { id: string; name: string; family: ThemeFamily; group: string; layout: ThemeLayout; accent: string; secondary: string; description: string; feature: string; sceneId?: string; }
 const skin = (id: string, name: string, family: ThemeFamily, group: string, layout: ThemeLayout, accent: string, secondary: string, description: string, feature: string): ThemePreset => ({id,name,family,group,layout,accent,secondary,description,feature});
@@ -21,10 +21,10 @@ export const THEMES: ThemePreset[] = [
   skin('720','RF Track Ribbon','Gauge Cluster','Modern','arc','#ff9751','#dadfe8','A low horizontal instrument pod with a vivid orange tachometer.','Compact track display'),
   skin('lfa','RF Crescendo','Gauge Cluster','Modern','arc','#f1f3ef','#e86257','A large central tach ring with sequential shift lamps and a gear core.','Sequential shift lamps'),
   skin('tt','RF Splitline','Gauge Cluster','Modern','driver','#dce7f1','#ed5958','Balanced digital instruments flanking a live driving horizon.','Dual information panes'),
-  skin('time-machine','RF Chrono Banks','Gauge Cluster','PopCulture','time','#efbd64','#7cdda2','Destination, present and departure time circuits with a physical-style date keypad.','88 MPH temporal transition'),
-  skin('night-rider','RF Crimson Sweep','Gauge Cluster','PopCulture','scanner','#ff5353','#ffc16a','A red scanner sweep, LED telemetry banks and a dark command console.','Scanner sweep'),
-  skin('new-worlds','RF New Worlds','Gauge Cluster','PopCulture','new-worlds','#f5820d','#7d3c98','A free take on the LCARS command interface — Oswald numerals, warp rings and a segmented RPM bar.','Warp rings'),
-  skin('enterprise','RF Enterprise','Gauge Cluster','PopCulture','enterprise','#f5820d','#7d3c98','Strict LCARS command interface — Oswald numerals, warp rings and a chunky right-to-left RPM bar.','Warp rings'),
+  skin('time-machine','RF Chrono Banks','Full Screen','PopCulture','time','#efbd64','#7cdda2','Destination, present and departure time circuits with a physical-style date keypad.','88 MPH temporal transition'),
+  skin('night-rider','RF Crimson Sweep','Full Screen','PopCulture','scanner','#ff5353','#ffc16a','A red scanner sweep, LED telemetry banks and a dark command console.','Scanner sweep'),
+  skin('new-worlds','RF New Worlds','Full Screen','PopCulture','new-worlds','#f5820d','#7d3c98','A free take on the LCARS command interface — Oswald numerals, warp rings and a segmented RPM bar.','Warp rings'),
+  skin('enterprise','RF Enterprise','Full Screen','PopCulture','enterprise','#f5820d','#7d3c98','Strict LCARS command interface — Oswald numerals, warp rings and a chunky right-to-left RPM bar.','Warp rings'),
   skin('f22','RF Peregrine','Cockpit','Jet','jet','#8eeeb0','#c8eabe','Angular HUD, paired engine-load tapes and a restrained radar panel.','Engine-load HUD'),
   skin('f35','RF Glasswing','Cockpit','Jet','jet','#9ee6df','#dbecf3','A panoramic glass panel with three live instrument windows.','Panoramic instrumentation'),
   skin('f14','RF Swingwing','Cockpit','Jet','analog','#97e6b0','#efa85e','Round engine instruments, green phosphor and a sweep display.','Original jet HUD + radar sweep'),
@@ -39,7 +39,7 @@ const roads = [
  ['road-66','RF Copper Mile','#eda75d','Desert'],['apex-v8','RF Apex Dusk','#ec665d','Track'],['neon-drive','RF Violet Grid','#d286fa','Night'],['italia','RF Azure Bend','#efbe81','Coast'],['miami','RF Pink Current','#fa93c6','Night'],['autobahn','RF Silver Run','#8ecad9','Road'],['plaid','RF Lightline','#85d8ed','Road'],['dune-runner','RF Sandwake','#f0b569','Desert'],['alpine','RF Frostpass','#b8e4e9','Mountain'],['starliner','RF Deep Transit','#a3a2fb','Space'],['sakura-gtr','RF Blossom Run','#f0aeca','Coast'],['trenchlight','RF Trenchlight','#86dfb1','Space'],
 ];
 for(const [id,name,accent,group] of roads) THEMES.push({...skin(`road-${id}`,name,'RoadView',group,'road',accent,'#9caac3','Procedural RevForge environment with speed-linked motion and atmospheric effects.','Reactive road atmosphere'),sceneId:id});
-export const FAMILIES: ThemeFamily[] = ['Minimal','Gauge Cluster','Cockpit','RoadView'];
+export const FAMILIES: ThemeFamily[] = ['Minimal','Gauge Cluster','Cockpit','RoadView','Full Screen'];
 export const DEFAULT_THEME = 'road-road-66';
 /** Legacy Tie/X-wing-named Theme Lab ids → Galactic Enforcer / Trenchlight. */
 export const RETIRED_THEME_IDS: Record<string, string> = {
