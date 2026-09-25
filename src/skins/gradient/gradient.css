@@ -60,13 +60,15 @@
   position: absolute;
   inset: 0;
   border-radius: 50%;
+  /* Palette is customizable per theme: --skin-beam / --skin-beamDeep
+     (Theme colors panel). Falls back to the signature blue. */
   background: conic-gradient(
     from 0deg at 50% 50%,
-    rgba(242, 251, 255, 0.98) 0deg,
-    rgba(190, 235, 255, 0.78) 30deg,
-    rgba(130, 200, 255, 0.4) 70deg,
-    rgba(70, 140, 230, 0.15) 120deg,
-    transparent 170deg,
+    color-mix(in srgb, var(--skin-beam, #9fdcff) 35%, white) 0deg,
+    color-mix(in srgb, var(--skin-beam, #9fdcff) 80%, transparent) 32deg,
+    color-mix(in srgb, var(--skin-beamDeep, #3f8fe0) 55%, transparent) 72deg,
+    color-mix(in srgb, var(--skin-beamDeep, #3f8fe0) 22%, transparent) 122deg,
+    transparent 172deg,
     transparent 360deg
   );
 }
@@ -307,10 +309,10 @@
   border-radius: 50%;
   background: conic-gradient(
     from 0deg at 50% 50%,
-    rgba(245, 252, 255, 1) 0deg,
-    rgba(200, 240, 255, 0.85) 35deg,
-    rgba(140, 205, 255, 0.45) 75deg,
-    rgba(80, 150, 235, 0.16) 130deg,
+    color-mix(in srgb, var(--skin-beam, #9fdcff) 30%, white) 0deg,
+    color-mix(in srgb, var(--skin-beam, #9fdcff) 85%, transparent) 35deg,
+    color-mix(in srgb, var(--skin-beamDeep, #3f8fe0) 60%, transparent) 75deg,
+    color-mix(in srgb, var(--skin-beamDeep, #3f8fe0) 25%, transparent) 130deg,
     transparent 180deg,
     transparent 360deg
   );
