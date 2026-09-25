@@ -1,6 +1,10 @@
 /* ---------- RF Enterprise — strict LCARS command cluster ----------
-   Geometry follows the design wireframe. All sizing is proportional
-   (container query units), so the design scales without distortion. */
+   Each arrangement is a fixed pixel-perfect design traced from the mockup.
+   The drive view uniformly scales the design to fit the stage, so the
+   geometry can never distort. Three arrangements:
+   - 16:9 landscape (1600x900): 3-column + strip, the mockup itself.
+   - 5:4 (1200x960): tall left hero; rings over a wide orange block.
+   - Portrait (760x1500): full-width speed mass, rings + block, strip. */
 
 .ent {
   --ent-orange: #f9a825;
@@ -11,13 +15,14 @@
   --ent-green: #8bc34a;
   --ent-red: #ff3b30;
   --ent-ink: #141414;
-  container-type: inline-size;
-  width: min(96vw, 1100px);
-  margin: 0 auto;
+  background: #000;
+  font-family: "Oswald", "Arial Narrow", sans-serif;
+}
+
+.ent-inner {
   background: #000;
   display: flex;
   flex-direction: column;
-  gap: 1.4cqi;
   font-family: "Oswald", "Arial Narrow", sans-serif;
 }
 
@@ -34,65 +39,61 @@
   letter-spacing: 0.18em;
 }
 
-.ent-main {
-  flex: 1 1 auto;
-  min-height: 0;
-  display: flex;
-  align-items: stretch;
-  gap: 1.6cqi;
-}
+/* ================= 16:9 landscape — 1600x900 ================= */
 
-/* ----- left: orange P-mass with nested black inset ----- */
+.ent-main {
+  height: 690px;
+  display: flex;
+  gap: 24px;
+}
 
 .ent-left {
   position: relative;
-  flex: 37 1 0;
-  min-width: 0;
+  width: 590px;
+  height: 690px;
+  flex: none;
   background: var(--ent-orange);
-  aspect-ratio: 48 / 54;
-  border-radius: 0.8cqi 8cqi 3cqi 0.8cqi;
+  border-radius: 12px 170px 48px 12px;
 }
 
 .ent-inset {
   position: absolute;
   left: 0;
-  right: 17%;
-  top: 33%;
-  bottom: 10%;
+  right: 100px;
+  top: 228px;
+  bottom: 69px;
   background: #000;
-  border-radius: 0 1.7cqi 1.7cqi 0;
-  padding: 1.2cqi 2.4cqi;
+  border-radius: 0 27px 27px 0;
+  padding: 18px 36px;
   display: flex;
   flex-direction: column;
 }
 
 .ent-top {
-  flex: 4 1 0;
+  flex: 1 1 0;
   min-height: 0;
   display: flex;
   align-items: flex-end;
-  gap: 1.4cqi;
+  gap: 22px;
 }
 
 .ent-rpm-num {
-  font-size: 7cqi;
+  font-size: 112px;
   color: var(--ent-orange);
   transition: color 0.25s ease, text-shadow 0.25s ease;
 }
 
 .ent-top .ent-label {
-  font-size: 2.4cqi;
+  font-size: 38px;
   color: var(--ent-ink);
-  padding-bottom: 0.7cqi;
+  padding-bottom: 10px;
 }
 
-/* Purple rule — bleeds right over the orange column, lighter there. */
 .ent-rule {
-  flex: 0 0 auto;
-  height: 0.9cqi;
-  min-height: 6px;
+  flex: none;
+  height: 14px;
   border-radius: 99px;
-  margin: 0.8cqi -20% 0.8cqi 0;
+  margin: 12px -98px 12px 0;
   background: linear-gradient(
     to right,
     var(--ent-purple) 0%,
@@ -103,7 +104,7 @@
 }
 
 .ent-bottom {
-  flex: 6 1 0;
+  flex: 1.6 1 0;
   min-height: 0;
   display: flex;
   flex-direction: column;
@@ -113,28 +114,26 @@
 .ent-line {
   display: flex;
   align-items: baseline;
-  gap: 1.4cqi;
+  gap: 22px;
 }
 
 .ent-speed-num {
-  font-size: 15cqi;
+  font-size: 264px;
   color: var(--ent-orange);
 }
 
 .ent-line .ent-label {
-  font-size: 2.4cqi;
+  font-size: 38px;
   color: var(--ent-ink);
 }
 
-/* Chunky two-segment RPM bar — fills right-to-left. */
 .ent-bar {
   display: flex;
-  gap: 0.9cqi;
+  gap: 14px;
 }
 
 .ent-bar i {
-  height: 2.4cqi;
-  min-height: 14px;
+  height: 38px;
   border-radius: 99px;
   background: #1a2410;
   transition: background-color 0.35s ease, box-shadow 0.35s ease;
@@ -150,43 +149,38 @@
 
 .ent-bar i.on {
   background: var(--ent-green);
-  box-shadow: 0 0 1.2cqi rgba(139, 195, 74, 0.5);
+  box-shadow: 0 0 18px rgba(139, 195, 74, 0.5);
 }
-
-/* ----- center: orange LCARS block ----- */
 
 .ent-center {
-  flex: 22 1 0;
-  min-width: 0;
+  width: 350px;
+  height: 300px;
+  flex: none;
   align-self: flex-end;
-  aspect-ratio: 31 / 26.5;
   background: var(--ent-orange);
-  border-radius: 2.8cqi 0.8cqi 0.8cqi 2.8cqi;
+  border-radius: 45px 12px 12px 45px;
 }
-
-/* ----- right: purple panel, rings straddling the header ----- */
 
 .ent-right {
   position: relative;
-  flex: 31 1 0;
-  min-width: 0;
+  width: 500px;
+  height: 690px;
+  flex: none;
   background: var(--ent-purple);
-  border-radius: 0.8cqi 0.8cqi 3.5cqi 3.5cqi;
+  border-radius: 12px 12px 56px 56px;
   overflow: hidden;
-  display: flex;
-  flex-direction: column;
 }
 
 .ent-warp {
-  flex: 0 0 21%;
+  height: 145px;
   background: var(--ent-lilac);
   display: flex;
   align-items: center;
-  padding: 0 5%;
+  padding: 0 40px;
 }
 
 .ent-warp-label {
-  font-size: 2.6cqi;
+  font-size: 42px;
   color: var(--ent-ink);
 }
 
@@ -194,9 +188,9 @@
 .ent-gear {
   position: absolute;
   left: 50%;
-  top: 10%;
-  height: 66%;
-  aspect-ratio: 1 / 1;
+  top: 69px;
+  width: 455px;
+  height: 455px;
   transform: translateX(-50%);
 }
 
@@ -231,134 +225,244 @@
 }
 
 .ent-gear .ent-num {
-  font-size: 7.5cqi;
+  font-size: 120px;
   color: var(--ent-gear);
-  text-shadow: 0 0 2cqi rgba(199, 125, 255, 0.5);
+  text-shadow: 0 0 32px rgba(199, 125, 255, 0.5);
 }
 
-/* ----- bottom LCARS strip ----- */
-
 .ent-foot {
-  flex: 0 0 auto;
-  height: 9cqi;
-  min-height: 44px;
+  height: 100px;
+  flex: none;
+  margin-top: 90px;
   background: var(--ent-orange);
   border-top-left-radius: 999px;
   border-bottom-left-radius: 999px;
-  padding: 1.1cqi 0 1.1cqi 13cqi;
+  padding: 14px 0 14px 208px;
 }
 
 .ent-foot i {
   display: block;
   height: 100%;
   background: #000;
-  border-radius: 2cqi 0 0 2cqi;
+  border-radius: 32px 0 0 32px;
 }
 
-/* ---------- redline: RPM bar + RPM numerals go red ---------- */
+/* ---------- redline ---------- */
 
 .at-redline .ent-rpm-num {
   color: var(--ent-red);
-  text-shadow: 0 0 1.6cqi rgba(255, 59, 48, 0.65);
+  text-shadow: 0 0 26px rgba(255, 59, 48, 0.65);
 }
 
 .at-redline .ent-bar i.on {
   background: var(--ent-red);
-  box-shadow: 0 0 1.2cqi rgba(255, 59, 48, 0.55);
+  box-shadow: 0 0 18px rgba(255, 59, 48, 0.55);
 }
 
-/* ---------- drive view: fill the stage, contain proportions ---------- */
+/* ================= theme builder preview (16:9, width-scaled) ================= */
+
+.theme-stage.is-fullscreen .skin-body {
+  container-type: inline-size;
+}
+
+.theme-stage.is-fullscreen .ent {
+  --ent-s: calc(100cqw / 1600px);
+  width: calc(1600px * var(--ent-s));
+  height: calc(900px * var(--ent-s));
+  margin: 0 auto;
+  flex: none;
+}
+
+.theme-stage.is-fullscreen .ent-inner {
+  width: 1600px;
+  height: 900px;
+  padding-top: 20px;
+  transform: scale(var(--ent-s));
+  transform-origin: top left;
+}
+
+/* ================= drive view: uniform scale-to-fit ================= */
+
+.rev-scene .theme-stage.is-fullscreen .skin-body {
+  container-type: size;
+}
 
 .rev-scene .theme-stage.is-fullscreen .ent {
-  width: 100%;
-  height: 100%;
-  max-width: none;
+  --ent-dw: 1600;
+  --ent-dh: 900;
+  --ent-s: min(calc(100cqw / (var(--ent-dw) * 1px)), calc(100cqh / (var(--ent-dh) * 1px)));
+  width: calc(var(--ent-dw) * var(--ent-s) * 1px);
+  height: calc(var(--ent-dh) * var(--ent-s) * 1px);
   margin: 0;
+  max-width: none;
+  flex: none;
 }
 
-.rev-scene .theme-stage.is-fullscreen .ent-left {
-  flex: 0 0 min(37%, calc((100dvh - 280px) * 0.889));
+.rev-scene .theme-stage.is-fullscreen .ent-inner {
+  width: calc(var(--ent-dw) * 1px);
+  height: calc(var(--ent-dh) * 1px);
+  padding-top: 20px;
+  transform: scale(var(--ent-s));
+  transform-origin: top left;
 }
 
-.rev-scene .theme-stage.is-fullscreen .ent-center {
-  flex: 0 0 min(22%, calc((100dvh - 280px) * 0.529));
+/* ================= 5:4 — 1200x960 ================= */
+
+@media (max-aspect-ratio: 16/10) {
+  .rev-scene .theme-stage.is-fullscreen .ent {
+    --ent-dw: 1200;
+    --ent-dh: 960;
+  }
+  .rev-scene .theme-stage.is-fullscreen .ent-inner {
+    padding-top: 60px;
+  }
+  .rev-scene .theme-stage.is-fullscreen .ent-main {
+    height: auto;
+    display: grid;
+    grid-template-columns: 660px 500px;
+    grid-template-rows: 560px 210px;
+    gap: 20px;
+  }
+  .rev-scene .theme-stage.is-fullscreen .ent-left {
+    grid-row: 1 / 3;
+    width: 660px;
+    height: 790px;
+    border-radius: 12px 190px 54px 12px;
+  }
+  .rev-scene .theme-stage.is-fullscreen .ent-inset {
+    right: 112px;
+    top: 261px;
+    bottom: 79px;
+    padding: 20px 40px;
+  }
+  .rev-scene .theme-stage.is-fullscreen .ent-rpm-num {
+    font-size: 126px;
+  }
+  .rev-scene .theme-stage.is-fullscreen .ent-speed-num {
+    font-size: 296px;
+  }
+  .rev-scene .theme-stage.is-fullscreen .ent-top .ent-label,
+  .rev-scene .theme-stage.is-fullscreen .ent-line .ent-label {
+    font-size: 42px;
+  }
+  .rev-scene .theme-stage.is-fullscreen .ent-rule {
+    height: 16px;
+    margin-right: -110px;
+  }
+  .rev-scene .theme-stage.is-fullscreen .ent-bar i {
+    height: 42px;
+  }
+  .rev-scene .theme-stage.is-fullscreen .ent-right {
+    width: 500px;
+    height: 560px;
+  }
+  .rev-scene .theme-stage.is-fullscreen .ent-warp {
+    height: 118px;
+  }
+  .rev-scene .theme-stage.is-fullscreen .ent-rings,
+  .rev-scene .theme-stage.is-fullscreen .ent-gear {
+    top: 56px;
+    width: 370px;
+    height: 370px;
+  }
+  .rev-scene .theme-stage.is-fullscreen .ent-center {
+    width: 500px;
+    height: 210px;
+    align-self: stretch;
+  }
+  .rev-scene .theme-stage.is-fullscreen .ent-foot {
+    margin-top: 20px;
+    height: 90px;
+    padding-left: 156px;
+  }
 }
 
-.rev-scene .theme-stage.is-fullscreen .ent-right {
-  flex: 0 0 min(31%, calc((100dvh - 280px) * 0.745));
-}
+/* ================= portrait — 760x1500 ================= */
 
-.rev-scene .theme-stage.is-fullscreen .ent-foot {
-  height: clamp(48px, 9cqi, 84px);
-  min-height: 0;
-}
-
-.rev-scene .theme-stage.is-fullscreen .ent-main {
-  justify-content: center;
+@media (max-aspect-ratio: 1/1) {
+  .rev-scene .theme-stage.is-fullscreen .ent {
+    --ent-dw: 760;
+    --ent-dh: 1500;
+  }
+  .rev-scene .theme-stage.is-fullscreen .ent-inner {
+    padding-top: 40px;
+  }
+  .rev-scene .theme-stage.is-fullscreen .ent-main {
+    height: auto;
+    display: grid;
+    grid-template-columns: 360px 350px;
+    grid-template-rows: 832px 410px;
+    gap: 30px;
+    justify-content: center;
+  }
+  .rev-scene .theme-stage.is-fullscreen .ent-left {
+    grid-column: 1 / 3;
+    width: 740px;
+    height: 832px;
+    border-radius: 10px 200px 54px 10px;
+  }
+  .rev-scene .theme-stage.is-fullscreen .ent-inset {
+    right: 126px;
+    top: 275px;
+    bottom: 83px;
+    border-radius: 0 32px 32px 0;
+    padding: 24px 48px;
+  }
+  .rev-scene .theme-stage.is-fullscreen .ent-rpm-num {
+    font-size: 140px;
+  }
+  .rev-scene .theme-stage.is-fullscreen .ent-speed-num {
+    font-size: 300px;
+  }
+  .rev-scene .theme-stage.is-fullscreen .ent-top .ent-label,
+  .rev-scene .theme-stage.is-fullscreen .ent-line .ent-label {
+    font-size: 48px;
+  }
+  .rev-scene .theme-stage.is-fullscreen .ent-rule {
+    height: 18px;
+    margin-right: -122px;
+  }
+  .rev-scene .theme-stage.is-fullscreen .ent-bar i {
+    height: 48px;
+  }
+  .rev-scene .theme-stage.is-fullscreen .ent-right {
+    width: 360px;
+    height: 410px;
+    border-radius: 10px 10px 40px 40px;
+  }
+  .rev-scene .theme-stage.is-fullscreen .ent-warp {
+    height: 86px;
+    padding: 0 28px;
+  }
+  .rev-scene .theme-stage.is-fullscreen .ent-warp-label {
+    font-size: 30px;
+  }
+  .rev-scene .theme-stage.is-fullscreen .ent-rings,
+  .rev-scene .theme-stage.is-fullscreen .ent-gear {
+    top: 41px;
+    width: 270px;
+    height: 270px;
+  }
+  .rev-scene .theme-stage.is-fullscreen .ent-gear .ent-num {
+    font-size: 86px;
+  }
+  .rev-scene .theme-stage.is-fullscreen .ent-center {
+    width: 350px;
+    height: 410px;
+    align-self: stretch;
+  }
+  .rev-scene .theme-stage.is-fullscreen .ent-foot {
+    margin-top: 30px;
+    height: 90px;
+    padding-left: 99px;
+  }
+  .rev-scene .theme-stage.is-fullscreen .ent-foot i {
+    border-radius: 24px 0 0 24px;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .ent-rings {
     animation: none;
-  }
-}
-
-/* ---------- drive view arrangements ----------
-   16:9 landscape: 3-column + strip (base rules above).
-   5:4 (Tesla): tall left hero; rings over a wide orange block on the right.
-   Portrait phones: speed mass + rings side by side, orange bar, strip. */
-
-@media (max-aspect-ratio: 16/10) {
-  .rev-scene .theme-stage.is-fullscreen .ent-main {
-    display: grid;
-    grid-template-columns: 1.25fr 1fr;
-    grid-template-rows: minmax(0, 1fr) auto;
-    grid-template-areas:
-      "left rings"
-      "left center";
-    justify-content: normal;
-  }
-  .rev-scene .theme-stage.is-fullscreen .ent-left {
-    grid-area: left;
-    aspect-ratio: auto;
-    min-height: 0;
-  }
-  .rev-scene .theme-stage.is-fullscreen .ent-right {
-    grid-area: rings;
-    min-height: 0;
-  }
-  .rev-scene .theme-stage.is-fullscreen .ent-center {
-    grid-area: center;
-    align-self: stretch;
-    aspect-ratio: 31 / 13;
-  }
-}
-
-@media (max-aspect-ratio: 1/1) {
-  .rev-scene .theme-stage.is-fullscreen .ent {
-    justify-content: center;
-  }
-  .rev-scene .theme-stage.is-fullscreen .ent-main {
-    flex: 0 0 auto;
-    width: 100%;
-    display: grid;
-    grid-template-columns: 11fr 9fr;
-    grid-template-rows: auto auto;
-    grid-template-areas:
-      "left rings"
-      "center center";
-    justify-content: normal;
-  }
-  .rev-scene .theme-stage.is-fullscreen .ent-left {
-    grid-area: left;
-    aspect-ratio: 48 / 54;
-  }
-  .rev-scene .theme-stage.is-fullscreen .ent-right {
-    grid-area: rings;
-  }
-  .rev-scene .theme-stage.is-fullscreen .ent-center {
-    grid-area: center;
-    align-self: stretch;
-    aspect-ratio: 31 / 9;
   }
 }

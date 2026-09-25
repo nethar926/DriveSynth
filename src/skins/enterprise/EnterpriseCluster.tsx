@@ -57,6 +57,7 @@ export function EnterpriseCluster({
       role="img"
       aria-label={`Enterprise cluster: ${speedShow} ${unitShow}, ${rpmShow} RPM, gear ${gearShow}`}
     >
+      <div className="ent-inner">
       <div className="ent-main">
         <section className="ent-left" aria-label="Speed and RPM">
           <div className="ent-inset">
@@ -137,6 +138,7 @@ export function EnterpriseCluster({
       </div>
       <div className="ent-foot" aria-hidden>
         <i />
+      </div>
       </div>
     </div>
   );
