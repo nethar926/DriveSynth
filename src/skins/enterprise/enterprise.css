@@ -1,0 +1,226 @@
+/* ---------- RF Enterprise — LCARS command cluster ---------- */
+
+.ent {
+  --ent-orange: #f2a52a;
+  --ent-ember: #f5820d;
+  --ent-purple: #7d3c98;
+  --ent-lilac: #c39bd3;
+  --ent-gear: #c77dff;
+  --ent-green: #8bc34a;
+  --ent-red: #ff3b30;
+  width: min(96vw, 980px);
+  margin: 0 auto;
+  font-family: "Oswald", "Arial Narrow", sans-serif;
+}
+
+.ent-num {
+  font-family: "Oswald", "Arial Narrow", sans-serif;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+.ent-label {
+  font-family: "Oswald", "Arial Narrow", sans-serif;
+  font-weight: 500;
+  letter-spacing: 0.22em;
+}
+
+/* ---------- main row ---------- */
+
+.ent-main {
+  display: flex;
+  gap: clamp(12px, 2.4vw, 24px);
+  align-items: stretch;
+}
+
+/* ----- left: orange LCARS panel ----- */
+
+.ent-left {
+  flex: 1 1 52%;
+  background: var(--ent-orange);
+  border-radius: 26px 110px 110px 26px;
+  padding: clamp(14px, 2.6vw, 26px) clamp(16px, 3vw, 30px) clamp(14px, 2.6vw, 26px) clamp(14px, 2.6vw, 26px);
+  min-width: 0;
+}
+
+.ent-inset {
+  background: #050505;
+  border-radius: 14px 84px 84px 14px;
+  padding: clamp(14px, 2.6vw, 24px) clamp(18px, 3.4vw, 34px);
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: clamp(6px, 1.2vw, 10px);
+}
+
+.ent-line {
+  display: flex;
+  align-items: baseline;
+  gap: clamp(10px, 2vw, 18px);
+}
+
+.ent-rpm-num {
+  font-size: clamp(44px, 9vw, 76px);
+  color: var(--ent-ember);
+  transition: color 0.25s ease, text-shadow 0.25s ease;
+}
+
+.ent-speed-num {
+  font-size: clamp(72px, 15vw, 128px);
+  color: var(--ent-ember);
+}
+
+.ent-line .ent-label {
+  font-size: clamp(13px, 2.6vw, 19px);
+  color: #a86a1c;
+}
+
+.ent-rule {
+  height: 6px;
+  border-radius: 3px;
+  background: var(--ent-purple);
+}
+
+/* RPM bar — segmented, fills right-to-left, eases as it fills. */
+.ent-bar {
+  display: flex;
+  gap: 6px;
+  margin-top: clamp(6px, 1.4vw, 12px);
+}
+
+.ent-bar i {
+  flex: 1 1 0;
+  height: clamp(16px, 3.4vw, 24px);
+  border-radius: 999px;
+  background: #18220f;
+  transition: background-color 0.35s ease, box-shadow 0.35s ease;
+}
+
+.ent-bar i.on {
+  background: var(--ent-green);
+  box-shadow: 0 0 12px rgba(139, 195, 74, 0.45);
+}
+
+/* ----- right: purple LCARS panel ----- */
+
+.ent-right {
+  flex: 1 1 48%;
+  background: var(--ent-purple);
+  border-radius: 26px 26px 90px 90px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.ent-warp {
+  background: var(--ent-lilac);
+  padding: clamp(8px, 1.6vw, 12px) clamp(16px, 3vw, 26px);
+}
+
+.ent-warp-label {
+  font-size: clamp(15px, 3vw, 22px);
+  color: #141414;
+}
+
+.ent-rings {
+  position: relative;
+  width: min(68vw, 330px);
+  aspect-ratio: 1 / 1;
+  margin: auto;
+}
+
+.ent-ring {
+  position: absolute;
+  inset: 0;
+  animation: ent-spin 8s linear infinite;
+  will-change: transform;
+}
+
+.ent-ring--rev {
+  animation-direction: reverse;
+}
+
+.ent-ring svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+@keyframes ent-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.ent-gear {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+}
+
+.ent-gear .ent-num {
+  font-size: clamp(52px, 11vw, 88px);
+  color: var(--ent-gear);
+  text-shadow: 0 0 22px rgba(199, 125, 255, 0.45);
+}
+
+/* ----- bottom LCARS strip ----- */
+
+.ent-foot {
+  margin-top: clamp(12px, 2.4vw, 20px);
+  background: var(--ent-orange);
+  border-radius: 60px 18px 18px 60px;
+  padding: 10px 12px 10px 60px;
+}
+
+.ent-foot i {
+  display: block;
+  height: clamp(30px, 6vw, 46px);
+  background: #050505;
+  border-radius: 40px 10px 10px 40px;
+}
+
+/* ---------- redline: RPM bar + RPM numerals go red ---------- */
+
+.at-redline .ent-rpm-num {
+  color: var(--ent-red);
+  text-shadow:
+    0 0 18px rgba(255, 59, 48, 0.65),
+    0 0 46px rgba(255, 59, 48, 0.3);
+}
+
+.at-redline .ent-bar i.on {
+  background: var(--ent-red);
+  box-shadow: 0 0 12px rgba(255, 59, 48, 0.5);
+}
+
+/* ---------- compact (portrait phones) ---------- */
+
+@media (max-width: 640px) {
+  .ent-main {
+    flex-direction: column;
+  }
+
+  .ent-left {
+    border-radius: 22px 60px 60px 22px;
+  }
+
+  .ent-inset {
+    border-radius: 12px 46px 46px 12px;
+  }
+
+  .ent-rings {
+    width: min(78vw, 330px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ent-ring {
+    animation: none;
+  }
+}

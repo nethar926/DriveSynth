@@ -5,6 +5,8 @@ import {TimeCircuits} from './TimeCircuits';
 import {GalacticEnforcer} from './GalacticEnforcer';
 import {AerospaceF14Overlay} from '../skins/aerospace-f14/AerospaceF14Overlay';
 import '../skins/aerospace-f14/aerospace-f14.css';
+import {EnterpriseCluster} from '../skins/enterprise/EnterpriseCluster';
+import '../skins/enterprise/enterprise.css';
 import {useMemo} from 'react';
 import {instrumentDefaults} from './ThemeColors';
 import type {CSSProperties} from 'react';
@@ -53,6 +55,7 @@ export function ThemeStage({maxSpeedMps,fonts,widgets=defaultCluster,theme,state
    {theme.layout==='driver'&&<><div className="driver-cluster"><Rail value={rev} label="RPM"/><div className="driver-horizon"><div className="driver-lanes"/><svg viewBox="0 0 80 130" aria-hidden="true"><path d="M23 8 Q40 0 57 8 L66 103 Q65 120 40 122 Q15 120 14 103 Z"/><path d="M24 34 Q40 26 56 34 L60 73 L20 73 Z"/></svg></div>{hero}</div>{telemetry}<Rail value={state.load} label="POWER"/></>}
    {theme.layout==='scanner'&&<><div className="skin-scanner"><i/></div><div className="scanner-cluster"><div className="scanner-bank"><Rail value={rev} label="ENGINE" segmented/><Rail value={state.load} label="LOAD" segmented/></div>{hero}</div>{telemetry}<div className="skin-grid-readout"><span>SYSTEM ACTIVE</span><span>{state.shifting?'SHIFTING':'MONITORING'}</span></div></>}
    {theme.layout==='time'&&<TimeCircuits speedMps={state.speedMps} running={running} motion={motion} onJump={onTimeJump}/>}
+   {theme.layout==='enterprise'&&<EnterpriseCluster rpmNorm={rev} speedNorm={speedPct} rpm={rpm} speed={speed} unit={unit} gear={state.gear}/>}
    {theme.id==='galactic-enforcer'&&<GalacticEnforcer lockStage={lockStage} state={state} redline={redline} unit={unit} demo={demo} running={running}/>}
    {theme.layout==='jet'&&<><div className="jet-instruments"><div className="jet-tape"><span>ENGINE</span><b>{Math.round(rev*100)}%</b><Rail value={rev} label="RPM" segmented/></div><div className="jet-center"><div className="jet-reticle" aria-hidden="true">{Array.from({length:5},(_,i)=><i key={i}/>)}</div>{hero}</div><div className="jet-tape"><span>LOAD</span><b>{Math.round(state.load*100)}%</b>{radar}</div></div>{telemetry}<div className="skin-grid-readout"><span>SIMULATED COCKPIT</span><span>{state.shifting?'SHIFT':'ENGINE MONITOR'}</span></div></>}
    {theme.layout==='space'&&theme.id!=='galactic-enforcer'&&<><div className="space-viewport" aria-hidden="true"><i/><i/><i/><i/><div className="space-stars"/></div><div className="space-instruments"><div className="reactor-meter"><Rail value={rev} label="REACTOR" segmented/></div>{hero}<div className="reactor-meter"><Rail value={state.load} label="LOAD" segmented/></div></div>{telemetry}<div className="space-lock" aria-hidden="true"><i/><span className="skin-descriptor">{state.shifting?'SHIFT':'ENGINE ONLINE'}</span><i/></div></>}

@@ -31,3 +31,17 @@
  * .aurebesh remains the shared FT Aurebesh utility for brand / overlays. */
 
 @font-face {font-family:"Engli-Besh";src:url("../assets/fonts/Engli-Besh.ttf") format("truetype");font-weight:400;font-style:normal;font-display:swap;}
+@font-face {
+  font-family: "Oswald";
+  src: url("../assets/fonts/Oswald-Variable.woff2") format("woff2");
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Oswald";
+  src: url("../assets/fonts/Oswald-Variable.woff2") format("woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
