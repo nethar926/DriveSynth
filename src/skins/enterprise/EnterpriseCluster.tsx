@@ -16,7 +16,7 @@ export interface EnterpriseClusterProps {
 const clamp01 = (v: number) => Math.max(0, Math.min(1, Number.isFinite(v) ? v : 0));
 
 /** Chunky segments in the RPM bar — fills from the right, per the mockup. */
-const SEGS = 4;
+const SEGS = 2;
 
 /**
  * Ring spin: always turning, faster with value.
@@ -45,7 +45,7 @@ export function EnterpriseCluster({
   const rpmPct = clamp01(rpmNorm);
   const speedPct = clamp01(speedNorm);
 
-  const rpmShow = rpm != null ? Math.round(rpm).toLocaleString() : `${Math.round(rpmPct * 100)}%`;
+  const rpmShow = rpm != null ? String(Math.round(rpm)) : `${Math.round(rpmPct * 100)}%`;
   const speedShow = speed != null ? Math.round(speed) : Math.round(speedPct * (unit === 'kph' ? 260 : 160));
   const gearShow = gear === 0 ? 'N' : (gear ?? '–');
   const unitShow = unit === 'kph' ? 'KPH' : 'MPH';

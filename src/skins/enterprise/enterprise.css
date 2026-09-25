@@ -1,18 +1,19 @@
 /* ---------- RF Enterprise — strict LCARS command cluster ---------- */
 
 .ent {
-  --ent-orange: #f5a623;
-  --ent-ember: #f5820d;
-  --ent-purple: #7d3c98;
-  --ent-lilac: #c39bd3;
+  --ent-orange: #f9a825;
+  --ent-purple: #7b2f9e;
+  --ent-lilac: #c78fd4;
+  --ent-rule-light: #d9a9e6;
   --ent-gear: #c77dff;
   --ent-green: #8bc34a;
   --ent-red: #ff3b30;
-  width: min(96vw, 1100px);
+  --ent-ink: #141414;
+  width: min(96vw, 1200px);
   margin: 0 auto;
   background: #000;
-  border-radius: clamp(18px, 3vw, 30px);
-  padding: clamp(14px, 2.6vw, 28px);
+  border-radius: clamp(16px, 2.6vw, 28px);
+  padding: clamp(12px, 2vw, 22px);
   font-family: "Oswald", "Arial Narrow", sans-serif;
 }
 
@@ -26,86 +27,98 @@
 .ent-label {
   font-family: "Oswald", "Arial Narrow", sans-serif;
   font-weight: 500;
-  letter-spacing: 0.22em;
+  letter-spacing: 0.18em;
 }
 
 /* ---------- main row ---------- */
 
 .ent-main {
   display: flex;
-  gap: clamp(12px, 2.4vw, 26px);
+  gap: clamp(10px, 2vw, 24px);
   align-items: stretch;
 }
 
 /* ----- left: orange LCARS mass ----- */
 
 .ent-left {
-  flex: 1 1 54%;
-  background: var(--ent-orange);
-  border-radius: 22px 150px 150px 22px;
-  /* Tall orange header band, orange column right, orange band bottom. */
-  padding: clamp(64px, 11vw, 118px) clamp(22px, 4vw, 38px) clamp(22px, 4vw, 38px) clamp(16px, 3vw, 26px);
+  flex: 0 1 44%;
   min-width: 0;
+  background: var(--ent-orange);
+  /* Huge quarter-circle top-right, modest bottom-right — per the mockup. */
+  border-radius: 14px 190px 56px 14px;
+  /* Tall orange header band, orange column on the right, orange band at the bottom. */
+  padding: clamp(64px, 10.5vw, 158px) clamp(20px, 3.4vw, 36px) clamp(20px, 3.4vw, 36px) clamp(10px, 1.8vw, 18px);
 }
 
 .ent-inset {
   background: #000;
-  border-radius: 12px 112px 112px 12px;
-  padding: clamp(16px, 3vw, 28px) clamp(22px, 4vw, 44px);
+  /* Small notched corner where the inset meets the header. */
+  border-radius: 0 26px 26px 0;
+  padding: clamp(12px, 2.2vw, 24px) clamp(18px, 3.2vw, 38px);
   display: flex;
   flex-direction: column;
   justify-content: center;
-  gap: clamp(8px, 1.6vw, 14px);
+  gap: clamp(6px, 1.2vw, 12px);
 }
 
 .ent-line {
   display: flex;
   align-items: baseline;
-  gap: clamp(12px, 2.2vw, 20px);
+  gap: clamp(10px, 2vw, 18px);
 }
 
 .ent-rpm-num {
-  font-size: clamp(48px, 9.5vw, 84px);
-  color: var(--ent-ember);
+  font-size: clamp(54px, 10vw, 100px);
+  color: var(--ent-orange);
   transition: color 0.25s ease, text-shadow 0.25s ease;
 }
 
 .ent-speed-num {
-  font-size: clamp(84px, 16vw, 148px);
-  color: var(--ent-ember);
+  font-size: clamp(110px, 20vw, 215px);
+  color: var(--ent-orange);
 }
 
 .ent-line .ent-label {
-  font-size: clamp(14px, 2.8vw, 21px);
-  color: #a86a1c;
+  font-size: clamp(15px, 3vw, 27px);
+  color: var(--ent-ink);
 }
 
-/* Purple rule — runs lighter where it crosses the orange. */
+/* Purple rule — runs lighter where it crosses the orange column. */
 .ent-rule {
   height: 8px;
   border-radius: 4px;
+  /* Bleed right into the orange column. */
+  margin-right: calc(clamp(20px, 3.4vw, 36px) * -1);
   background: linear-gradient(
     to right,
     var(--ent-purple) 0%,
-    var(--ent-purple) 76%,
-    var(--ent-lilac) 76%,
-    var(--ent-lilac) 100%
+    var(--ent-purple) 84%,
+    var(--ent-rule-light) 84%,
+    var(--ent-rule-light) 100%
   );
 }
 
-/* Chunky RPM bar — fills right-to-left, eases as it fills. */
+/* Chunky two-segment RPM bar — fills right-to-left, eases as it fills. */
 .ent-bar {
   display: flex;
-  gap: 10px;
-  margin-top: clamp(8px, 1.8vw, 16px);
+  gap: clamp(8px, 1.4vw, 14px);
+  margin-top: clamp(8px, 1.6vw, 14px);
 }
 
 .ent-bar i {
-  flex: 1 1 0;
-  height: clamp(22px, 4.6vw, 34px);
+  height: clamp(24px, 4.8vw, 36px);
   border-radius: 999px;
-  background: #18220f;
+  background: #1a2410;
   transition: background-color 0.35s ease, box-shadow 0.35s ease;
+}
+
+/* Long segment left, short segment right — per the mockup. */
+.ent-bar i:first-child {
+  flex: 7 1 0;
+}
+
+.ent-bar i:last-child {
+  flex: 2 1 0;
 }
 
 .ent-bar i.on {
@@ -116,28 +129,28 @@
 /* ----- right: purple LCARS panel ----- */
 
 .ent-right {
-  flex: 1 1 46%;
+  flex: 0 1 38%;
+  min-width: 0;
   background: var(--ent-purple);
-  border-radius: 22px 22px 120px 120px;
+  border-radius: 14px 14px 64px 64px;
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  min-width: 0;
 }
 
 .ent-warp {
   background: var(--ent-lilac);
-  padding: clamp(10px, 2vw, 16px) clamp(18px, 3.4vw, 30px);
+  padding: clamp(22px, 4.4vw, 44px) clamp(18px, 3.2vw, 30px);
 }
 
 .ent-warp-label {
-  font-size: clamp(16px, 3.2vw, 24px);
-  color: #141414;
+  font-size: clamp(17px, 3.4vw, 30px);
+  color: var(--ent-ink);
 }
 
 .ent-rings {
   position: relative;
-  width: min(66vw, 360px);
+  width: min(58vw, 340px);
   aspect-ratio: 1 / 1;
   margin: auto;
   padding: clamp(8px, 1.6vw, 14px);
@@ -175,7 +188,7 @@
 }
 
 .ent-gear .ent-num {
-  font-size: clamp(56px, 12vw, 96px);
+  font-size: clamp(54px, 10vw, 100px);
   color: var(--ent-gear);
   text-shadow: 0 0 24px rgba(199, 125, 255, 0.5);
 }
@@ -183,17 +196,20 @@
 /* ----- bottom LCARS strip ----- */
 
 .ent-foot {
-  margin-top: clamp(14px, 2.6vw, 24px);
+  margin-top: clamp(12px, 2.2vw, 22px);
   background: var(--ent-orange);
-  border-radius: 80px 20px 20px 80px;
-  padding: 12px 16px 12px 80px;
+  /* Big rounded left cap — per the mockup. */
+  border-top-left-radius: 999px;
+  border-bottom-left-radius: 999px;
+  padding: 14px 0 14px clamp(90px, 14vw, 150px);
 }
 
 .ent-foot i {
   display: block;
-  height: clamp(34px, 6.5vw, 52px);
+  height: clamp(36px, 6.8vw, 54px);
   background: #000;
-  border-radius: 60px 12px 12px 60px;
+  border-top-left-radius: 999px;
+  border-bottom-left-radius: 999px;
 }
 
 /* ---------- redline: RPM bar + RPM numerals go red ---------- */
@@ -218,16 +234,20 @@
   }
 
   .ent-left {
-    border-radius: 18px 90px 90px 18px;
-    padding: clamp(48px, 12vw, 72px) 18px 18px 14px;
+    border-radius: 12px 110px 40px 12px;
+    padding: clamp(48px, 13vw, 76px) 16px 16px 10px;
   }
 
   .ent-inset {
-    border-radius: 10px 68px 68px 10px;
+    border-radius: 0 20px 20px 0;
+  }
+
+  .ent-rule {
+    margin-right: -16px;
   }
 
   .ent-rings {
-    width: min(80vw, 360px);
+    width: min(78vw, 340px);
   }
 }
 
