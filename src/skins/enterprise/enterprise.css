@@ -1,19 +1,23 @@
-/* ---------- RF Enterprise — strict LCARS command cluster ---------- */
+/* ---------- RF Enterprise — strict LCARS command cluster ----------
+   Geometry follows the design wireframe. All sizing is proportional
+   (container query units), so the design scales without distortion. */
 
 .ent {
   --ent-orange: #f9a825;
   --ent-purple: #7b2f9e;
-  --ent-lilac: #c78fd4;
+  --ent-lilac: #c58fd0;
   --ent-rule-light: #d9a9e6;
   --ent-gear: #c77dff;
   --ent-green: #8bc34a;
   --ent-red: #ff3b30;
   --ent-ink: #141414;
-  width: min(96vw, 1200px);
+  container-type: inline-size;
+  width: min(96vw, 1100px);
   margin: 0 auto;
   background: #000;
-  border-radius: clamp(16px, 2.6vw, 28px);
-  padding: clamp(12px, 2vw, 22px);
+  display: flex;
+  flex-direction: column;
+  gap: 1.4cqi;
   font-family: "Oswald", "Arial Narrow", sans-serif;
 }
 
@@ -30,89 +34,112 @@
   letter-spacing: 0.18em;
 }
 
-/* ---------- main row ---------- */
-
 .ent-main {
+  flex: 1 1 auto;
+  min-height: 0;
   display: flex;
-  gap: clamp(10px, 2vw, 24px);
   align-items: stretch;
+  gap: 1.6cqi;
 }
 
-/* ----- left: orange LCARS mass ----- */
+/* ----- left: orange P-mass with nested black inset ----- */
 
 .ent-left {
-  flex: 0 1 44%;
+  position: relative;
+  flex: 37 1 0;
   min-width: 0;
   background: var(--ent-orange);
-  /* Huge quarter-circle top-right, modest bottom-right — per the mockup. */
-  border-radius: 14px 190px 56px 14px;
-  /* Tall orange header band, orange column on the right, orange band at the bottom. */
-  padding: clamp(64px, 10.5vw, 158px) clamp(20px, 3.4vw, 36px) clamp(20px, 3.4vw, 36px) clamp(10px, 1.8vw, 18px);
+  aspect-ratio: 48 / 54;
+  border-radius: 0.8cqi 8cqi 3cqi 0.8cqi;
 }
 
 .ent-inset {
+  position: absolute;
+  left: 0;
+  right: 17%;
+  top: 33%;
+  bottom: 10%;
   background: #000;
-  /* Small notched corner where the inset meets the header. */
-  border-radius: 0 26px 26px 0;
-  padding: clamp(12px, 2.2vw, 24px) clamp(18px, 3.2vw, 38px);
+  border-radius: 0 1.7cqi 1.7cqi 0;
+  padding: 1.2cqi 2.4cqi;
   display: flex;
   flex-direction: column;
-  justify-content: center;
-  gap: clamp(6px, 1.2vw, 12px);
+}
+
+.ent-top {
+  flex: 4 1 0;
+  min-height: 0;
+  display: flex;
+  align-items: flex-end;
+  gap: 1.4cqi;
+}
+
+.ent-rpm-num {
+  font-size: 7cqi;
+  color: var(--ent-orange);
+  transition: color 0.25s ease, text-shadow 0.25s ease;
+}
+
+.ent-top .ent-label {
+  font-size: 2.4cqi;
+  color: var(--ent-ink);
+  padding-bottom: 0.7cqi;
+}
+
+/* Purple rule — bleeds right over the orange column, lighter there. */
+.ent-rule {
+  flex: 0 0 auto;
+  height: 0.9cqi;
+  min-height: 6px;
+  border-radius: 99px;
+  margin: 0.8cqi -20% 0.8cqi 0;
+  background: linear-gradient(
+    to right,
+    var(--ent-purple) 0%,
+    var(--ent-purple) 83%,
+    var(--ent-rule-light) 83%,
+    var(--ent-rule-light) 100%
+  );
+}
+
+.ent-bottom {
+  flex: 6 1 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-evenly;
 }
 
 .ent-line {
   display: flex;
   align-items: baseline;
-  gap: clamp(10px, 2vw, 18px);
-}
-
-.ent-rpm-num {
-  font-size: clamp(54px, 10vw, 100px);
-  color: var(--ent-orange);
-  transition: color 0.25s ease, text-shadow 0.25s ease;
+  gap: 1.4cqi;
 }
 
 .ent-speed-num {
-  font-size: clamp(110px, 20vw, 215px);
+  font-size: 15cqi;
   color: var(--ent-orange);
 }
 
 .ent-line .ent-label {
-  font-size: clamp(15px, 3vw, 27px);
+  font-size: 2.4cqi;
   color: var(--ent-ink);
 }
 
-/* Purple rule — runs lighter where it crosses the orange column. */
-.ent-rule {
-  height: 8px;
-  border-radius: 4px;
-  /* Bleed right into the orange column. */
-  margin-right: calc(clamp(20px, 3.4vw, 36px) * -1);
-  background: linear-gradient(
-    to right,
-    var(--ent-purple) 0%,
-    var(--ent-purple) 84%,
-    var(--ent-rule-light) 84%,
-    var(--ent-rule-light) 100%
-  );
-}
-
-/* Chunky two-segment RPM bar — fills right-to-left, eases as it fills. */
+/* Chunky two-segment RPM bar — fills right-to-left. */
 .ent-bar {
   display: flex;
-  gap: clamp(8px, 1.4vw, 14px);
-  margin-top: clamp(8px, 1.6vw, 14px);
+  gap: 0.9cqi;
 }
 
 .ent-bar i {
-  height: clamp(24px, 4.8vw, 36px);
-  border-radius: 999px;
+  height: 2.4cqi;
+  min-height: 14px;
+  border-radius: 99px;
   background: #1a2410;
   transition: background-color 0.35s ease, box-shadow 0.35s ease;
 }
 
-/* Long segment left, short segment right — per the mockup. */
 .ent-bar i:first-child {
   flex: 7 1 0;
 }
@@ -123,136 +150,155 @@
 
 .ent-bar i.on {
   background: var(--ent-green);
-  box-shadow: 0 0 14px rgba(139, 195, 74, 0.5);
+  box-shadow: 0 0 1.2cqi rgba(139, 195, 74, 0.5);
 }
 
-/* ----- right: purple LCARS panel ----- */
+/* ----- center: orange LCARS block ----- */
+
+.ent-center {
+  flex: 22 1 0;
+  min-width: 0;
+  align-self: flex-end;
+  aspect-ratio: 31 / 26.5;
+  background: var(--ent-orange);
+  border-radius: 2.8cqi 0.8cqi 0.8cqi 2.8cqi;
+}
+
+/* ----- right: purple panel, rings straddling the header ----- */
 
 .ent-right {
-  flex: 0 1 38%;
+  position: relative;
+  flex: 31 1 0;
   min-width: 0;
   background: var(--ent-purple);
-  border-radius: 14px 14px 64px 64px;
+  border-radius: 0.8cqi 0.8cqi 3.5cqi 3.5cqi;
   overflow: hidden;
   display: flex;
   flex-direction: column;
 }
 
 .ent-warp {
+  flex: 0 0 21%;
   background: var(--ent-lilac);
-  padding: clamp(22px, 4.4vw, 44px) clamp(18px, 3.2vw, 30px);
+  display: flex;
+  align-items: center;
+  padding: 0 5%;
 }
 
 .ent-warp-label {
-  font-size: clamp(17px, 3.4vw, 30px);
+  font-size: 2.6cqi;
   color: var(--ent-ink);
 }
 
-.ent-rings {
-  position: relative;
-  width: min(58vw, 340px);
+.ent-rings,
+.ent-gear {
+  position: absolute;
+  left: 50%;
+  top: 10%;
+  width: 88%;
   aspect-ratio: 1 / 1;
-  margin: auto;
-  padding: clamp(8px, 1.6vw, 14px);
+  transform: translateX(-50%);
 }
 
-.ent-ring {
-  position: absolute;
-  inset: 0;
+.ent-rings {
   animation: ent-spin 8s linear infinite;
   will-change: transform;
 }
 
-.ent-ring--rev {
+.ent-rings--inner {
   animation-direction: reverse;
 }
 
-.ent-ring svg {
+.ent-rings svg {
   width: 100%;
   height: 100%;
   display: block;
 }
 
 @keyframes ent-spin {
+  from {
+    transform: translateX(-50%) rotate(0deg);
+  }
   to {
-    transform: rotate(360deg);
+    transform: translateX(-50%) rotate(360deg);
   }
 }
 
 .ent-gear {
-  position: absolute;
-  inset: 0;
   display: grid;
   place-items: center;
   pointer-events: none;
 }
 
 .ent-gear .ent-num {
-  font-size: clamp(54px, 10vw, 100px);
+  font-size: 7.5cqi;
   color: var(--ent-gear);
-  text-shadow: 0 0 24px rgba(199, 125, 255, 0.5);
+  text-shadow: 0 0 2cqi rgba(199, 125, 255, 0.5);
 }
 
 /* ----- bottom LCARS strip ----- */
 
 .ent-foot {
-  margin-top: clamp(12px, 2.2vw, 22px);
+  flex: 0 0 auto;
+  height: 9cqi;
+  min-height: 44px;
   background: var(--ent-orange);
-  /* Big rounded left cap — per the mockup. */
   border-top-left-radius: 999px;
   border-bottom-left-radius: 999px;
-  padding: 14px 0 14px clamp(90px, 14vw, 150px);
+  padding: 1.1cqi 0 1.1cqi 13cqi;
 }
 
 .ent-foot i {
   display: block;
-  height: clamp(36px, 6.8vw, 54px);
+  height: 100%;
   background: #000;
-  border-top-left-radius: 999px;
-  border-bottom-left-radius: 999px;
+  border-radius: 2cqi 0 0 2cqi;
 }
 
 /* ---------- redline: RPM bar + RPM numerals go red ---------- */
 
 .at-redline .ent-rpm-num {
   color: var(--ent-red);
-  text-shadow:
-    0 0 18px rgba(255, 59, 48, 0.65),
-    0 0 46px rgba(255, 59, 48, 0.3);
+  text-shadow: 0 0 1.6cqi rgba(255, 59, 48, 0.65);
 }
 
 .at-redline .ent-bar i.on {
   background: var(--ent-red);
-  box-shadow: 0 0 14px rgba(255, 59, 48, 0.55);
+  box-shadow: 0 0 1.2cqi rgba(255, 59, 48, 0.55);
 }
 
-/* ---------- compact (portrait phones): stack, keep the LCARS masses ---------- */
+/* ---------- drive view: fill the stage, contain proportions ---------- */
 
-@media (max-width: 640px) {
-  .ent-main {
-    flex-direction: column;
-  }
+.rev-scene .theme-stage.is-fullscreen .ent {
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  margin: 0;
+}
 
-  .ent-left {
-    border-radius: 12px 110px 40px 12px;
-    padding: clamp(48px, 13vw, 76px) 16px 16px 10px;
-  }
+.rev-scene .theme-stage.is-fullscreen .ent-left {
+  flex: 0 0 min(37%, calc((100dvh - 280px) * 0.889));
+}
 
-  .ent-inset {
-    border-radius: 0 20px 20px 0;
-  }
+.rev-scene .theme-stage.is-fullscreen .ent-center {
+  flex: 0 0 min(22%, calc((100dvh - 280px) * 0.529));
+}
 
-  .ent-rule {
-    margin-right: -16px;
-  }
+.rev-scene .theme-stage.is-fullscreen .ent-right {
+  flex: 0 0 min(31%, calc((100dvh - 280px) * 0.745));
+}
 
-  .ent-rings {
-    width: min(78vw, 340px);
-  }
+.rev-scene .theme-stage.is-fullscreen .ent-foot {
+  height: clamp(48px, 9cqi, 84px);
+  min-height: 0;
+}
+
+.rev-scene .theme-stage.is-fullscreen .ent-main {
+  justify-content: center;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .ent-ring {
+  .ent-rings {
     animation: none;
   }
 }

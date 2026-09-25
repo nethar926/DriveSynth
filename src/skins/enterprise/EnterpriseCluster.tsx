@@ -27,12 +27,12 @@ const spinDur = (pct: number) => `${(2 / (0.25 + clamp01(pct))).toFixed(2)}s`;
 
 /**
  * RF Enterprise — strict LCARS command cluster, reflowable.
- * Black canvas. Left: orange LCARS mass with a tall header, black inset,
- * Oswald Black numerals (RPM over MPH), a purple rule that runs lighter over
- * the orange, and a chunky green RPM bar filling right-to-left (red at
- * redline). Right: purple LCARS panel with a WARP header, twin warp rings
- * (outer spins with speed, inner with RPM) and the gear in purple at the core.
- * Bottom: orange LCARS strip with a black inset.
+ * Geometry follows the design wireframe: left orange P-mass with a nested
+ * black inset (RPM over a purple rule over huge MPH over a chunky green
+ * right-to-left RPM bar), a center orange LCARS block, a right purple panel
+ * whose warp rings straddle the WARP header boundary, and a bottom orange
+ * strip with a black inset. All sizing is proportional (container units) so
+ * the design scales without distortion.
  */
 export function EnterpriseCluster({
   rpmNorm,
@@ -49,7 +49,7 @@ export function EnterpriseCluster({
   const speedShow = speed != null ? Math.round(speed) : Math.round(speedPct * (unit === 'kph' ? 260 : 160));
   const gearShow = gear === 0 ? 'N' : (gear ?? '–');
   const unitShow = unit === 'kph' ? 'KPH' : 'MPH';
-  const filled = Math.round(rpmPct * SEGS);
+  const filled = Math.ceil(rpmPct * SEGS);
 
   return (
     <div
@@ -60,77 +60,78 @@ export function EnterpriseCluster({
       <div className="ent-main">
         <section className="ent-left" aria-label="Speed and RPM">
           <div className="ent-inset">
-            <div className="ent-line">
+            <div className="ent-top">
               <strong className="ent-num ent-rpm-num">{rpmShow}</strong>
               <span className="ent-label">RPM</span>
             </div>
             <div className="ent-rule" aria-hidden />
-            <div className="ent-line">
-              <strong className="ent-num ent-speed-num">{speedShow}</strong>
-              <span className="ent-label">{unitShow}</span>
-            </div>
-            <div className="ent-bar" role="img" aria-label={`RPM ${Math.round(rpmPct * 100)} percent`}>
-              {Array.from({ length: SEGS }, (_, i) => (
-                <i key={i} className={i >= SEGS - filled ? 'on' : ''} aria-hidden />
-              ))}
+            <div className="ent-bottom">
+              <div className="ent-line">
+                <strong className="ent-num ent-speed-num">{speedShow}</strong>
+                <span className="ent-label">{unitShow}</span>
+              </div>
+              <div className="ent-bar" role="img" aria-label={`RPM ${Math.round(rpmPct * 100)} percent`}>
+                <i className={filled >= 2 ? 'on' : ''} aria-hidden />
+                <i className={filled >= 1 ? 'on' : ''} aria-hidden />
+              </div>
             </div>
           </div>
         </section>
+
+        <div className="ent-center" aria-hidden />
 
         <section className="ent-right" aria-label="Warp drive">
           <div className="ent-warp">
             <span className="ent-label ent-warp-label">WARP</span>
           </div>
-          <div className="ent-rings">
-            <div
-              className="ent-ring"
-              style={{ animationDuration: spinDur(speedPct) } as CSSProperties}
-              aria-hidden
-            >
-              <svg viewBox="0 0 200 200">
-                <circle
-                  cx="100"
-                  cy="100"
-                  r="84"
-                  fill="none"
-                  stroke="#8e44ad"
-                  strokeWidth="20"
-                  strokeLinecap="round"
-                  strokeDasharray="200 328"
-                />
-              </svg>
-            </div>
-            <div
-              className="ent-ring ent-ring--rev"
-              style={{ animationDuration: spinDur(rpmPct) } as CSSProperties}
-              aria-hidden
-            >
-              <svg viewBox="0 0 200 200">
-                <circle
-                  cx="100"
-                  cy="100"
-                  r="58"
-                  fill="none"
-                  stroke="#f5820d"
-                  strokeWidth="15"
-                  strokeLinecap="round"
-                  strokeDasharray="140 55 100 70"
-                />
-                <circle
-                  cx="100"
-                  cy="100"
-                  r="40"
-                  fill="none"
-                  stroke="#c39bd3"
-                  strokeWidth="9"
-                  strokeLinecap="round"
-                  strokeDasharray="95 157"
-                />
-              </svg>
-            </div>
-            <div className="ent-gear">
-              <span className="ent-num">{gearShow}</span>
-            </div>
+          <div
+            className="ent-rings"
+            style={{ animationDuration: spinDur(speedPct) } as CSSProperties}
+            aria-hidden
+          >
+            <svg viewBox="0 0 200 200">
+              <circle
+                cx="100"
+                cy="100"
+                r="84"
+                fill="none"
+                stroke="#7b2f9e"
+                strokeWidth="22"
+                strokeLinecap="round"
+                strokeDasharray="200 328"
+              />
+            </svg>
+          </div>
+          <div
+            className="ent-rings ent-rings--inner"
+            style={{ animationDuration: spinDur(rpmPct) } as CSSProperties}
+            aria-hidden
+          >
+            <svg viewBox="0 0 200 200">
+              <circle
+                cx="100"
+                cy="100"
+                r="60"
+                fill="none"
+                stroke="#f9a825"
+                strokeWidth="16"
+                strokeLinecap="round"
+                strokeDasharray="150 60 110 57"
+              />
+              <circle
+                cx="100"
+                cy="100"
+                r="42"
+                fill="none"
+                stroke="#c58fd0"
+                strokeWidth="10"
+                strokeLinecap="round"
+                strokeDasharray="100 164"
+              />
+            </svg>
+          </div>
+          <div className="ent-gear" aria-hidden>
+            <span className="ent-num">{gearShow}</span>
           </div>
         </section>
       </div>
