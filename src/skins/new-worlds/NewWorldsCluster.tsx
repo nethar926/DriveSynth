@@ -1,6 +1,6 @@
 import type { CSSProperties } from 'react';
 
-export interface EnterpriseClusterProps {
+export interface NewWorldsClusterProps {
   /** 0..1 */
   rpmNorm: number;
   /** 0..1 */
@@ -15,8 +15,8 @@ export interface EnterpriseClusterProps {
 
 const clamp01 = (v: number) => Math.max(0, Math.min(1, Number.isFinite(v) ? v : 0));
 
-/** Chunky segments in the RPM bar — fills from the right, per the mockup. */
-const SEGS = 4;
+/** Segments in the RPM bar — fills from the right. */
+const SEGS = 12;
 
 /**
  * Ring spin: always turning, faster with value.
@@ -26,22 +26,20 @@ const SEGS = 4;
 const spinDur = (pct: number) => `${(2 / (0.25 + clamp01(pct))).toFixed(2)}s`;
 
 /**
- * RF Enterprise — strict LCARS command cluster, reflowable.
- * Black canvas. Left: orange LCARS mass with a tall header, black inset,
- * Oswald Black numerals (RPM over MPH), a purple rule that runs lighter over
- * the orange, and a chunky green RPM bar filling right-to-left (red at
- * redline). Right: purple LCARS panel with a WARP header, twin warp rings
+ * RF Enterprise — LCARS-style command cluster.
+ * Left: orange LCARS panel, Oswald Black numerals (RPM over MPH), a purple
+ * rule, and a green segmented RPM bar that fills right-to-left and turns red
+ * at redline. Right: purple LCARS panel with a WARP header, twin warp rings
  * (outer spins with speed, inner with RPM) and the gear in purple at the core.
- * Bottom: orange LCARS strip with a black inset.
  */
-export function EnterpriseCluster({
+export function NewWorldsCluster({
   rpmNorm,
   speedNorm,
   rpm,
   speed,
   unit = 'mph',
   gear,
-}: EnterpriseClusterProps) {
+}: NewWorldsClusterProps) {
   const rpmPct = clamp01(rpmNorm);
   const speedPct = clamp01(speedNorm);
 
@@ -53,23 +51,23 @@ export function EnterpriseCluster({
 
   return (
     <div
-      className="ent"
+      className="nw"
       role="img"
       aria-label={`Enterprise cluster: ${speedShow} ${unitShow}, ${rpmShow} RPM, gear ${gearShow}`}
     >
-      <div className="ent-main">
-        <section className="ent-left" aria-label="Speed and RPM">
-          <div className="ent-inset">
-            <div className="ent-line">
-              <strong className="ent-num ent-rpm-num">{rpmShow}</strong>
-              <span className="ent-label">RPM</span>
+      <div className="nw-main">
+        <section className="nw-left" aria-label="Speed and RPM">
+          <div className="nw-inset">
+            <div className="nw-line">
+              <strong className="nw-num ent-rpm-num">{rpmShow}</strong>
+              <span className="nw-label">RPM</span>
             </div>
-            <div className="ent-rule" aria-hidden />
-            <div className="ent-line">
-              <strong className="ent-num ent-speed-num">{speedShow}</strong>
-              <span className="ent-label">{unitShow}</span>
+            <div className="nw-rule" aria-hidden />
+            <div className="nw-line">
+              <strong className="nw-num ent-speed-num">{speedShow}</strong>
+              <span className="nw-label">{unitShow}</span>
             </div>
-            <div className="ent-bar" role="img" aria-label={`RPM ${Math.round(rpmPct * 100)} percent`}>
+            <div className="nw-bar" role="img" aria-label={`RPM ${Math.round(rpmPct * 100)} percent`} aria-hidden={false}>
               {Array.from({ length: SEGS }, (_, i) => (
                 <i key={i} className={i >= SEGS - filled ? 'on' : ''} aria-hidden />
               ))}
@@ -77,13 +75,13 @@ export function EnterpriseCluster({
           </div>
         </section>
 
-        <section className="ent-right" aria-label="Warp drive">
-          <div className="ent-warp">
-            <span className="ent-label ent-warp-label">WARP</span>
+        <section className="nw-right" aria-label="Warp drive">
+          <div className="nw-warp">
+            <span className="nw-label ent-warp-label">WARP</span>
           </div>
-          <div className="ent-rings">
+          <div className="nw-rings">
             <div
-              className="ent-ring"
+              className="nw-ring"
               style={{ animationDuration: spinDur(speedPct) } as CSSProperties}
               aria-hidden
             >
@@ -91,17 +89,17 @@ export function EnterpriseCluster({
                 <circle
                   cx="100"
                   cy="100"
-                  r="84"
+                  r="86"
                   fill="none"
                   stroke="#8e44ad"
-                  strokeWidth="20"
+                  strokeWidth="16"
                   strokeLinecap="round"
-                  strokeDasharray="200 328"
+                  strokeDasharray="210 330"
                 />
               </svg>
             </div>
             <div
-              className="ent-ring ent-ring--rev"
+              className="nw-ring ent-ring--rev"
               style={{ animationDuration: spinDur(rpmPct) } as CSSProperties}
               aria-hidden
             >
@@ -109,32 +107,32 @@ export function EnterpriseCluster({
                 <circle
                   cx="100"
                   cy="100"
-                  r="58"
+                  r="62"
                   fill="none"
                   stroke="#f5820d"
-                  strokeWidth="15"
+                  strokeWidth="13"
                   strokeLinecap="round"
-                  strokeDasharray="140 55 100 70"
+                  strokeDasharray="150 60 110 70"
                 />
                 <circle
                   cx="100"
                   cy="100"
-                  r="40"
+                  r="44"
                   fill="none"
                   stroke="#c39bd3"
-                  strokeWidth="9"
+                  strokeWidth="8"
                   strokeLinecap="round"
-                  strokeDasharray="95 157"
+                  strokeDasharray="100 177"
                 />
               </svg>
             </div>
-            <div className="ent-gear">
-              <span className="ent-num">{gearShow}</span>
+            <div className="nw-gear">
+              <span className="nw-num">{gearShow}</span>
             </div>
           </div>
         </section>
       </div>
-      <div className="ent-foot" aria-hidden>
+      <div className="nw-foot" aria-hidden>
         <i />
       </div>
     </div>
